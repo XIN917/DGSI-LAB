@@ -1,0 +1,63 @@
+simulation:
+  start_day: 1
+  total_days: 90
+  warehouse_capacity: 500
+
+demand_generation:
+  mean_orders_per_day: 2.0
+  variance_orders_per_day: 1.0
+  min_order_quantity: 1
+  max_order_quantity: 15
+  order_quantity_mean: 8
+  order_quantity_variance: 4
+
+production:
+  default_assembly_time_hours: 4
+  default_daily_capacity: 10
+
+supplier_defaults:
+  standard_lead_time_days: 3
+  min_order_quantity: 10
+
+printer_models:
+  - id: "pro_x1"
+    name: "Pro X1"
+    assembly_time_hours: 4
+    daily_capacity: 10
+
+materials:
+  - id: "filament_rgb"
+    name: "PLA Filament RGB"
+    unit: "spools"
+  - id: "printbed_g1"
+    name: "Glass Print Bed 200mm"
+    unit: "units"
+  - id: "nozzle_cu"
+    name: "Copper Nozzle"
+    unit: "units"
+  - id: "motor_nema17"
+    name: "NEMA 17 Motor"
+    unit: "units"
+  - id: "pcb_board"
+    name: "Control PCB Board"
+    unit: "units"
+
+suppliers:
+  - id: "supplier_a"
+    name: "Parts Direct"
+    lead_time_days: 3
+    products:
+      - material_type: "filament_rgb"
+        price_per_unit: 90.00
+        packaging: "case of 20"
+      - id: "nozzle_cu_product"
+        material_type: "nozzle_cu"
+        price_per_unit: 15.00
+        packaging: "box of 10"
+
+initial_inventory:
+  filament_rgb: 30
+  printbed_g1: 50
+  nozzle_cu: 20
+  motor_nema17: 15
+  pcb_board: 10
