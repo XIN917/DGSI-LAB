@@ -43,6 +43,12 @@ You can start the server using the CLI:
 provider-cli serve --port 8001
 ```
 
+If the package is not installed as an editable local package, you can run the CLI module directly:
+
+```bash
+PYTHONPATH=. python -m provider.app.cli serve --port 8001
+```
+
 Or directly via uvicorn:
 
 ```bash
