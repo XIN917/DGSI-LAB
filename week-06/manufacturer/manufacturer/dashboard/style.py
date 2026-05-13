@@ -47,8 +47,11 @@ _CSS = """
 }
 
 /* ── Global typography ── */
-html, body, .stApp, [data-testid="stAppViewContainer"],
-.stMarkdown, .stText, p, li, span, label {
+html, body, .stApp, [data-testid="stAppViewContainer"] {
+  font-family: 'Fira Sans', sans-serif !important;
+}
+
+.stMarkdown, .stText, p, li, label {
   font-family: 'Fira Sans', sans-serif !important;
 }
 
@@ -125,6 +128,13 @@ h3 { font-size: 13px !important; font-weight: 600 !important; }
 .stButton > button[kind="secondary"]:hover {
   background-color: #263347 !important;
 }
+.stFormSubmitButton button,
+.stFormSubmitButton button * {
+  color: #0F172A !important;
+  font-family: 'Fira Sans', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+}
 
 /* ── Inputs ── */
 .stTextInput > div > div > input,
@@ -169,8 +179,18 @@ h3 { font-size: 13px !important; font-weight: 600 !important; }
   background: var(--bg-card) !important;
 }
 .stExpander summary {
-  color: var(--fg-secondary) !important;
+  color: var(--fg-primary) !important;
   font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+.stExpander summary::before,
+.stExpander summary [class*="material-symbols"],
+.stExpander summary [class*="material-icons"],
+.stExpander summary [data-testid$="Icon"],
+.stExpander summary [data-testid*="Icon"] {
+  font-family: "Material Symbols Rounded", sans-serif !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20 !important;
 }
 
 /* ── Alert / info ── */
