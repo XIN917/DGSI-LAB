@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  simulator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: printer-factory-sim
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-$(openssl rand -hex 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32)}
+      - DATABASE_URL=sqlite:///app/data/simulation.db
+      - SEED_SAMPLE_DATA=true
+    restart: unless-stopped
+
+networks:
+  default:
+    name: printer-factory-network

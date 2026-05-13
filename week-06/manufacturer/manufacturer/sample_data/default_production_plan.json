@@ -1,0 +1,175 @@
+{
+  "models": {
+    "P3D-Classic": {
+      "name": "P3D Classic",
+      "assembly_time_days": 1,
+      "bom": {
+        "frame_kit": {"qty": 1},
+        "pcb_control": {"qty": 1, "pcb_ref": "CTRL-V2"},
+        "stepper_motor": {"qty": 2},
+        "hotend": {"qty": 1},
+        "bed_heater": {"qty": 1},
+        "power_supply": {"qty": 1},
+        "extruder_kit": {"qty": 1}
+      }
+    },
+    "P3D-Pro": {
+      "name": "P3D Pro",
+      "assembly_time_days": 2,
+      "bom": {
+        "frame_kit_pro": {"qty": 1},
+        "pcb_control": {"qty": 1, "pcb_ref": "CTRL-V3"},
+        "stepper_motor": {"qty": 3},
+        "hotend_pro": {"qty": 1},
+        "bed_heater": {"qty": 1},
+        "power_supply": {"qty": 1},
+        "dual_extruder_kit": {"qty": 1},
+        "filament_sensor": {"qty": 1}
+      }
+    }
+  },
+  "suppliers": [
+    {
+      "id": 1,
+      "name": "TechParts Co",
+      "lead_time_days": 3,
+      "products": [
+        {
+          "name": "frame_kit",
+          "base_cost": 28.50,
+          "packaging": "box",
+          "pack_qty": 10,
+          "tiers": [
+            {"min_qty": 50, "discount_pct": 5},
+            {"min_qty": 200, "discount_pct": 10}
+          ]
+        },
+        {
+          "name": "frame_kit_pro",
+          "base_cost": 48.00,
+          "packaging": "box",
+          "pack_qty": 5,
+          "tiers": [
+            {"min_qty": 25, "discount_pct": 5},
+            {"min_qty": 100, "discount_pct": 12}
+          ]
+        },
+        {
+          "name": "extruder_kit",
+          "base_cost": 15.00,
+          "packaging": "box",
+          "pack_qty": 20,
+          "tiers": [
+            {"min_qty": 100, "discount_pct": 8}
+          ]
+        },
+        {
+          "name": "dual_extruder_kit",
+          "base_cost": 32.00,
+          "packaging": "box",
+          "pack_qty": 10,
+          "tiers": [
+            {"min_qty": 50, "discount_pct": 7}
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "ElectroParts Ltd",
+      "lead_time_days": 5,
+      "products": [
+        {
+          "name": "pcb_control",
+          "base_cost": 22.00,
+          "packaging": "tray",
+          "pack_qty": 25,
+          "tiers": [
+            {"min_qty": 100, "discount_pct": 5},
+            {"min_qty": 500, "discount_pct": 12},
+            {"min_qty": 1000, "discount_pct": 18}
+          ]
+        },
+        {
+          "name": "power_supply",
+          "base_cost": 18.50,
+          "packaging": "box",
+          "pack_qty": 10,
+          "tiers": [
+            {"min_qty": 50, "discount_pct": 5},
+            {"min_qty": 200, "discount_pct": 10}
+          ]
+        },
+        {
+          "name": "filament_sensor",
+          "base_cost": 8.00,
+          "packaging": "bag",
+          "pack_qty": 50,
+          "tiers": [
+            {"min_qty": 100, "discount_pct": 6}
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "MotionParts Inc",
+      "lead_time_days": 4,
+      "products": [
+        {
+          "name": "stepper_motor",
+          "base_cost": 12.00,
+          "packaging": "box",
+          "pack_qty": 20,
+          "tiers": [
+            {"min_qty": 100, "discount_pct": 6},
+            {"min_qty": 500, "discount_pct": 14}
+          ]
+        },
+        {
+          "name": "hotend",
+          "base_cost": 19.50,
+          "packaging": "box",
+          "pack_qty": 10,
+          "tiers": [
+            {"min_qty": 50, "discount_pct": 5},
+            {"min_qty": 200, "discount_pct": 10}
+          ]
+        },
+        {
+          "name": "hotend_pro",
+          "base_cost": 35.00,
+          "packaging": "box",
+          "pack_qty": 5,
+          "tiers": [
+            {"min_qty": 25, "discount_pct": 8},
+            {"min_qty": 100, "discount_pct": 15}
+          ]
+        },
+        {
+          "name": "bed_heater",
+          "base_cost": 14.00,
+          "packaging": "box",
+          "pack_qty": 10,
+          "tiers": [
+            {"min_qty": 50, "discount_pct": 7},
+            {"min_qty": 200, "discount_pct": 12}
+          ]
+        }
+      ]
+    }
+  ],
+  "initial_inventory": {
+    "frame_kit": {"qty": 120, "type": "raw"},
+    "frame_kit_pro": {"qty": 60, "type": "raw"},
+    "pcb_control": {"qty": 200, "type": "raw"},
+    "stepper_motor": {"qty": 400, "type": "raw"},
+    "hotend": {"qty": 100, "type": "raw"},
+    "hotend_pro": {"qty": 50, "type": "raw"},
+    "bed_heater": {"qty": 150, "type": "raw"},
+    "power_supply": {"qty": 150, "type": "raw"},
+    "extruder_kit": {"qty": 120, "type": "raw"},
+    "dual_extruder_kit": {"qty": 60, "type": "raw"},
+    "filament_sensor": {"qty": 80, "type": "raw"}
+  }
+}
