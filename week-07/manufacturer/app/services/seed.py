@@ -50,7 +50,8 @@ def initialize_seed_data(db: Session = None):
                 model = ProductModel(
                     id=model_id,
                     name=model_data["name"],
-                    assembly_time_days=model_data["assembly_time_days"]
+                    assembly_time_days=model_data["assembly_time_days"],
+                    wholesale_price=Decimal(str(model_data.get("wholesale_price", 0.0)))
                 )
                 db.add(model)
 

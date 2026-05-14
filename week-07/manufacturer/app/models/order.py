@@ -16,6 +16,7 @@ class ManufacturingOrder(Base):
     created_date = Column(DateTime(timezone=True), nullable=False)
     started_date = Column(DateTime(timezone=True), nullable=True)
     completed_date = Column(DateTime(timezone=True), nullable=True)
+    delivery_day = Column(Integer, nullable=True)
     failure_reason = Column(String(255), nullable=True)
 
     def __repr__(self):

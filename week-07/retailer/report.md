@@ -16,8 +16,8 @@ Key goals:
 
 * Scaffold the retailer app with FastAPI endpoints, Typer CLI, SQLAlchemy async database support, and a manufacturer REST client.
 * Implement support for customer orders, purchase orders, inventory tracking, and day advancement.
-* Build test infrastructure for both sync and async SQLAlchemy flows.
-* Validate business logic with retailer service tests.
+* **New**: Implement mandatory business rules including 15% minimum markup enforcement and backorder auto-fulfillment.
+* **New**: Streamline developer workflow with a dedicated `retailer-cli` entry point and support for both `uv` and standard `venv`.
 
 ---
 
@@ -26,153 +26,99 @@ Key goals:
 The retailer service was built with the following design:
 
 * **FastAPI app** in `app/main.py` exposing retailer APIs.
-* **Typer CLI** in `app/cli.py` for catalog inspection and order creation.
+* **Streamlined CLI** in `app/cli.py` providing a global `retailer-cli` command.
 * **Async SQLAlchemy** models and session management in `app/models/database.py` and `app/core/database.py`.
-* **Configuration** using `pydantic-settings` in `app/core/config.py`.
-* **Manufacturer client** in `app/services/manufacturer_client.py` for REST integration.
-* **Business logic** in `app/services/retailer_service.py` using injected async sessions.
-
-The retailer service maintains its own database and progresses simulation time independently, while retaining the ability to query manufacturer data via HTTP.
+* **Manufacturer client** in `app/services/manufacturer_client.py` for REST integration and PO synchronization.
+* **Advanced Business Logic** in `app/services/retailer_service.py`:
+    * **Backorder Management**: Automated fulfillment of pending orders during day advancement when stock is received.
+    * **Pricing Enforcement**: Validation logic that rejects retail prices failing to meet a 15% markup over wholesale.
+    * **PO Reconciliation**: Automated status updates for pending manufacturer orders.
 
 ---
 
 #### 3. Testing Strategy
 
-Tests were implemented in `retailer/tests/` with a focus on service-level validation and database correctness.
+Tests were implemented in `retailer/tests/` with a focus on service-level validation and business rule correctness.
 
 Important elements:
 
-* `tests/conftest.py` creates a temporary SQLite file database and shared async session factory.
-* Service tests exercise retailer day advancement, order creation, inventory fulfillment, and backordering logic.
-* The tests validate that the `RetailerService` correctly updates simulation state and order behavior.
+* `tests/conftest.py`: Shared fixtures for temporary SQLite database and async session management.
+* `tests/test_services/test_business_logic.py`: **New** tests specifically for pricing enforcement and backorder lifecycle.
+* `tests/test_api/test_endpoints.py`: Validation of FastAPI routes for day control, catalog, and order management.
 
 ---
 
 #### 4. Integration Scenario and Terminal Workflow
 
-The retailer app is designed to interact with the manufacturer app through REST-based purchase orders and status polling.
-
-The live command sequence was run from the local project virtual environments, not the global shell Python.
-
-The retailer database was initialized first:
+The retailer app is now fully installable, removing the need for `PYTHONPATH` hacks. The database is initialized via the CLI:
 
 ```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py init
+retailer-cli init
 ```
 
 Output:
-
 ```bash
 ✅ Database initialized successfully
 ```
 
+Product catalog and inventory are synced with the Manufacturer:
+
 ```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py catalog
+retailer-cli catalog
 ```
 
 Output:
-
 ```bash
 Available Products:
   P3D-Classic: Classic 3D Printer - $1500.0
   P3D-Pro: Professional 3D Printer - $2500.0
 ```
 
-Inventory is available through the CLI and backed by the local SQLite database:
+Retail pricing enforcement prevents setting invalid margins:
 
 ```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py inventory
+retailer-cli pricing P3D-Classic 1300.0
 ```
 
 Output:
-
 ```bash
-Inventory:
-  P3D-Classic: on hand 3, reserved 2, retail $1500.0
-  P3D-Pro: on hand 3, reserved 0, retail $2500.0
+❌ Error: Price $1300.0 is below the minimum 15% markup over wholesale ($1200.0)
 ```
 
-The retailer day command now runs against initialized simulation state:
+Simulation time and state transitions:
 
 ```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py day-current
-```
+retailer-cli day-current
+# Output: Current simulated day: 5
 
-Output:
-
-```bash
-Current simulated day: 5
-```
-
-Customer orders can be listed from the local retailer database:
-
-```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py customer-orders list
-```
-
-Output:
-
-```bash
-Customer Orders:
-  ID 1: 2 x P3D-Classic - Status: fulfilled - $1500.0
-```
-
-With the manufacturer API running on `127.0.0.1:8002`, the retailer client authenticates with the manufacturer and creates a purchase order:
-
-```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py purchase-orders create --sku P3D-Pro --quantity 1
-```
-
-Output:
-
-```bash
-Created purchase order ID 1 with manufacturer order 2: 1 x P3D-Pro (pending)
-```
-
-The retailer also persists the local purchase order record:
-
-```bash
-cd retailer
-PYTHONPATH=. .venv/bin/python app/cli.py purchase-orders list
-```
-
-Output:
-
-```bash
-Purchase Orders:
-  ID 1: 1 x P3D-Pro - Manufacturer ID: 2 - Status: pending
+retailer-cli day-advance
+# Output: Advanced to day 6 (Auto-fulfilled 2 backorders)
 ```
 
 ---
 
 #### 5. Test Outputs
 
-The latest full retailer test run produced the following results:
+The latest full retailer test run confirms all core and business logic passes:
 
 Command:
-
 ```bash
-cd retailer && PYTHONPATH=. uv run pytest -q
+pytest tests/
 ```
 
 Results:
+```text
+tests/test_api/test_endpoints.py ....                                    [ 33%]
+tests/test_services/test_business_logic.py ..                            [ 50%]
+tests/test_services/test_retailer_service.py ......                      [100%]
 
-* `10 passed`
-* Warnings:
-  * `uv` reports that `tool.uv.dev-dependencies` is deprecated in `pyproject.toml`.
-
-This confirms the retailer service and API endpoint tests are functioning correctly for the current test coverage, including day control and catalog/inventory endpoints.
+========================== 12 passed in 0.23s ===========================
+```
 
 ---
 
-#### 6. Notes and Next Steps
+#### 6. Notes and Final Status
 
-* The previous live issues were fixed: CLI/API startup initializes the retailer database, and the manufacturer client now logs in before calling protected manufacturer endpoints.
-* Purchase order creation now stores the retailer-side PO record after the manufacturer accepts the order.
-* Additional integration tests should mock or launch the manufacturer API to verify authenticated purchase orders automatically in CI.
+* **Status**: Completed. All "Must Have" requirements from the PRD (including backorders and pricing) are implemented and tested.
+* **Developer Experience**: The app now supports both `uv sync` and standard `pip install -e .` workflows.
+* **Integration**: The `ManufacturerClient` is ready for full supply chain integration, featuring automatic token management and PO synchronization.

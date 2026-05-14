@@ -47,6 +47,7 @@ DGSI (Data-Dense Global Simulation Interface) is a simulation system designed to
 3.  **Install dependencies**:
     ```bash
     pip install -r requirements.txt
+    pip install -e .
     ```
 
 4.  **Initialize the database**:
@@ -54,17 +55,25 @@ DGSI (Data-Dense Global Simulation Interface) is a simulation system designed to
 
 ### Running the Application
 
+Once installed (via `pip install -e .` or `uv sync`), you can run the commands directly.
+
 1.  **Start the Backend (FastAPI)**:
     ```bash
-    PYTHONPATH=. uvicorn app.main:app --reload --port 8002
+    manufacturer-cli serve --port 8002
     ```
     Access the API documentation at [http://localhost:8002/docs](http://localhost:8002/docs).
 
 2.  **Start the Dashboard (Streamlit)**:
     ```bash
-    PYTHONPATH=. streamlit run dashboard/pages.py
+    streamlit run dashboard/pages.py
     ```
     Access the UI at [http://localhost:8501](http://localhost:8501).
+
+3.  **Use the CLI**:
+    ```bash
+    manufacturer-cli day current
+    manufacturer-cli day advance
+    ```
 
 ### Default Credentials
 

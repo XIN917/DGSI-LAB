@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, SessionLocal
 from app.api.dependencies import get_current_active_user
 from app.models.user import User
 from app.models.event import EventLog
+from app.models.product import ProductModel
 from app.services.order_service import OrderService
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -161,17 +162,34 @@ def cancel_order(
 
 
 def _serialize(order, include_bom: bool = False, svc: OrderService = None) -> dict:
-    result = {
-        "id": order.id,
-        "product_model": order.product_model,
-        "quantity_needed": float(order.quantity_needed),
-        "quantity_produced": float(order.quantity_produced),
-        "status": order.status,
-        "created_date": order.created_date.isoformat() if order.created_date else None,
-        "started_date": order.started_date.isoformat() if order.started_date else None,
-        "completed_date": order.completed_date.isoformat() if order.completed_date else None,
-        "failure_reason": order.failure_reason,
-    }
-    if include_bom and svc:
-        result["bom_requirements"] = svc.calculate_bom_requirements(order)
-    return result
+    # Use existing session or create a temporary one
+    temp_db = None
+    if svc is not None:
+        db = svc.db
+    else:
+        temp_db = SessionLocal()
+        db = temp_db
+    
+    try:
+        product = db.query(ProductModel).filter(ProductModel.id == order.product_model).first()
+        unit_price = float(product.wholesale_price) if product else 0.0
+
+        result = {
+            "id": order.id,
+            "product_model": order.product_model,
+            "quantity_needed": float(order.quantity_needed),
+            "quantity_produced": float(order.quantity_produced),
+            "status": order.status,
+            "unit_price": unit_price,
+            "created_date": order.created_date.isoformat() if order.created_date else None,
+            "started_date": order.started_date.isoformat() if order.started_date else None,
+            "completed_date": order.completed_date.isoformat() if order.completed_date else None,
+            "delivery_day": order.delivery_day,
+            "failure_reason": order.failure_reason,
+        }
+        if include_bom and svc:
+            result["bom_requirements"] = svc.calculate_bom_requirements(order)
+        return result
+    finally:
+        if temp_db:
+            temp_db.close()

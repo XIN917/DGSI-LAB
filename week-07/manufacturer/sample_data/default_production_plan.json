@@ -3,6 +3,7 @@
     "P3D-Classic": {
       "name": "P3D Classic",
       "assembly_time_days": 1,
+      "wholesale_price": 1200.0,
       "bom": {
         "frame_kit": {"qty": 1},
         "pcb_control": {"qty": 1, "pcb_ref": "CTRL-V2"},
@@ -170,6 +171,8 @@
     "power_supply": {"qty": 150, "type": "raw"},
     "extruder_kit": {"qty": 120, "type": "raw"},
     "dual_extruder_kit": {"qty": 60, "type": "raw"},
-    "filament_sensor": {"qty": 80, "type": "raw"}
+    "filament_sensor": {"qty": 80, "type": "raw"},
+    "P3D-Classic": {"qty": 5, "type": "finished"},
+    "P3D-Pro": {"qty": 2, "type": "finished"}
   }
 }

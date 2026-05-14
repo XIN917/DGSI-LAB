@@ -34,13 +34,30 @@ class OrderService:
         ).first()
 
     def create(self, product_model: str, quantity: Decimal, created_date: datetime) -> ManufacturingOrder:
-        """Create a new manufacturing order."""
+        """Create a new manufacturing order. Auto-fulfills if finished stock is available."""
+        from app.services.inventory_service import InventoryService
+        from app.services.simulation_engine import SimulationEngine
+        
+        inv_svc = InventoryService(self.db)
+        inv = inv_svc.get_by_product(product_model)
+        
+        status = "pending"
+        delivery_day = None
+        
+        # Check if we have enough finished goods to fulfill immediately
+        if inv and inv.unit_type == "finished" and inv.quantity >= quantity:
+            inv_svc.adjust(product_model, inv.quantity - quantity)
+            status = "delivered"
+            engine = SimulationEngine(self.db)
+            delivery_day = engine.current_day
+
         order = ManufacturingOrder(
             product_model=product_model,
             quantity_needed=quantity,
-            quantity_produced=Decimal("0"),
-            status="pending",
-            created_date=created_date
+            quantity_produced=quantity if status == "delivered" else Decimal("0"),
+            status=status,
+            created_date=created_date,
+            delivery_day=delivery_day
         )
         self.db.add(order)
         self.db.commit()
@@ -121,7 +138,7 @@ class OrderService:
         self.db.commit()
         return True, None
 
-    def produce_units(self, order_id: int, quantity: float, current_date: datetime.date) -> bool:
+    def produce_units(self, order_id: int, quantity: float, current_date: datetime.date, current_day: int = 1) -> bool:
         """Produce a specific quantity of units for an order."""
         from app.services.inventory_service import InventoryService
         
@@ -143,8 +160,14 @@ class OrderService:
 
         # Check for completion
         if float(order.quantity_produced) >= float(order.quantity_needed):
-            order.status = "completed"
+            order.status = "delivered" # Auto-deliver for now to simplify
             order.completed_date = current_date
+            order.delivery_day = current_day
+            
+            # Add to finished goods inventory
+            inv = inv_svc.get_by_product(order.product_model)
+            if inv:
+                inv_svc.adjust(order.product_model, inv.quantity + order.quantity_needed)
 
         self.db.commit()
         return True
