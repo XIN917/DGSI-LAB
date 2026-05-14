@@ -1,0 +1,97 @@
+# 3D Printer Production Simulator (DGSI)
+
+A day-by-day factory production planning simulator where you manage inventory, manufacturing orders, and supplier purchasing for a 3D printer factory.
+
+## Overview
+
+DGSI (Data-Dense Global Simulation Interface) is a simulation system designed to model realistic production cycles. Users act as production planners, making strategic decisions to keep the factory running efficiently while managing material shortages, lead times, and capacity limits.
+
+### Key Features
+
+*   **Simulation Engine**: Advance time day-by-day, generating random demand and processing deliveries.
+*   **Inventory Management**: Track raw materials and finished goods with strict reservation logic.
+*   **Manufacturing Orders**: Release orders to production, ensuring BOM (Bill of Materials) requirements are met.
+*   **Purchase Orders**: Manage supplier relationships with automated bulk discounts and realistic lead times.
+*   **Interactive Dashboard**: A professional, dark industrial Streamlit UI for monitoring and decision-making.
+*   **REST API**: Fully functional FastAPI backend for programmatic control and integration.
+*   **Persistence**: Export and import complete game states via JSON.
+
+## Tech Stack
+
+*   **Backend**: Python 3.11, FastAPI, SQLAlchemy (SQLite), Pydantic
+*   **Frontend**: Streamlit 1.40 (Custom Dark Industrial Theme)
+*   **Security**: JWT Authentication with bcrypt password hashing
+*   **Infrastructure**: Docker & Docker Compose
+
+## Getting Started
+
+### Prerequisites
+
+*   Python 3.11+
+*   Docker & Docker Compose (optional, for containerized deployment)
+
+### Local Installation
+
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd DGSI
+    ```
+
+2.  **Set up a virtual environment**:
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+
+3.  **Install dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Initialize the database**:
+    The database initializes automatically on the first run of the API or Dashboard.
+
+### Running the Application
+
+1.  **Start the Backend (FastAPI)**:
+    ```bash
+    PYTHONPATH=. uvicorn app.main:app --reload --port 8002
+    ```
+    Access the API documentation at [http://localhost:8002/docs](http://localhost:8002/docs).
+
+2.  **Start the Dashboard (Streamlit)**:
+    ```bash
+    PYTHONPATH=. streamlit run dashboard/pages.py
+    ```
+    Access the UI at [http://localhost:8501](http://localhost:8501).
+
+### Default Credentials
+
+*   **Username**: `admin`
+*   **Password**: `admin123` (Note: Change this in production or via seed configuration)
+
+## Docker Deployment
+
+To run the entire stack using Docker:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+## Testing
+
+Run the test suite using pytest:
+
+```bash
+pytest
+```
+
+## Directory Structure
+
+*   `app/`: FastAPI backend (models, services, API endpoints)
+*   `dashboard/`: Streamlit frontend components and layout
+*   `docker/`: Containerization configuration
+*   `docs/`: Implementation plans and PRD
+*   `tests/`: Unit and integration tests
+*   `sample_data/`: Default production plans and seed data

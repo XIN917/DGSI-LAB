@@ -1,0 +1,1 @@
+"""Retailer application package."""
