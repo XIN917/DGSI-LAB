@@ -37,6 +37,37 @@ The Retailer service was developed as a modern REST-capable application to manag
 - **Backorder Management:** Automated fulfillment system that scans and fulfills pending customer orders immediately upon receiving new stock.
 - **Auto-Sync Engine:** Polling logic that reconciles local purchase orders with the Manufacturer's production state during simulation day advancement.
 
+### **Retailer-Specific Verification Scenario**
+
+The following manual workflow validates the Retailer's unique business rules using the `retailer-cli`:
+
+1.  **Initialize Database:**
+    ```bash
+    retailer-cli init
+    # Output: ✅ Database initialized successfully
+    ```
+
+2.  **Verify Minimum Markup (15% Rule):**
+    Attempting to set a price too close to wholesale will be rejected by the service logic.
+    ```bash
+    retailer-cli pricing P3D-Classic 1300.0
+    # Output: ❌ Error: Price $1300.0 is below the minimum 15% markup ($1200.0 wholesale)
+    ```
+
+3.  **Manage Customer Backorders:**
+    When a customer order exceeds on-hand inventory, the system automatically marks it as `backordered`.
+    ```bash
+    retailer-cli customer-orders create --sku P3D-Classic --quantity 10
+    # Output: Created customer order ID 1 for 10 x P3D-Classic (Status: backordered)
+    ```
+
+4.  **Auto-Fulfillment on Stock Receipt:**
+    Advancing time after receiving a Manufacturer delivery triggers the fulfillment engine.
+    ```bash
+    retailer-cli day advance
+    # Output: Advanced to day 4 (Auto-fulfilled 1 backorder)
+    ```
+
 ## 4. The Integration Chain (Provider ↔ Manufacturer ↔ Retailer)
 
 The integrated ecosystem ensures a seamless flow of data and goods across three independent services:
@@ -62,7 +93,50 @@ To simplify the orchestration of three distributed services, we introduced a new
     4.  Advances simulation time across all services.
     5.  Verifies the final fulfillment and inventory state.
 
-## 6. Bug Fixes & Stability
+## 6. Automated Integration Test Results
+
+The following output demonstrates a complete, automated execution of the supply chain integration scenario (Retailer Backorder → Manufacturer PO → Production → Delivery → Fulfillment):
+
+```text
+=== 1. INITIALIZING DATABASES ===
+Provider data seeded successfully from JSON.
+Manufacturer database seeded.
+✅ Database initialized successfully
+
+=== 2. RETAILER: CREATING CUSTOMER DEMAND ===
+Created customer order ID 1 for 10 x P3D-Classic
+Created purchase order ID 1 with manufacturer order 1: 10 x P3D-Classic (pending)
+
+=== 3. MANUFACTURER: RELEASING TO PRODUCTION ===
+Releasing Manufacturer Order #0001
+Order #0001 released to production.
+
+=== 4. SIMULATING 3 DAYS OF PROGRESS ===
+--- Advancing Day 1 ---
+Advanced to day 1
+Advanced from day 1 to 2
+Advanced to day 1
+...
+--- Advancing Day 3 ---
+Advanced to day 3
+Advanced from day 3 to 4
+Advanced to day 3
+
+=== 5. FINAL VERIFICATION ===
+Manufacturer Order Status:
+ID: 0001 | SKU: P3D-Classic  | Qty:   10.0 | Status: delivered       | Produced:   10.0
+
+Retailer Inventory:
+Inventory:
+  P3D-Classic: on hand 5, reserved 10, retail $1500.0
+  P3D-Pro: on hand 3, reserved 0, retail $2500.0
+
+Retailer Customer Orders:
+Customer Orders:
+  ID 1: 10 x P3D-Classic - Status: fulfilled - $1500.0
+```
+
+## 7. Bug Fixes & Stability
 
 Key technical hurdles resolved during the integration phase:
 - **Manufacturer Schema Fix:** Resolved a missing `wholesale_price` column in the SQLite schema.
