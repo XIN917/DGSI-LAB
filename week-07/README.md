@@ -23,19 +23,19 @@ cd manufacturer && python3 -m venv venv && ./venv/bin/pip install -r requirement
 cd retailer && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && ./venv/bin/pip install -e . && cd ..
 ```
 
-## 🚀 Automated Simulation (New)
+## 🚀 Automated Simulation
 
-After installation, the easiest way to see the full supply chain in action is using our automation scripts:
+The full supply chain lifecycle can be executed using the provided automation scripts:
 
 1.  **Start all servers:**
     ```bash
     ./scripts/start_all.sh
     ```
-2.  **Run the core test scenario:**
+2.  **Run the core simulation scenario:**
     ```bash
     ./scripts/test_scenario.sh
     ```
-    *This script seeds databases, generates demand, releases production, and advances the simulation for 3 days automatically.*
+    *This script handles database seeding, demand generation, production release, and time advancement automatically.*
 
 ## 🛠 Manual Simulation
 

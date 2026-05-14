@@ -11,7 +11,18 @@
 
 This week focused on two primary deliverables: the **ground-up implementation of the new Retailer service** and the **end-to-end integration** of the complete three-tier supply chain. We have successfully connected the Parts Provider, the 3D Printer Manufacturer, and the newly built Retailer into a functional ecosystem. The system now supports a complete lifecycle: from customer demand at the retail storefront to automated production and raw material fulfillment.
 
-## 2. New Retailer Service Implementation
+## 2. Technical Stack & Service Map
+
+| Service | Port | Primary Tech | Role |
+| :--- | :--- | :--- | :--- |
+| **Provider** | 8001 | FastAPI, SQLAlchemy | Raw Material Supply |
+| **Manufacturer** | 8002 | FastAPI, SQLAlchemy, Typer | Production & Wholesale |
+| **Retailer** | 8003 | FastAPI, Async SQLAlchemy, Typer | Consumer Sales & PO Management |
+
+### **Supply Chain Flow Diagram**
+![Supply Chain Flow](./docs/sequenceDiagram.png)
+
+## 3. New Retailer Service Implementation
 
 The Retailer service was developed as a modern REST-capable application to manage consumer-facing operations.
 
@@ -26,7 +37,7 @@ The Retailer service was developed as a modern REST-capable application to manag
 - **Backorder Management:** Automated fulfillment system that scans and fulfills pending customer orders immediately upon receiving new stock.
 - **Auto-Sync Engine:** Polling logic that reconciles local purchase orders with the Manufacturer's production state during simulation day advancement.
 
-## 3. The Integration Chain (Provider ↔ Manufacturer ↔ Retailer)
+## 4. The Integration Chain (Provider ↔ Manufacturer ↔ Retailer)
 
 The integrated ecosystem ensures a seamless flow of data and goods across three independent services:
 
@@ -39,7 +50,7 @@ The integrated ecosystem ensures a seamless flow of data and goods across three 
 - **Unified Simulation Control:** All tiers share a consistent CLI pattern for time management (`day current`, `day advance`).
 - **Decoupled REST Sync:** Real-time state synchronization is achieved through robust REST contracts rather than database sharing.
 
-## 4. Automation & Developer Experience
+## 5. Automation & Developer Experience
 
 To simplify the orchestration of three distributed services, we introduced a new automation suite:
 
@@ -51,17 +62,26 @@ To simplify the orchestration of three distributed services, we introduced a new
     4.  Advances simulation time across all services.
     5.  Verifies the final fulfillment and inventory state.
 
-## 5. Bug Fixes & Stability
+## 6. Bug Fixes & Stability
 
 Key technical hurdles resolved during the integration phase:
 - **Manufacturer Schema Fix:** Resolved a missing `wholesale_price` column in the SQLite schema.
 - **Production CLI:** Implemented the missing `production release` command to enable the production lifecycle.
 - **Path Standardization:** Corrected directory-traversal bugs and moved all databases to clean, service-root `data/` folders.
 
-## 6. Final Status
+## 7. Final Status
 
-- **Retailer App:** Implementation **100% Complete** and verified with unit/integration tests.
-- **Supply Chain Integration:** **Verified.** The full "handshake" between all three services is functional and automated.
+| Metric | Status | Verification |
+| :--- | :--- | :--- |
+| **Retailer App** | ✅ 100% | Unit & Integration tests passing (12/12) |
+| **Integration Chain** | ✅ 100% | Full handshake verified via `test_scenario.sh` |
+| **Automation** | ✅ 100% | Background server orchestration functional |
+| **Documentation** | ✅ 100% | Updated README, TESTING, and INTEGRATION docs |
+
+## 8. Known Issues
+
+- **Bcrypt Version Warning:** A non-breaking `AttributeError: module 'bcrypt' has no attribute '__about__'` occurs in some environments during seeding. This is a known issue with the `passlib` library and Python 3.14+, but it does not affect database security or functionality.
+- **Port Conflicts:** Rapid restarts can sometimes leave ports in a `TIME_WAIT` state, requiring a brief delay before using `./scripts/start_all.sh`.
 
 ---
 **Testing Command:** `./scripts/test_scenario.sh`
