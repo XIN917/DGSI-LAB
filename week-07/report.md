@@ -1,15 +1,16 @@
-# DGSI Week 7: Retailer Service Implementation & Full Integration Report
+# DGSI Week 7: Retailer Service Implementation and Full Integration Report
 
 - **Author:** David Morais, Zixin Zhang, Zhipeng Lin and Zhehan Xiang
 - **Date:** May 14, 2026
 - **Repository:** [https://github.com/XIN917/DGSI-LAB](https://github.com/XIN917/DGSI-LAB)
-- **Subject:** Week 7 Challenge — Retailer Development and Supply Chain Integration (Provider ↔ Manufacturer ↔ Retailer)
+- **Subject:** Retailer Development and Supply Chain Integration (Provider <-> Manufacturer <-> Retailer)
 
 ---
 
 ## 1. Executive Summary
 
-This week focused on two primary deliverables: the **ground-up implementation of the new Retailer service** and the **end-to-end integration** of the complete three-tier supply chain. We have successfully connected the Parts Provider, the 3D Printer Manufacturer, and the newly built Retailer into a functional ecosystem. The system now supports a complete lifecycle: from customer demand at the retail storefront to automated production and raw material fulfillment.
+This week focused on two primary deliverables: the ground-up implementation of the new Retailer service and the end-to-end integration of the complete three-tier supply chain. We have successfully connected the Parts Provider, the 3D Printer Manufacturer, and the newly built Retailer into a functional ecosystem. The system now supports a complete lifecycle: from customer demand at the retail storefront to automated production and raw material fulfillment.
+
 
 ## 2. Technical Stack & Service Map
 
@@ -44,14 +45,14 @@ The following manual workflow validates the Retailer's unique business rules usi
 1.  **Initialize Database:**
     ```bash
     retailer-cli init
-    # Output: ✅ Database initialized successfully
+    # Output: [OK] Database initialized successfully
     ```
 
 2.  **Verify Minimum Markup (15% Rule):**
     Attempting to set a price too close to wholesale will be rejected by the service logic.
     ```bash
     retailer-cli pricing P3D-Classic 1300.0
-    # Output: ❌ Error: Price $1300.0 is below the minimum 15% markup ($1200.0 wholesale)
+    # Output: [Error] Error: Price $1300.0 is below the minimum 15% markup ($1200.0 wholesale)
     ```
 
 3.  **Manage Customer Backorders:**
@@ -68,7 +69,7 @@ The following manual workflow validates the Retailer's unique business rules usi
     # Output: Advanced to day 4 (Auto-fulfilled 1 backorder)
     ```
 
-## 4. The Integration Chain (Provider ↔ Manufacturer ↔ Retailer)
+## 4. The Integration Chain (Provider <-> Manufacturer <-> Retailer)
 
 The integrated ecosystem ensures a seamless flow of data and goods across three independent services:
 
@@ -95,13 +96,13 @@ To simplify the orchestration of three distributed services, we introduced a new
 
 ## 6. Automated Integration Test Results
 
-The following output demonstrates a complete, automated execution of the supply chain integration scenario (Retailer Backorder → Manufacturer PO → Production → Delivery → Fulfillment):
+The following output demonstrates a complete, automated execution of the supply chain integration scenario (Retailer Backorder -> Manufacturer PO -> Production -> Delivery -> Fulfillment):
 
 ```text
 === 1. INITIALIZING DATABASES ===
 Provider data seeded successfully from JSON.
 Manufacturer database seeded.
-✅ Database initialized successfully
+[OK] Database initialized successfully
 
 === 2. RETAILER: CREATING CUSTOMER DEMAND ===
 Created customer order ID 1 for 10 x P3D-Classic
@@ -143,16 +144,16 @@ Key technical hurdles resolved during the integration phase:
 - **Production CLI:** Implemented the missing `production release` command to enable the production lifecycle.
 - **Path Standardization:** Corrected directory-traversal bugs and moved all databases to clean, service-root `data/` folders.
 
-## 7. Final Status
+## 8. Final Status
 
 | Metric | Status | Verification |
 | :--- | :--- | :--- |
-| **Retailer App** | ✅ 100% | Unit & Integration tests passing (12/12) |
-| **Integration Chain** | ✅ 100% | Full handshake verified via `test_scenario.sh` |
-| **Automation** | ✅ 100% | Background server orchestration functional |
-| **Documentation** | ✅ 100% | Updated README, TESTING, and INTEGRATION docs |
+| **Retailer App** | [OK] 100% | Unit & Integration tests passing (13/13) |
+| **Integration Chain** | [OK] 100% | Full handshake verified via `test_scenario.sh` |
+| **Automation** | [OK] 100% | Background server orchestration functional |
+| **Documentation** | [OK] 100% | Updated README, TESTING, and INTEGRATION docs |
 
-## 8. Known Issues
+## 9. Known Issues
 
 - **Bcrypt Version Warning:** A non-breaking `AttributeError: module 'bcrypt' has no attribute '__about__'` occurs in some environments during seeding. This is a known issue with the `passlib` library and Python 3.14+, but it does not affect database security or functionality.
 - **Port Conflicts:** Rapid restarts can sometimes leave ports in a `TIME_WAIT` state, requiring a brief delay before using `./scripts/start_all.sh`.
