@@ -223,12 +223,12 @@ class SimulationEngine:
 
             if can_produce > 0:
                 # Call OrderService to handle logic
-                order_svc.produce_units(order.id, can_produce, self.current_date)
+                order_svc.produce_units(order.id, can_produce, self.current_date, self.current_day)
                 produced_today += float(can_produce)
 
                 # Check if order was completed for logging
                 self.db.refresh(order)
-                if order.status == "completed":
+                if order.status == "delivered":
                     events.append({
                         "type": "order_completed",
                         "order_id": order.id,

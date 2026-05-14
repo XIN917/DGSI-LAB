@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 # Database path - can be overridden by environment variable
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    f"sqlite:///{Path(__file__).parent.parent / 'data' / 'simulation.db'}"
+    f"sqlite:///{Path(__file__).parent.parent.parent / 'data' / 'simulation.db'}"
 )
 
 # Ensure data directory exists

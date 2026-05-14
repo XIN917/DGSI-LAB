@@ -13,6 +13,15 @@ AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSes
 async def init_db() -> None:
     """Initialize the database and create all tables."""
     from app.models.database import Base
+    import os
+    from urllib.parse import urlparse
+
+    # Ensure the database directory exists
+    if settings.database_url.startswith("sqlite"):
+        db_path = settings.database_url.split("///")[-1]
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

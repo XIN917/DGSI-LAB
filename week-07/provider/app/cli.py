@@ -155,7 +155,7 @@ def set_price(product_id: int, min_quantity: int, unit_price: float):
         db.close()
 
 @app.command()
-def serve(port: int = 8001):
+def serve(port: int = typer.Option(8001, "--port", "-p", help="Port to run the Provider REST API on.")):
     """
     Start the Provider REST API server.
     

@@ -1,10 +1,16 @@
 """FastAPI application entry point."""
+import sys
+import os
+
+# Add the project root to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import init_db
-from app.api.endpoints import auth, config, inventory, orders, purchase_orders, simulation, events, import_export
+from app.api.endpoints import auth, config, inventory, orders, purchase_orders, simulation, events, import_export, catalog, day
 
 settings = get_settings()
 
@@ -32,6 +38,8 @@ app.include_router(purchase_orders.router)
 app.include_router(simulation.router)
 app.include_router(events.router)
 app.include_router(import_export.router)
+app.include_router(catalog.router)
+app.include_router(day.router)
 
 
 @app.on_event("startup")

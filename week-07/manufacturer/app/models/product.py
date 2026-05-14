@@ -12,6 +12,7 @@ class ProductModel(Base):
     id = Column(String(50), primary_key=True, index=True)  # e.g., "P3D-Classic"
     name = Column(String(100), nullable=False)
     assembly_time_days = Column(Integer, default=1)
+    wholesale_price = Column(Numeric(10, 2), default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

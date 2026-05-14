@@ -12,7 +12,7 @@ def seed_provider_data(db: Session):
         print("Provider data already seeded.")
         return
 
-    seed_path = Path(__file__).parent.parent / "data" / "seed-provider.json"
+    seed_path = Path(__file__).parent.parent.parent / "data" / "seed-provider.json"
     if not seed_path.exists():
         print(f"Seed file not found at {seed_path}")
         return

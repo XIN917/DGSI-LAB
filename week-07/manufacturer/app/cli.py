@@ -1,4 +1,11 @@
 import typer
+import sys
+import os
+from decimal import Decimal
+
+# Add the project root to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, init_db
 from app.services.external_supplier_service import ExternalSupplierService
@@ -9,10 +16,16 @@ app = typer.Typer(help="Manufacturer Production Simulator CLI - Manage productio
 suppliers_app = typer.Typer(help="Interact with external component providers.")
 purchase_app = typer.Typer(help="Manage purchase orders for raw materials.")
 day_app = typer.Typer(help="Control the simulated passage of time and sync with providers.")
+price_app = typer.Typer(help="Manage wholesale prices for finished products.")
+sales_app = typer.Typer(help="Manage retailer sales orders.")
+production_app = typer.Typer(help="Manage production line and release orders.")
 
 app.add_typer(suppliers_app, name="suppliers")
 app.add_typer(purchase_app, name="purchase")
 app.add_typer(day_app, name="day")
+app.add_typer(price_app, name="price")
+app.add_typer(sales_app, name="sales")
+app.add_typer(production_app, name="production")
 
 @app.callback()
 def callback():
@@ -142,8 +155,73 @@ def day_current():
     typer.echo(f"Current Day: {status['current_day']} ({status['current_date']})")
     db.close()
 
+@price_app.command("list")
+def list_prices():
+    """List all finished product models and their current wholesale prices."""
+    db = SessionLocal()
+    from app.models.product import ProductModel
+    models = db.query(ProductModel).all()
+    for m in models:
+        typer.echo(f"SKU: {m.id:15} | Name: {m.name:20} | Wholesale Price: {float(m.wholesale_price):>8.2f}€")
+    db.close()
+
+@price_app.command("set")
+def set_price(sku: str, price: float):
+    """Update the wholesale price for a specific product SKU."""
+    db = SessionLocal()
+    from app.models.product import ProductModel
+    model = db.query(ProductModel).filter(ProductModel.id == sku).first()
+    if not model:
+        typer.echo(f"Error: SKU '{sku}' not found.")
+        db.close()
+        return
+    model.wholesale_price = Decimal(str(price))
+    db.commit()
+    typer.echo(f"Updated {sku} wholesale price to {price:.2f}€")
+    db.close()
+
+@sales_app.command("orders")
+def list_sales_orders():
+    """List all sales orders (manufacturing orders)."""
+    db = SessionLocal()
+    from app.models.order import ManufacturingOrder
+    orders = db.query(ManufacturingOrder).order_by(ManufacturingOrder.created_date.desc()).all()
+    for o in orders:
+        typer.echo(f"ID: {o.id:04d} | SKU: {o.product_model:12} | Qty: {float(o.quantity_needed):6.1f} | Status: {o.status:15} | Produced: {float(o.quantity_produced):6.1f}")
+    db.close()
+
+@production_app.command("release")
+def release_production(order_id: int):
+    """
+    Release a pending sales order to production.
+    
+    This reserves the required raw materials based on the product BOM.
+    If materials are insufficient, the order status changes to 'waiting_materials'.
+    """
+    db = SessionLocal()
+    from app.services.order_service import OrderService
+    service = OrderService(db)
+    success, error = service.release(order_id)
+    if success:
+        typer.echo(f"Order #{order_id:04d} released to production.")
+    else:
+        typer.echo(f"Error: {error}")
+    db.close()
+
 @app.command()
-def serve(port: int = 8002):
+def stock():
+    """Show current inventory levels for raw materials and finished goods."""
+    db = SessionLocal()
+    from app.models.inventory import Inventory
+    items = db.query(Inventory).order_by(Inventory.unit_type, Inventory.product_name).all()
+    typer.echo(f"{'TYPE':10} | {'PRODUCT':20} | {'QTY':>8} | {'RESERVED':>8} | {'AVAILABLE':>10}")
+    typer.echo("-" * 65)
+    for item in items:
+        typer.echo(f"{item.unit_type:10} | {item.product_name:20} | {float(item.quantity):8.2f} | {float(item.reserved_quantity):8.2f} | {item.available:10.2f}")
+    db.close()
+
+@app.command()
+def serve(port: int = typer.Option(8002, "--port", "-p", help="Port to run the Manufacturer REST API on.")):
     """
     Start the Manufacturer REST API server.
     

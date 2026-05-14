@@ -9,7 +9,6 @@ A downstream retailer simulator for the DGSI supply chain. The Retailer App purc
 - Purchase order placement to Manufacturer via REST
 - Retail pricing management with enforced minimum profit margins
 - Local SQLite persistence and event logging for auditability
-- JSON import/export of full application state
 - Standard simulation endpoints: `/api/day/current` and `/api/day/advance`
 
 ## Getting Started
@@ -19,46 +18,60 @@ A downstream retailer simulator for the DGSI supply chain. The Retailer App purc
 
 ### Installation
 
-1. **Navigate to the retailer directory**:
-   ```bash
-   cd retailer
-   ```
+Choose your preferred environment manager:
 
-2. **Set up a virtual environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+#### Option A: Using uv (Recommended)
+```bash
+cd retailer
+uv sync
+# Use 'uv run' for all subsequent commands
+```
 
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+#### Option B: Using standard venv
+```bash
+cd retailer
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+```
 
 ### Running the Application
 
-1. **Start the API**:
+Once installed (via `pip install -e .` or `uv sync`), you can run the commands. 
+*Note: Prefix with `uv run` if using Option A without an active venv.*
+
+1. **Initialize the database**:
    ```bash
-   PYTHONPATH=. uv run uvicorn app.main:app --reload --port 8003
+   retailer-cli init
+   ```
+
+2. **Start the API**:
+   ```bash
+   uvicorn app.main:app --reload --port 8003
    ```
 
 API docs will be available at `http://localhost:8003/docs`.
 
 ### CLI Commands
 
+Use the `retailer-cli` command to interact with the simulation:
+
 ```bash
-# Show product catalog
-PYTHONPATH=. uv run python app/cli.py catalog
+# Show product catalog & current inventory
+retailer-cli catalog
+retailer-cli inventory
 
-# List customer orders
-PYTHONPATH=. uv run python app/cli.py customer-orders list
+# Manage Customer Orders
+retailer-cli customer-orders list
+retailer-cli customer-orders create --sku P3D-Classic --quantity 2
 
-# Create customer order
-PYTHONPATH=. uv run python app/cli.py customer-orders create P3D-Classic 2
+# Manage Simulation Day
+retailer-cli day-current
+retailer-cli day-advance
 
-# Show current day
-PYTHONPATH=. uv run python app/cli.py day current
-
-# Advance to next day
-PYTHONPATH=. uv run python app/cli.py day advance
+# Update Retail Pricing (Enforces 15% markup)
+retailer-cli pricing P3D-Classic 1600.0
 ```
+
+For more detailed testing scenarios, see [docs/TESTING.md](docs/TESTING.md).
