@@ -20,7 +20,17 @@
 - [x] Add `price set` and `price list` commands to `manufacturer-cli`.
 - [x] Add `stock` summary for finished goods.
 
-## Phase 5: Polish & Debugging
+## Phase 5: Retailer App Implementation
+- [x] Ground-up development of the Retailer service.
+- [x] Implementation of consumer demand logic and price elasticity.
+- [x] Managed backorder system with automated fulfillment.
+- [x] Integration with Manufacturer REST API.
+- [x] Detailed documentation:
+    - [Retailer Implementation](../retailer/docs/IMPLEMENTATION.md)
+    - [Retailer PRD](../retailer/docs/PRD.md)
+    - [Retailer Testing](../retailer/docs/TESTING.md)
+
+## Phase 6: Polish & Debugging
 - [x] Fix `provider-cli` and `manufacturer-cli` port parsing issues.
 - [x] Add missing `serve` command to `retailer-cli`.
 - [x] Corrected `pyproject.toml` for manufacturer to fix editable install.
@@ -35,6 +45,14 @@
 ---
 
 ## Progress Notes
+### 2026-05-21
+- Refactored `turn_engine.py` to support **Claude Code** agent orchestration.
+- Implemented **Retailer Identity Tracking**: Manufacturer now stores and displays which retailer placed a sales order.
+- Created `scripts/setup_envs.sh` for automated virtual environment setup across all services.
+- Patched Manufacturer database schema to add `retailer_name` column.
+- Fixed `test_scenario.sh` parsing bug caused by updated CLI output format.
+- Synchronized all project documentation (PRD, GEMINI, README, REPORT) for Week 7 submission.
+
 ### 2026-05-14
 - Started integration based on Week 7 PRD and skills.md requirements.
 - Identified major gaps in Manufacturer wholesale capabilities.
@@ -43,4 +61,3 @@
 - Fixed database schema mismatches and missing production CLI commands.
 - Refactored CLI command groups for multi-service consistency.
 - Automated the entire supply chain lifecycle with setup and testing scripts.
-

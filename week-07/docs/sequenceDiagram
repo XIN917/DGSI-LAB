@@ -1,0 +1,60 @@
+sequenceDiagram
+    autonumber
+
+    participant TE as Turn Engine (Conductor)
+    participant EC as Demand Generator
+
+    box "Supply Chain Ecosystem" #f9f9f9
+        participant RA as Retailer (:8003)
+        participant MA as Manufacturer (:8002)
+        participant PA as Provider (:8001)
+    end
+
+    Note over TE: Start of Simulated Day
+
+    rect rgb(245, 245, 245)
+        Note over TE,RA: PHASE 1: Consumer Demand
+        TE->>EC: Trigger orders based on scenario
+        activate EC
+        EC->>RA: POST /api/customer-orders
+        activate RA
+        Note right of RA: Records orders &<br/>Updates backlogs
+        deactivate RA
+        deactivate EC
+    end
+
+    rect rgb(235, 245, 255)
+        Note over TE,MA: PHASE 2: Retailer Decisions (Downstream)
+        TE->>RA: Invoke AI Agent (Claude Code)
+        activate RA
+        RA->>RA: Analyze Stock & Pricing
+        RA->>MA: POST /api/orders (Restock printers)
+        Note right of MA: Order saved as 'pending'
+        deactivate RA
+    end
+
+    rect rgb(235, 255, 235)
+        Note over TE,PA: PHASE 3: Manufacturer Decisions (Midstream)
+        TE->>MA: Invoke AI Agent (Claude Code)
+        activate MA
+        MA->>MA: Plan Production & Review BOM
+        MA->>PA: POST /api/orders (Purchase parts)
+        Note right of PA: Lead time tracking begins
+        deactivate MA
+    end
+
+    rect rgb(255, 245, 235)
+        Note over TE,PA: PHASE 4: Provider Processing (Upstream)
+        TE->>PA: Invoke Stub / Agent
+        activate PA
+        PA->>PA: Process Shipments &<br/>Update Wholesale Pricing
+        deactivate PA
+    end
+
+    rect rgb(230, 230, 230)
+        Note over TE,PA: PHASE 5: Time Synchronization
+        TE->>RA: POST /api/day/advance
+        TE->>MA: POST /api/day/advance
+        TE->>PA: POST /api/day/advance
+        Note over RA,PA: All nodes transition to Day N+1
+    end

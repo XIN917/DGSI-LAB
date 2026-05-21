@@ -31,7 +31,7 @@ class ManufacturerClient:
         token = await self._get_access_token(client)
         return {"Authorization": f"Bearer {token}"}
 
-    async def place_order(self, sku: str, quantity: int) -> Dict[str, Any]:
+    async def place_order(self, sku: str, quantity: int, retailer_name: Optional[str] = None) -> Dict[str, Any]:
         """Place a purchase order with the manufacturer."""
         if sku not in self.VALID_SKUS:
             raise ValueError(f"Unknown SKU: {sku}")
@@ -41,7 +41,11 @@ class ManufacturerClient:
                 response = await client.post(
                     f"{self.base_url}/api/orders",
                     headers=await self._auth_headers(client),
-                    json={"product_model": sku, "quantity": quantity},
+                    json={
+                        "product_model": sku, 
+                        "quantity": quantity,
+                        "retailer_name": retailer_name
+                    },
                     timeout=30.0,
                 )
                 response.raise_for_status()

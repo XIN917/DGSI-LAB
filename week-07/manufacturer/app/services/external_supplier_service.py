@@ -31,12 +31,12 @@ class ExternalSupplierService:
                     name=p["name"],
                     lead_time_days=0, # Will be updated or fetched from API if needed
                     is_external=True,
-                    api_url=p["url"]
+                    api_url=p["api_url"]
                 )
                 self.db.add(supplier)
             else:
                 supplier.is_external = True
-                supplier.api_url = p["url"]
+                supplier.api_url = p["api_url"]
         self.db.commit()
 
     def list_suppliers(self) -> List[Supplier]:
@@ -51,53 +51,82 @@ class ExternalSupplierService:
         return client.get_catalog()
 
     def place_order(self, supplier_name: str, product_ref: str | int, quantity: int) -> PurchaseOrder:
-        supplier = self.db.query(Supplier).filter(Supplier.name == supplier_name, Supplier.is_external == True).first()
+        supplier = self.db.query(Supplier).filter(Supplier.name == supplier_name).first()
         if not supplier:
-            raise ValueError(f"External supplier {supplier_name} not found")
+            raise ValueError(f"Supplier {supplier_name} not found")
 
-        client = ProviderClient(supplier.api_url)
-        # We need the product name from the catalog to match our local material name
-        catalog = client.get_catalog()
-        
-        product = None
-        if isinstance(product_ref, int):
-            product = next((p for p in catalog if p["id"] == product_ref), None)
-        else:
-            # Flexible matching by name (case-insensitive partial match)
-            product = next((p for p in catalog if product_ref.lower() in p["name"].lower()), None)
+        # If it's an external supplier, use the Provider API
+        if supplier.is_external:
+            client = ProviderClient(supplier.api_url)
+            # We need the product name from the catalog to match our local material name
+            catalog = client.get_catalog()
             
-        if not product:
-            raise ValueError(f"Product '{product_ref}' not found in supplier catalog")
+            product_info = None
+            if isinstance(product_ref, int):
+                product_info = next((p for p in catalog if p["id"] == product_ref), None)
+            else:
+                # Flexible matching by name (case-insensitive partial match)
+                product_info = next((p for p in catalog if product_ref.lower() in p["name"].lower()), None)
+                
+            if not product_info:
+                raise ValueError(f"Product '{product_ref}' not found in supplier catalog")
 
-        product_id = product["id"]
-        # Place order on Provider API
-        # The buyer name can be something like "Manufacturer App" or from config
-        remote_order = client.place_order(buyer="Manufacturer App", product_id=product_id, quantity=quantity)
+            product_id = product_info["id"]
+            # Place order on Provider API
+            remote_order = client.place_order(buyer="Manufacturer App", product_id=product_id, quantity=quantity)
 
-        # Map Provider status to local status
-        # Provider: PENDING, CONFIRMED, InProgress, SHIPPED, DELIVERED
-        # Local: pending, partial, delivered, cancelled
-        local_status = "pending"
-        if remote_order["status"] == "DELIVERED":
-            local_status = "delivered"
+            # Map Provider status to local status
+            local_status = "pending"
+            if remote_order["status"] == "DELIVERED":
+                local_status = "delivered"
 
-        # Create local PO
-        from app.services.simulation_engine import SimulationEngine
-        from datetime import timedelta
-        engine = SimulationEngine(self.db)
-        current_dt = datetime.combine(engine.current_date, datetime.min.time())
-        
-        po = PurchaseOrder(
-            supplier_id=supplier.id,
-            product_name=product["name"].lower().replace(" ", "_"), # Simplified mapping for now
-            quantity_ordered=Decimal(str(quantity)),
-            quantity_delivered=Decimal("0"),
-            unit_cost=Decimal(str(remote_order["unit_price"])),
-            order_date=current_dt,
-            expected_delivery=current_dt + timedelta(days=product["lead_time_days"]),
-            status=local_status,
-            external_id=remote_order["id"]
-        )
+            # Create local PO
+            from app.services.simulation_engine import SimulationEngine
+            from datetime import timedelta
+            engine = SimulationEngine(self.db)
+            current_dt = datetime.combine(engine.current_date, datetime.min.time())
+            
+            po = PurchaseOrder(
+                supplier_id=supplier.id,
+                product_name=product_info["name"].lower().replace(" ", "_"),
+                quantity_ordered=Decimal(str(quantity)),
+                quantity_delivered=Decimal("0"),
+                unit_cost=Decimal(str(remote_order["unit_price"])),
+                order_date=current_dt,
+                expected_delivery=current_dt + timedelta(days=product_info["lead_time_days"]),
+                status=local_status,
+                external_id=remote_order["id"]
+            )
+        else:
+            # Internal supplier - use SupplierProduct table
+            from app.models.purchase_order import SupplierProduct
+            from app.services.simulation_engine import SimulationEngine
+            from datetime import timedelta
+            
+            query = self.db.query(SupplierProduct).filter(SupplierProduct.supplier_id == supplier.id)
+            if isinstance(product_ref, int):
+                product = query.filter(SupplierProduct.id == product_ref).first()
+            else:
+                product = query.filter(SupplierProduct.product_name == product_ref).first()
+                if not product:
+                    product = query.filter(SupplierProduct.product_name.ilike(f"%{product_ref}%")).first()
+
+            if not product:
+                raise ValueError(f"Product '{product_ref}' not found for supplier {supplier_name}")
+
+            engine = SimulationEngine(self.db)
+            current_dt = datetime.combine(engine.current_date, datetime.min.time())
+            
+            po = PurchaseOrder(
+                supplier_id=supplier.id,
+                product_name=product.product_name,
+                quantity_ordered=Decimal(str(quantity)),
+                quantity_delivered=Decimal("0"),
+                unit_cost=product.base_unit_cost, # Simplification: use base cost
+                order_date=current_dt,
+                expected_delivery=current_dt + timedelta(days=supplier.lead_time_days),
+                status="pending"
+            )
 
         self.db.add(po)
         self.db.commit()

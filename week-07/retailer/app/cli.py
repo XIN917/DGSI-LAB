@@ -1,5 +1,7 @@
 import typer
 from typing import Optional
+from pathlib import Path
+import json
 import asyncio
 import sys
 import os
@@ -226,6 +228,72 @@ def pricing(
             typer.echo(f"❌ Error: {e}")
 
     asyncio.run(_pricing())
+
+
+@app.command()
+def fulfill(order_id: int) -> None:
+    """Manually fulfill a customer order from stock."""
+    async def _fulfill():
+        try:
+            await ensure_db()
+            result = await service.fulfill_customer_order(order_id)
+            typer.echo(f"✅ Order {order_id} fulfilled. Status: {result['status']}")
+        except Exception as e:
+            typer.echo(f"❌ Error: {e}")
+
+    asyncio.run(_fulfill())
+
+
+@app.command()
+def backorder(order_id: int) -> None:
+    """Manually mark a customer order as backordered."""
+    async def _backorder():
+        try:
+            await ensure_db()
+            result = await service.backorder_customer_order(order_id)
+            typer.echo(f"✅ Order {order_id} backordered. Status: {result['status']}")
+        except Exception as e:
+            typer.echo(f"❌ Error: {e}")
+
+    asyncio.run(_backorder())
+
+
+@app.command()
+def export(file: Path = typer.Argument(..., help="Path to save the JSON export")) -> None:
+    """Export the complete retailer state to a JSON file."""
+    async def _export():
+        try:
+            await ensure_db()
+            async with service.session_local() as session:
+                from app.utils.json_export import export_full_state
+                state = await export_full_state(session)
+                file.write_text(json.dumps(state, indent=2))
+                typer.echo(f"✅ State exported to {file}")
+        except Exception as e:
+            typer.echo(f"❌ Error: {e}")
+
+    asyncio.run(_export())
+
+
+@app.command("import")
+def import_command(file: Path = typer.Argument(..., help="Path to the JSON file to import")) -> None:
+    """Import a retailer state from a JSON file (OVERWRITES CURRENT DATA)."""
+    async def _import():
+        try:
+            await ensure_db()
+            if not file.exists():
+                typer.echo(f"❌ Error: File {file} not found")
+                return
+            
+            data = json.loads(file.read_text())
+            async with service.session_local() as session:
+                from app.utils.json_export import import_full_state
+                await import_full_state(session, data)
+                typer.echo(f"✅ State imported from {file}")
+        except Exception as e:
+            typer.echo(f"❌ Error: {e}")
+
+    asyncio.run(_import())
 
 
 @app.command()

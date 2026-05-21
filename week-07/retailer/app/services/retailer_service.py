@@ -84,8 +84,11 @@ class RetailerService:
             ]
 
     async def create_purchase_order(self, sku: str, quantity: int) -> dict:
+        from app.core.config import settings
         current_day = await self.get_current_day()
-        manufacturer_response = await self.manufacturer_client.place_order(sku, quantity)
+        manufacturer_response = await self.manufacturer_client.place_order(
+            sku, quantity, retailer_name=settings.name
+        )
 
         async with self.session_local() as session:
             po = PurchaseOrderDB(
@@ -181,6 +184,64 @@ class RetailerService:
                 customer_name=new_order.customer_name,
                 notes=new_order.notes,
             )
+
+    async def fulfill_customer_order(self, order_id: int) -> dict:
+        async with self.session_local() as session:
+            result = await session.execute(
+                select(CustomerOrderDB).where(CustomerOrderDB.id == order_id)
+            )
+            order = result.scalars().first()
+            if not order:
+                raise ValueError(f"Order {order_id} not found")
+            
+            if order.status == OrderStatus.fulfilled:
+                return {"id": order.id, "status": order.status, "message": "Already fulfilled"}
+
+            inventory = await self.get_inventory_item(order.sku)
+            if not inventory or inventory.quantity_on_hand < order.quantity:
+                raise ValueError(f"Insufficient stock to fulfill order {order_id}")
+
+            current_day = await self.get_current_day()
+            await self.reserve_inventory(order.sku, order.quantity)
+            
+            order.status = OrderStatus.fulfilled
+            order.fulfilled_day = current_day
+            await session.commit()
+            
+            await self.log_event(
+                current_day,
+                "customer_order_fulfilled_manual",
+                "customer_order",
+                order.id,
+                f"Manually fulfilled order {order_id} for {order.quantity} x {order.sku}",
+            )
+            return {"id": order.id, "status": order.status}
+
+    async def backorder_customer_order(self, order_id: int) -> dict:
+        async with self.session_local() as session:
+            result = await session.execute(
+                select(CustomerOrderDB).where(CustomerOrderDB.id == order_id)
+            )
+            order = result.scalars().first()
+            if not order:
+                raise ValueError(f"Order {order_id} not found")
+
+            if order.status == OrderStatus.backordered:
+                return {"id": order.id, "status": order.status, "message": "Already backordered"}
+
+            order.status = OrderStatus.backordered
+            order.fulfilled_day = None
+            await session.commit()
+            
+            current_day = await self.get_current_day()
+            await self.log_event(
+                current_day,
+                "customer_order_backordered_manual",
+                "customer_order",
+                order.id,
+                f"Manually backordered order {order_id}",
+            )
+            return {"id": order.id, "status": order.status}
 
     async def get_inventory_item(self, sku: str) -> Optional[InventoryItem]:
         async with self.session_local() as session:

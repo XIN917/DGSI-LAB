@@ -155,6 +155,44 @@ def set_price(product_id: int, min_quantity: int, unit_price: float):
         db.close()
 
 @app.command()
+def export(file: str = typer.Argument(..., help="Path to save the JSON export")):
+    """Export the complete provider state to a JSON file."""
+    db = SessionLocal()
+    try:
+        from app.utils.json_export import export_full_state
+        import json
+        state = export_full_state(db)
+        with open(file, "w") as f:
+            json.dump(state, f, indent=2)
+        typer.echo(f"✅ State exported to {file}")
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}")
+    finally:
+        db.close()
+
+@app.command("import")
+def import_command(file: str = typer.Argument(..., help="Path to the JSON file to import")):
+    """Import a provider state from a JSON file (OVERWRITES CURRENT DATA)."""
+    db = SessionLocal()
+    try:
+        import json
+        import os
+        if not os.path.exists(file):
+            typer.echo(f"❌ Error: File {file} not found")
+            return
+        
+        with open(file, "r") as f:
+            data = json.load(f)
+            
+        from app.utils.json_export import import_full_state
+        import_full_state(db, data)
+        typer.echo(f"✅ State imported from {file}")
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}")
+    finally:
+        db.close()
+
+@app.command()
 def serve(port: int = typer.Option(8001, "--port", "-p", help="Port to run the Provider REST API on.")):
     """
     Start the Provider REST API server.
