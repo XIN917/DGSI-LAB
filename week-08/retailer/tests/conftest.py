@@ -56,16 +56,34 @@ def db_session(sync_engine):
 
 
 @pytest_asyncio.fixture
-async def async_client():
+async def async_client(tmp_path):
     """Provide async HTTP client for API testing."""
-    from app.main import create_app
+    import app.core.database as db_module
+
+    # Point the database at a per-test temporary file
+    test_db_url = f"sqlite+aiosqlite:///{tmp_path / 'test_retailer.db'}"
+    test_engine = create_async_engine(test_db_url, echo=False)
+    test_session_local = sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
+
+    # Override the module-level engine and session factory
+    original_engine = db_module.engine
+    original_session_local = db_module.AsyncSessionLocal
+    db_module.engine = test_engine
+    db_module.AsyncSessionLocal = test_session_local
+
     from app.core.database import init_db
+    from app.main import create_app
 
     await init_db()
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
+
+    # Restore original engine and session factory
+    await test_engine.dispose()
+    db_module.engine = original_engine
+    db_module.AsyncSessionLocal = original_session_local
 
 
 @pytest.fixture(scope="function")
