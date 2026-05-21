@@ -6,9 +6,9 @@ from app.services.retailer_service import RetailerService
 from app.models.product import ProductCatalogItem
 
 @pytest.mark.asyncio
-async def test_retailer_markup_rule(db_session):
+async def test_retailer_markup_rule(db_session, async_session_local):
     """Test that the retailer enforces the 15% markup rule."""
-    service = RetailerService()
+    service = RetailerService(session_local=async_session_local)
     
     # Mock manufacturer catalog: Classic printer at $1000
     mock_catalog = [
