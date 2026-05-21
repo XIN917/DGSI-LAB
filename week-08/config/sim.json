@@ -1,0 +1,31 @@
+{
+  "services": {
+    "provider": "http://127.0.0.1:8001",
+    "manufacturer": "http://127.0.0.1:8002",
+    "retailer": "http://127.0.0.1:8003"
+  },
+  "claude_path": "/Users/david.morais/.local/bin/claude",
+  "claude_timeout_seconds": 180,
+  "fallback_mode": "auto",
+  "manufacturer_auth": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "demand": {
+    "P3D-Classic": {
+      "base_daily_units": 4,
+      "reference_price": 1500.0
+    },
+    "P3D-Pro": {
+      "base_daily_units": 2,
+      "reference_price": 2500.0
+    }
+  },
+  "fallback": {
+    "retailer_reorder_threshold": 6,
+    "retailer_reorder_quantity": 12,
+    "manufacturer_raw_threshold": 80,
+    "manufacturer_restock_quantity": 120,
+    "provider_restock_quantity": 150
+  }
+}

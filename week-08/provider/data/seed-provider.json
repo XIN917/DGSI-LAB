@@ -1,0 +1,37 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "PCB Control",
+      "description": "Controller PCB for printer electronics.",
+      "lead_time_days": 2,
+      "initial_stock": 220,
+      "pricing_tiers": [
+        {"min_quantity": 1, "unit_price": 18.0},
+        {"min_quantity": 100, "unit_price": 15.0}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Stepper Motor",
+      "description": "Standard motion-control motor.",
+      "lead_time_days": 3,
+      "initial_stock": 320,
+      "pricing_tiers": [
+        {"min_quantity": 1, "unit_price": 12.0},
+        {"min_quantity": 100, "unit_price": 10.25}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Extruder Kit",
+      "description": "Extruder assembly kit.",
+      "lead_time_days": 4,
+      "initial_stock": 140,
+      "pricing_tiers": [
+        {"min_quantity": 1, "unit_price": 45.0},
+        {"min_quantity": 50, "unit_price": 39.5}
+      ]
+    }
+  ]
+}
