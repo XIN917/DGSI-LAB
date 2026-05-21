@@ -16,12 +16,11 @@ header "2. RETAILER: CREATING CUSTOMER DEMAND"
 
 header "3. MANUFACTURER: RELEASING TO PRODUCTION"
 # Get the ID of the latest pending sales order
-ORDER_ID=$(./manufacturer/venv/bin/manufacturer-cli sales orders | grep "pending" | head -n 1 | awk '{print $2}')
+# The output format is: ID | SKU | ... so we want the first column
+ORDER_ID=$(./manufacturer/venv/bin/manufacturer-cli sales orders | grep "pending" | head -n 1 | awk '{print $1}')
 
-if [ -z "$ORDER_ID" ]; then
+if [ -z "$ORDER_ID" ] || [ "$ORDER_ID" == "ID" ]; then
     echo "No pending orders found (possibly auto-delivered)."
-    # Try to find the latest order regardless of status for verification
-    ORDER_ID=$(./manufacturer/venv/bin/manufacturer-cli sales orders | head -n 1 | awk '{print $2}')
 else
     echo "Releasing Manufacturer Order #$ORDER_ID"
     ./manufacturer/venv/bin/manufacturer-cli production release $ORDER_ID

@@ -33,7 +33,7 @@ class OrderService:
             ManufacturingOrder.id == order_id
         ).first()
 
-    def create(self, product_model: str, quantity: Decimal, created_date: datetime) -> ManufacturingOrder:
+    def create(self, product_model: str, quantity: Decimal, created_date: datetime, retailer_name: Optional[str] = None) -> ManufacturingOrder:
         """Create a new manufacturing order. Auto-fulfills if finished stock is available."""
         from app.services.inventory_service import InventoryService
         from app.services.simulation_engine import SimulationEngine
@@ -53,6 +53,7 @@ class OrderService:
 
         order = ManufacturingOrder(
             product_model=product_model,
+            retailer_name=retailer_name,
             quantity_needed=quantity,
             quantity_produced=quantity if status == "delivered" else Decimal("0"),
             status=status,
@@ -114,7 +115,7 @@ class OrderService:
         if not order:
             return False, "Order not found"
 
-        if order.status != "pending":
+        if order.status not in ["pending", "waiting_materials"]:
             return False, f"Order already in {order.status} status"
 
         can, missing = self.can_release(order)

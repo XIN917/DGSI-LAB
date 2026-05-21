@@ -26,6 +26,7 @@ class BOMRequirement(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     product_model: str
+    retailer_name: Optional[str] = None
     quantity_needed: float
     quantity_produced: float
     status: str
@@ -39,6 +40,7 @@ class OrderResponse(BaseModel):
 class CreateOrderRequest(BaseModel):
     product_model: str
     quantity: float
+    retailer_name: Optional[str] = None
 
 
 @router.get("", response_model=List[OrderResponse])
@@ -83,20 +85,22 @@ def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Create a new manufacturing order manually."""
+    """Create a new manufacturing order (retailer sale or manual)."""
     svc = OrderService(db)
     order = svc.create(
         product_model=body.product_model,
         quantity=Decimal(str(body.quantity)),
         created_date=datetime.utcnow(),
+        retailer_name=body.retailer_name
     )
     event = EventLog(
-        event_type="order_created_manual",
+        event_type="order_created",
         event_date=datetime.utcnow(),
         details=str({
             "order_id": order.id,
             "model": body.product_model,
             "quantity": body.quantity,
+            "retailer": body.retailer_name,
             "user": current_user.username,
         }),
     )
@@ -177,6 +181,7 @@ def _serialize(order, include_bom: bool = False, svc: OrderService = None) -> di
         result = {
             "id": order.id,
             "product_model": order.product_model,
+            "retailer_name": order.retailer_name,
             "quantity_needed": float(order.quantity_needed),
             "quantity_produced": float(order.quantity_produced),
             "status": order.status,

@@ -18,6 +18,9 @@ dependencies = [
 [project.scripts]
 provider-cli = "app.cli:app"
 
+[tool.setuptools]
+packages = ["app"]
+
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.3.0",

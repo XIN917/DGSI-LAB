@@ -8,19 +8,28 @@ A multi-service supply chain simulator consisting of a parts **Provider**, a 3D 
 - **[Manufacturer](./manufacturer/README.md)**: Simulates a 3D printer factory. Manages BOMs, production lines, and wholesale fulfillment.
 - **[Retailer](./retailer/README.md)**: Simulates a consumer store. Manages retail pricing, customer demand, and stock replenishment.
 
+## Prerequisites
+
+Before running the simulation in AI mode, ensure your environment is set up for **Claude Code**:
+
+1.  **Installation**: Ensure the `claude` CLI is installed. See the [official documentation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview#install-claude-code) for setup instructions.
+2.  **Authentication**: The Turn Engine requires Claude to be authenticated. You can do this by running:
+    ```bash
+    claude auth login
+    ```
+3.  **Verify Setup**: Run the following command to confirm you are authenticated and ready:
+    ```bash
+    claude --print "ping"
+    ```
+    *Note: If you receive a "403 invalid api-key" error, ensure your login session is active or your `ANTHROPIC_API_KEY` environment variable is set.*
+
 ## Quick Start (Installation)
 
-To get started, you must set up the virtual environment for each service. From the root directory:
+To set up the simulation environment (virtual environments and dependencies) for all three services, run:
 
 ```bash
-# Setup Provider
-cd provider && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && ./venv/bin/pip install -e . && cd ..
-
-# Setup Manufacturer
-cd manufacturer && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && ./venv/bin/pip install -e . && cd ..
-
-# Setup Retailer
-cd retailer && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && ./venv/bin/pip install -e . && cd ..
+chmod +x scripts/*.sh
+./scripts/setup_envs.sh
 ```
 
 ## 🚀 Automated Simulation
@@ -31,18 +40,27 @@ The full supply chain lifecycle can be executed using the provided automation sc
     ```bash
     ./scripts/start_all.sh
     ```
-2.  **Run the core simulation scenario:**
+2.  **Turn Engine (Agent Orchestration):**
+    Run the turn-based simulation where agents (via Claude Code) make operational decisions. Replace `<days>` with the number of simulated days you wish to run:
+    ```bash
+    # Run for 3 simulated days
+    python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3
+    ```
+3.  **Deterministic Health Check:**
+    Run a scripted, no-agent scenario to verify basic plumbing:
     ```bash
     ./scripts/test_scenario.sh
     ```
-    *This script handles database seeding, demand generation, production release, and time advancement automatically.*
+4.  **Stop all servers:**
+    ```bash
+    pkill -f 'cli serve'
+    ```
 
-## 🛠 Manual Simulation
+## 🛠 Manual Simulation & Troubleshooting
 
-For a detailed step-by-step guide on how to run a manual, day-by-day simulation and monitor logs across separate terminal windows, see the **[Testing & Integration Guide](./docs/TESTING.md)**.
+For a detailed step-by-step guide on how to run a manual simulation, monitor logs, and verify agent outputs, see the **[Testing & Integration Guide](./docs/TESTING.md)**.
 
 ## Integration Progress
 
 Track the Week 7 development and integration status in:
-- **[Integration Plan](./docs/retailer_integration_plan.md)**
 - **[Integration Log](./docs/INTEGRATION.md)**

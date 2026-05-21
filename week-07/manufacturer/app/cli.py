@@ -186,8 +186,11 @@ def list_sales_orders():
     db = SessionLocal()
     from app.models.order import ManufacturingOrder
     orders = db.query(ManufacturingOrder).order_by(ManufacturingOrder.created_date.desc()).all()
+    typer.echo(f"{'ID':4} | {'SKU':12} | {'RETAILER':15} | {'QTY':6} | {'STATUS':12} | {'PRODUCED':6}")
+    typer.echo("-" * 75)
     for o in orders:
-        typer.echo(f"ID: {o.id:04d} | SKU: {o.product_model:12} | Qty: {float(o.quantity_needed):6.1f} | Status: {o.status:15} | Produced: {float(o.quantity_produced):6.1f}")
+        retailer = o.retailer_name if o.retailer_name else "INTERNAL"
+        typer.echo(f"{o.id:04d} | {o.product_model:12} | {retailer:15} | {float(o.quantity_needed):6.1f} | {o.status:12} | {float(o.quantity_produced):6.1f}")
     db.close()
 
 @production_app.command("release")
@@ -206,6 +209,41 @@ def release_production(order_id: int):
         typer.echo(f"Order #{order_id:04d} released to production.")
     else:
         typer.echo(f"Error: {error}")
+    db.close()
+
+@production_app.command("status")
+def production_status():
+    """
+    Show current production line status.
+    
+    Lists orders currently being processed and their completion percentage.
+    """
+    db = SessionLocal()
+    from app.models.order import ManufacturingOrder
+    orders = db.query(ManufacturingOrder).filter(ManufacturingOrder.status == "released").all()
+    if not orders:
+        typer.echo("No active production at the moment.")
+    else:
+        for o in orders:
+            progress = (float(o.quantity_produced) / float(o.quantity_needed)) * 100
+            typer.echo(f"ID: {o.id:04d} | SKU: {o.product_model:12} | Progress: {progress:6.1f}% | Done: {float(o.quantity_produced):>6.1f}/{float(o.quantity_needed):.1f}")
+    db.close()
+
+@app.command()
+def capacity():
+    """
+    Show current production capacity and utilization.
+    """
+    db = SessionLocal()
+    engine = SimulationEngine(db)
+    status = engine.get_status()
+    typer.echo(f"Daily Production Capacity: {status['capacity_per_day']} units")
+    
+    # Simple utilization metric: how many units are being produced today?
+    # For a snapshot, we look at the 'released' orders
+    from app.models.order import ManufacturingOrder
+    released_qty = db.query(ManufacturingOrder).filter(ManufacturingOrder.status == "released").count()
+    typer.echo(f"Active Production Orders: {released_qty}")
     db.close()
 
 @app.command()

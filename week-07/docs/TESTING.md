@@ -28,7 +28,34 @@ This script seeds databases, places orders, releases production, and advances ti
 
 ---
 
-## 🛠 Option 2: Manual Testing
+## 🤖 Option 3: Turn Engine & Agent Testing (AI Mode)
+
+This mode tests the autonomous orchestration where the **Turn Engine** invokes **Claude Code** agents to make decisions.
+
+### 1. Prerequisite: API Key
+Ensure you have an active Claude Code session or `ANTHROPIC_API_KEY` set in your environment so `claude --print` can execute.
+
+### 2. Start Services
+```bash
+./scripts/start_all.sh
+```
+
+### 3. Run Agent-Driven Simulation
+The Turn Engine will follow the sequence: Demand → Retailer Agent → Manufacturer Agent → Provider Agent → Time Advance.
+```bash
+python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3
+```
+
+### 4. Verify Agent Decisions
+Check the generated logs to see what the AI decided:
+```bash
+# View manufacturer agent's reasoning for Day 1
+cat logs/day-001-manufacturer.log
+```
+
+---
+
+## 🛠 Option 4: Manual Testing
 
 ### 1. Environment Setup
 

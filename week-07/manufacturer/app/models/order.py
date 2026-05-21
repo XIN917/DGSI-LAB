@@ -10,6 +10,7 @@ class ManufacturingOrder(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_model = Column(String(50), ForeignKey("product_models.id"), nullable=False)
+    retailer_name = Column(String(100), nullable=True) # Who placed this order
     quantity_needed = Column(Numeric(10, 2), nullable=False)
     quantity_produced = Column(Numeric(10, 2), default=0)
     status = Column(String(30), default="pending")  # pending, released, waiting_materials, completed, failed
@@ -20,4 +21,4 @@ class ManufacturingOrder(Base):
     failure_reason = Column(String(255), nullable=True)
 
     def __repr__(self):
-        return f"<ManufacturingOrder(id={self.id}, model='{self.product_model}', qty={self.quantity_needed}, status='{self.status}')>"
+        return f"<ManufacturingOrder(id={self.id}, model='{self.product_model}', retailer='{self.retailer_name}', qty={self.quantity_needed}, status='{self.status}')>"

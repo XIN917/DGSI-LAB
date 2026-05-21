@@ -6,6 +6,7 @@ from pydantic import ConfigDict
 class RetailerSettings(BaseSettings):
     model_config = ConfigDict(env_prefix="RETAILER_")
 
+    name: str = "PrinterWorld"
     port: int = 8003
     database_url: str = "sqlite+aiosqlite:///data/retailer.db"
     manufacturer_url: AnyUrl = "http://localhost:8002"
