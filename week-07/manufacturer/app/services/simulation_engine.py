@@ -57,6 +57,11 @@ class SimulationEngine:
 
     def advance_day(self) -> Dict:
         """Advance simulation by one day."""
+        # Increment day counter first
+        previous_day = self.current_day
+        self.current_day += 1
+        self.current_date += timedelta(days=1)
+        
         events = []
 
         # Step 1: Process arriving POs first
@@ -75,10 +80,7 @@ class SimulationEngine:
         snapshot_event = self._take_inventory_snapshot()
         events.append(snapshot_event)
 
-        # Increment day counter and persist
-        previous_day = self.current_day
-        self.current_day += 1
-        self.current_date += timedelta(days=1)
+        # Persist state
         self._save_state()
 
         return {

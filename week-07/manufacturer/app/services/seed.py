@@ -123,7 +123,7 @@ def initialize_seed_data(db: Session = None):
         if not existing_state:
             import json as _json
             state = SimulationState(
-                current_day=1,
+                current_day=0,
                 current_date=settings.SIMULATION_START_DATE,
                 demand_params=_json.dumps({
                     "P3D-Classic": {"mean": 8, "variance": 3},
@@ -133,6 +133,9 @@ def initialize_seed_data(db: Session = None):
                 warehouse_capacity=settings.DEFAULT_WAREHOUSE_CAPACITY
             )
             db.add(state)
+        else:
+            existing_state.current_day = 0
+            existing_state.current_date = settings.SIMULATION_START_DATE
 
         db.commit()
 

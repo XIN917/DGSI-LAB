@@ -10,7 +10,7 @@ engine: AsyncEngine = create_async_engine(database_url, echo=False)
 AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
-async def init_db() -> None:
+async def init_db(reset_day: bool = False) -> None:
     """Initialize the database and create all tables."""
     from app.models.database import Base
     import os
@@ -26,25 +26,29 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    # Seed sim_state with current_day if not exists
+    # Seed sim_state with current_day
     async with AsyncSessionLocal() as session:
         from app.models.database import SimStateDB
-        from sqlalchemy import select
+        from sqlalchemy import select, update
         
         result = await session.execute(
             select(SimStateDB).where(SimStateDB.key == "current_day")
         )
-        row = result.first()
-        if not row:
+        if result.first():
+            if reset_day:
+                await session.execute(
+                    update(SimStateDB).where(SimStateDB.key == "current_day").values(value="0")
+                )
+                await session.commit()
+        else:
             session.add(SimStateDB(key="current_day", value="0"))
             await session.commit()
         
-        # Initialize inventory
+        # Initialize inventory if not exists
         result = await session.execute(
             select(SimStateDB).where(SimStateDB.key == "inventory_initialized")
         )
-        row = result.first()
-        if not row:
+        if not result.first():
             from app.models.database import InventoryItemDB
             session.add(InventoryItemDB(sku="P3D-Classic", quantity_on_hand=5, retail_price=1500.0))
             session.add(InventoryItemDB(sku="P3D-Pro", quantity_on_hand=3, retail_price=2500.0))
