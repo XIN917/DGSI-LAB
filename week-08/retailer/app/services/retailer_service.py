@@ -90,15 +90,16 @@ class RetailerService:
         manufacturer_response = await self.manufacturer_client.place_order(sku, quantity)
 
         async with self.session_local() as session:
+            manufacturer_order = manufacturer_response.get("manufacturer_order", {})
             po = PurchaseOrderDB(
                 manufacturer_po_id=manufacturer_response.get("id"),
                 sku=sku,
                 quantity=quantity,
-                wholesale_unit_price=manufacturer_response.get("unit_price", 0.0),
+                wholesale_unit_price=manufacturer_order.get("unit_price", 0.0),
                 retail_unit_price=0.0,
                 status=manufacturer_response.get("status", "pending"),
                 placed_day=current_day,
-                expected_delivery_day=manufacturer_response.get("expected_delivery_day"),
+                expected_delivery_day=manufacturer_order.get("expected_delivery_day"),
             )
             session.add(po)
             await session.commit()
