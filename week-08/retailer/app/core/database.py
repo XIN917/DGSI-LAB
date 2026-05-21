@@ -1,7 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-import asyncio
-
 from app.core.config import settings
 
 
@@ -14,7 +12,6 @@ async def init_db() -> None:
     """Initialize the database and create all tables."""
     from app.models.database import Base
     import os
-    from urllib.parse import urlparse
 
     # Ensure the database directory exists
     if settings.database_url.startswith("sqlite"):
