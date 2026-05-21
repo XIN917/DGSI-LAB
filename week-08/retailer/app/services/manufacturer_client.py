@@ -51,6 +51,8 @@ class ManufacturerClient:
                     "sku": sku,
                     "quantity": quantity,
                     "status": order.get("status"),
+                    "unit_price": order.get("unit_price", 0.0),
+                    "expected_delivery_day": order.get("expected_delivery_day"),
                     "manufacturer_order": order,
                     "message": f"Placed manufacturer order #{order.get('id')} for {quantity}x {sku}",
                 }
