@@ -6,10 +6,17 @@ import json
 import os
 import sqlite3
 import sys
+import tempfile
 from pathlib import Path
 
-os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/week8-matplotlib")
-os.environ.setdefault("XDG_CACHE_HOME", "/private/tmp/week8-cache")
+_TEMP_BASE = Path(tempfile.gettempdir()) / "week8-analysis"
+_MPLCONFIGDIR = _TEMP_BASE / "matplotlib"
+_XDG_CACHE_HOME = _TEMP_BASE / "cache"
+_MPLCONFIGDIR.mkdir(parents=True, exist_ok=True)
+_XDG_CACHE_HOME.mkdir(parents=True, exist_ok=True)
+
+os.environ.setdefault("MPLCONFIGDIR", str(_MPLCONFIGDIR))
+os.environ.setdefault("XDG_CACHE_HOME", str(_XDG_CACHE_HOME))
 
 import matplotlib
 
