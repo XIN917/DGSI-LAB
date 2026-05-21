@@ -26,7 +26,7 @@ async def ensure_db() -> None:
 def init() -> None:
     """Initialize the retailer database."""
     try:
-        asyncio.run(init_db())
+        asyncio.run(init_db(reset_day=True))
         typer.echo("✅ Database initialized successfully")
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
