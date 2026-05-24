@@ -48,6 +48,9 @@ class OrderSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class DayAdvanceRequest(BaseModel):
+    lead_time_modifier: float = 1.0
+
 class DayAdvanceResponse(BaseModel):
     previous_day: int
     new_day: int

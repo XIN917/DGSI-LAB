@@ -203,11 +203,21 @@ def run_agent_or_stub(role, skill_path, context, cwd, verbose=False):
     except Exception as e:
         console.print(f"  [red]✗ {role_label} error: {e}[/red]")
 
-def advance_all(urls):
+def advance_all(config, signal):
     console.print("\n[bold]Advancing all services...[/bold]")
-    for url in urls:
+    lead_time_modifier = signal.get("lead_time_modifier", 1.0)
+    provider_urls = {p["url"] for p in config["providers"]}
+
+    all_urls = (
+        [r["url"] for r in config["retailers"]] +
+        [config["manufacturer"]["url"]] +
+        [p["url"] for p in config["providers"]]
+    )
+    for url in all_urls:
         try:
-            httpx.post(f"{url}/api/day/advance")
+            # Pass lead_time_modifier only to provider
+            body = {"lead_time_modifier": lead_time_modifier} if url in provider_urls else {}
+            httpx.post(f"{url}/api/day/advance", json=body)
             console.print(f"  [green]✓[/green] {url}")
         except Exception as e:
             console.print(f"  [red]✗[/red] {url}: {e}")
@@ -255,10 +265,7 @@ def run_day(day, config, scenario, verbose=False):
         run_agent_or_stub("provider", provider.get("skill"),
                          json.dumps(signal), provider["path"], verbose=verbose)
 
-    urls = ([r["url"] for r in config["retailers"]] +
-            [config["manufacturer"]["url"]] +
-            [p["url"] for p in config["providers"]])
-    advance_all(urls)
+    advance_all(config, signal)
 
     # Day-end summary
     try:

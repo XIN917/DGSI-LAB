@@ -41,7 +41,7 @@ Provider: `price set <product> <tier> <price>` — CLI uses positional integers 
 - [x] Wire retailer skill in `config/sim.json`: set `"skill": "skills/retail-manager.md"`
 - [x] Fix `todays_signal()` in `turn_engine.py`: extract `supply_modifier`, `lead_time_modifier`, `price_sensitivity` (currently only `demand_modifier`)
 - [x] Fix overlapping event logic in `todays_signal()`: multiply modifiers instead of last-wins overwrite
-- [ ] Apply `lead_time_modifier` during provider `day advance` logic
+- [x] Apply `lead_time_modifier` during provider `day advance` logic
 - [x] Add day-end summary line to turn engine after all agents complete
 - [x] Create `scenarios/calm-market.json` (spec in `docs/PRD.md`)
 - [x] Create `scenarios/holiday-rush.json` (spec in `docs/PRD.md`)

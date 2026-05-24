@@ -20,14 +20,27 @@ class ProviderService:
             return 0
         return int(state.value)
 
-    def advance_day(self) -> int:
+    def get_lead_time_modifier(self) -> float:
+        state = self.db.query(SimState).filter(SimState.key == "lead_time_modifier").first()
+        return float(state.value) if state else 1.0
+
+    def set_lead_time_modifier(self, modifier: float) -> None:
+        state = self.db.query(SimState).filter(SimState.key == "lead_time_modifier").first()
+        if state:
+            state.value = str(modifier)
+        else:
+            self.db.add(SimState(key="lead_time_modifier", value=str(modifier)))
+        self.db.commit()
+
+    def advance_day(self, lead_time_modifier: float = 1.0) -> int:
+        self.set_lead_time_modifier(lead_time_modifier)
         current_day = self.get_current_day()
         new_day = current_day + 1
-        
+
         state = self.db.query(SimState).filter(SimState.key == "current_day").first()
         state.value = str(new_day)
-        
-        self.log_event(new_day, "DAY_ADVANCE", detail=f"Advanced to day {new_day}")
+
+        self.log_event(new_day, "DAY_ADVANCE", detail=f"Advanced to day {new_day}, lead_time_modifier={lead_time_modifier}")
         
         # Process order state machine
         self._process_orders_state_machine(new_day)
@@ -96,7 +109,8 @@ class ProviderService:
         total_price = unit_price * quantity
         
         current_day = self.get_current_day()
-        expected_delivery_day = current_day + product.lead_time_days
+        lead_time_modifier = self.get_lead_time_modifier()
+        expected_delivery_day = current_day + int(product.lead_time_days * lead_time_modifier)
         
         order = Order(
             buyer=buyer,
