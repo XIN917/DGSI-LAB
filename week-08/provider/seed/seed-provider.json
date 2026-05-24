@@ -1,0 +1,136 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "frame_kit",
+      "description": "Standard frame kit for P3D Classic",
+      "lead_time_days": 3,
+      "initial_stock": 500,
+      "pricing_tiers": [
+        {"min_quantity": 1,   "unit_price": 28.50},
+        {"min_quantity": 10,  "unit_price": 27.08},
+        {"min_quantity": 100, "unit_price": 25.65}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "frame_kit_pro",
+      "description": "Professional frame kit for P3D Pro",
+      "lead_time_days": 3,
+      "initial_stock": 200,
+      "pricing_tiers": [
+        {"min_quantity": 1,  "unit_price": 48.00},
+        {"min_quantity": 10, "unit_price": 45.60},
+        {"min_quantity": 50, "unit_price": 42.24}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "pcb_control",
+      "description": "Control board PCB",
+      "lead_time_days": 5,
+      "initial_stock": 300,
+      "pricing_tiers": [
+        {"min_quantity": 1,   "unit_price": 22.00},
+        {"min_quantity": 10,  "unit_price": 20.90},
+        {"min_quantity": 100, "unit_price": 18.04}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "stepper_motor",
+      "description": "Stepper motor for axis movement",
+      "lead_time_days": 2,
+      "initial_stock": 500,
+      "pricing_tiers": [
+        {"min_quantity": 1,   "unit_price": 15.00},
+        {"min_quantity": 10,  "unit_price": 13.50},
+        {"min_quantity": 100, "unit_price": 12.00}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "hotend",
+      "description": "Standard hotend for P3D Classic",
+      "lead_time_days": 4,
+      "initial_stock": 250,
+      "pricing_tiers": [
+        {"min_quantity": 1,  "unit_price": 35.00},
+        {"min_quantity": 10, "unit_price": 31.50},
+        {"min_quantity": 50, "unit_price": 28.00}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "hotend_pro",
+      "description": "Professional hotend for P3D Pro",
+      "lead_time_days": 4,
+      "initial_stock": 150,
+      "pricing_tiers": [
+        {"min_quantity": 1,  "unit_price": 55.00},
+        {"min_quantity": 10, "unit_price": 49.50},
+        {"min_quantity": 50, "unit_price": 44.00}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "bed_heater",
+      "description": "Heated bed element",
+      "lead_time_days": 3,
+      "initial_stock": 300,
+      "pricing_tiers": [
+        {"min_quantity": 1,   "unit_price": 20.00},
+        {"min_quantity": 10,  "unit_price": 18.00},
+        {"min_quantity": 100, "unit_price": 16.00}
+      ]
+    },
+    {
+      "id": 8,
+      "name": "power_supply",
+      "description": "Power supply unit",
+      "lead_time_days": 5,
+      "initial_stock": 250,
+      "pricing_tiers": [
+        {"min_quantity": 1,  "unit_price": 18.50},
+        {"min_quantity": 10, "unit_price": 17.58},
+        {"min_quantity": 50, "unit_price": 16.65}
+      ]
+    },
+    {
+      "id": 9,
+      "name": "extruder_kit",
+      "description": "Standard extruder kit for P3D Classic",
+      "lead_time_days": 3,
+      "initial_stock": 300,
+      "pricing_tiers": [
+        {"min_quantity": 1,   "unit_price": 15.00},
+        {"min_quantity": 10,  "unit_price": 13.80},
+        {"min_quantity": 100, "unit_price": 12.00}
+      ]
+    },
+    {
+      "id": 10,
+      "name": "dual_extruder_kit",
+      "description": "Dual extruder kit for P3D Pro",
+      "lead_time_days": 3,
+      "initial_stock": 150,
+      "pricing_tiers": [
+        {"min_quantity": 1,  "unit_price": 32.00},
+        {"min_quantity": 10, "unit_price": 29.76},
+        {"min_quantity": 50, "unit_price": 26.56}
+      ]
+    },
+    {
+      "id": 11,
+      "name": "filament_sensor",
+      "description": "Filament sensor for P3D Pro",
+      "lead_time_days": 2,
+      "initial_stock": 200,
+      "pricing_tiers": [
+        {"min_quantity": 1,   "unit_price": 12.00},
+        {"min_quantity": 10,  "unit_price": 10.80},
+        {"min_quantity": 100, "unit_price": 9.60}
+      ]
+    }
+  ]
+}

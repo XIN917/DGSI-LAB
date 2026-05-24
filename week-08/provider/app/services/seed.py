@@ -7,7 +7,7 @@ from app.models.simulation import SimState
 from app.core.database import SessionLocal, init_db
 
 def seed_provider_data(db: Session):
-    seed_path = Path(__file__).parent.parent.parent / "data" / "seed-provider.json"
+    seed_path = Path(__file__).parent.parent.parent / "seed" / "seed-provider.json"
     if not seed_path.exists():
         print(f"Seed file not found at {seed_path}")
         return
