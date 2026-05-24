@@ -34,12 +34,23 @@ def load_scenario(path):
     return json.loads(Path(path).read_text())
 
 def todays_signal(day, scenario):
-    signal = {"day": day, "events": []}
+    signal = {
+        "day": day,
+        "events": [],
+        "demand_modifier": 1.0,
+        "supply_modifier": 1.0,
+        "lead_time_modifier": 1.0,
+        "price_sensitivity": "normal",
+    }
     for event in scenario.get("events", []):
         if event["start_day"] <= day <= event["end_day"]:
             signal["events"].append(event)
-            signal["demand_modifier"] = event.get("demand_modifier", 1.0)
-    signal.setdefault("demand_modifier", 1.0)
+            # Multiply overlapping modifiers so combined stress compounds
+            signal["demand_modifier"] *= event.get("demand_modifier", 1.0)
+            signal["supply_modifier"] *= event.get("supply_modifier", 1.0)
+            signal["lead_time_modifier"] *= event.get("lead_time_modifier", 1.0)
+            if event.get("price_sensitivity") == "high":
+                signal["price_sensitivity"] = "high"
     signal["base_demand"] = scenario.get("base_demand", {"mean": 5, "variance": 2})
     return signal
 
@@ -84,7 +95,7 @@ def prefetch_state(role, cwd):
     cli = f"./{role}-cli"
     commands = {
         "manufacturer": ["stock", "sales orders", "production status", "capacity", "price list", "purchase list", "suppliers list"],
-        "retailer":     ["inventory", "customer-orders list", "purchase-orders list", "catalog"],
+        "retailer":     ["stock", "customers orders", "purchase list", "price list"],
         "provider":     ["stock", "orders list", "catalog"],
     }
     lines = []
@@ -204,15 +215,24 @@ def advance_all(urls):
 def run_day(day, config, scenario, verbose=False):
     signal = todays_signal(day, scenario)
 
-    modifier = signal.get("demand_modifier", 1.0)
+    demand_mod = signal.get("demand_modifier", 1.0)
+    supply_mod = signal.get("supply_modifier", 1.0)
+    lead_mod = signal.get("lead_time_modifier", 1.0)
+    price_sens = signal.get("price_sensitivity", "normal")
     events = signal.get("events", [])
-    event_desc = events[0].get("description", events[0]["name"]) if events else "No active events"
-    modifier_color = "green" if modifier >= 1.0 else "yellow"
+    active_names = ", ".join(e["name"] for e in events) if events else "normal"
+    demand_color = "green" if demand_mod >= 1.0 else "yellow"
+    supply_color = "yellow" if supply_mod < 1.0 else "green"
 
     console.print()
     console.rule(f"[bold white] DAY {day} [/bold white]", style="bright_blue")
-    console.print(f"  [dim]Event:[/dim] {event_desc}   "
-                  f"[dim]Demand:[/dim] [{modifier_color}]x{modifier}[/{modifier_color}]")
+    console.print(
+        f"  [dim]Events:[/dim] {active_names}   "
+        f"[dim]Demand:[/dim] [{demand_color}]x{demand_mod:.2f}[/{demand_color}]   "
+        f"[dim]Supply:[/dim] [{supply_color}]x{supply_mod:.2f}[/{supply_color}]   "
+        f"[dim]Lead time:[/dim] x{lead_mod:.2f}   "
+        f"[dim]Price sensitivity:[/dim] {price_sens}"
+    )
     console.print()
 
     console.print("[bold]Customer demand[/bold]")
@@ -239,6 +259,25 @@ def run_day(day, config, scenario, verbose=False):
             [config["manufacturer"]["url"]] +
             [p["url"] for p in config["providers"]])
     advance_all(urls)
+
+    # Day-end summary
+    try:
+        retailer_url = config["retailers"][0]["url"]
+        resp = httpx.get(f"{retailer_url}/api/customer-orders", timeout=5)
+        orders = resp.json() if resp.status_code == 200 else []
+        today_orders = [o for o in orders if o.get("sim_day") == day or True]
+        placed = len(orders)
+        fulfilled = sum(1 for o in orders if o.get("status") in ("fulfilled", "FULFILLED"))
+        backordered = sum(1 for o in orders if o.get("status") in ("backordered", "BACKORDERED"))
+        stockout = placed - fulfilled - backordered
+        console.print(
+            f"\n  [bold]Day {day}:[/bold] {placed} customer orders / "
+            f"[green]{fulfilled} fulfilled[/green] / "
+            f"[yellow]{backordered} backordered[/yellow] / "
+            f"[red]{max(0, stockout)} stockout[/red]"
+        )
+    except Exception:
+        console.print(f"\n  [bold]Day {day}:[/bold] [dim]summary unavailable[/dim]")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the DGSI turn engine simulation.")

@@ -39,10 +39,10 @@ Provider: `price set <product> <tier> <price>` — CLI uses positional integers 
 - [x] Update retailer CLI to match skill file commands (rename/add: `stock`, `customers orders`, `customers order <id>`, `purchase list`, `purchase create <model> <qty>`, `price list`, `price set <model> <price>`)
 - [x] Wire provider skill in `config/sim.json`: set `"skill": "skills/provider-manager.md"`
 - [x] Wire retailer skill in `config/sim.json`: set `"skill": "skills/retail-manager.md"`
-- [ ] Fix `todays_signal()` in `turn_engine.py`: extract `supply_modifier`, `lead_time_modifier`, `price_sensitivity` (currently only `demand_modifier`)
-- [ ] Fix overlapping event logic in `todays_signal()`: multiply modifiers instead of last-wins overwrite
+- [x] Fix `todays_signal()` in `turn_engine.py`: extract `supply_modifier`, `lead_time_modifier`, `price_sensitivity` (currently only `demand_modifier`)
+- [x] Fix overlapping event logic in `todays_signal()`: multiply modifiers instead of last-wins overwrite
 - [ ] Apply `lead_time_modifier` during provider `day advance` logic
-- [ ] Add day-end summary line to turn engine after all agents complete
+- [x] Add day-end summary line to turn engine after all agents complete
 - [x] Create `scenarios/calm-market.json` (spec in `docs/PRD.md`)
 - [x] Create `scenarios/holiday-rush.json` (spec in `docs/PRD.md`)
 
