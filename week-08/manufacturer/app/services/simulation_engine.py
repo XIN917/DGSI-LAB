@@ -80,6 +80,9 @@ class SimulationEngine:
         snapshot_event = self._take_inventory_snapshot()
         events.append(snapshot_event)
 
+        # Step 5: Snapshot metrics
+        self._snapshot_metrics(self.current_day)
+
         # Persist state
         self._save_state()
 
@@ -247,6 +250,47 @@ class SimulationEngine:
             "date": self.current_date.isoformat(),
             "item_count": len(items)
         }
+
+    def _snapshot_metrics(self, sim_day: int) -> None:
+        """Snapshot per-day metrics into the metrics table."""
+        import json as _json
+        from app.models.metrics import ManufacturerMetrics
+        from app.models.inventory import Inventory
+        from app.models.product import ProductModel
+        from app.models.order import ManufacturingOrder
+
+        products = self.db.query(ProductModel).all()
+        inv_items = self.db.query(Inventory).all()
+        parts_stock = {i.product_name: float(i.quantity) for i in inv_items}
+
+        for product in products:
+            finished_inv = next((i for i in inv_items if i.product_name == product.model_name), None)
+            finished_stock = int(finished_inv.quantity) if finished_inv else 0
+
+            pending = self.db.query(ManufacturingOrder).filter(
+                ManufacturingOrder.product_model_id == product.id,
+                ManufacturingOrder.status.in_(["pending", "released"])
+            ).count()
+            completed = self.db.query(ManufacturingOrder).filter(
+                ManufacturingOrder.product_model_id == product.id,
+                ManufacturingOrder.status == "completed"
+            ).count()
+
+            utilisation = (
+                min(1.0, pending / self._capacity_per_day) if self._capacity_per_day > 0 else 0.0
+            )
+
+            self.db.add(ManufacturerMetrics(
+                sim_day=sim_day,
+                model_name=product.model_name,
+                finished_stock=finished_stock,
+                wholesale_price=float(product.base_price) if product.base_price else None,
+                sales_orders_pending=pending,
+                sales_orders_completed=completed,
+                production_utilisation=utilisation,
+                parts_stock_json=_json.dumps(parts_stock),
+            ))
+        self.db.commit()
 
     def get_status(self) -> Dict:
         """Get current simulation status."""

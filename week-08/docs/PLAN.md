@@ -48,10 +48,10 @@ Provider: `price set <product> <tier> <price>` — CLI uses positional integers 
 
 ### Phase 2 — Metrics tables (required for analysis)
 
-- [ ] Add `metrics` table with `sim_day` column to Provider DB
-- [ ] Add `metrics` table with `sim_day` column to Manufacturer DB
-- [ ] Add `metrics` table with `sim_day` column to Retailer DB
-- [ ] Snapshot metrics during `POST /api/day/advance` in each service
+- [x] Add `metrics` table with `sim_day` column to Provider DB
+- [x] Add `metrics` table with `sim_day` column to Manufacturer DB
+- [x] Add `metrics` table with `sim_day` column to Retailer DB
+- [x] Snapshot metrics during `POST /api/day/advance` in each service
 
 ### Phase 3 — Test and run
 

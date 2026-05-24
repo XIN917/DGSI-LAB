@@ -353,13 +353,40 @@ class RetailerService:
 
         # 1. Check for deliveries first to increase stock
         self.check_purchase_order_deliveries()
-        
+
         # 2. Process backorders with new stock
         self.process_backorders()
+
+        # 3. Snapshot metrics
+        self._snapshot_metrics(new_day)
 
         self.log_event(new_day, "day_advanced", "simulation", None, f"Advanced to day {new_day}")
 
         return {"message": f"Advanced to day {new_day}"}
+
+    def _snapshot_metrics(self, sim_day: int) -> None:
+        from app.models.metrics import RetailerMetrics
+        from app.models.database import InventoryItemDB, CustomerOrderDB
+        items = self.db.execute(select(InventoryItemDB)).scalars().all()
+        for item in items:
+            placed = self.db.execute(
+                select(CustomerOrderDB).where(
+                    CustomerOrderDB.sku == item.sku,
+                    CustomerOrderDB.created_day == sim_day
+                )
+            ).scalars().all()
+            fulfilled = [o for o in placed if o.status == OrderStatus.fulfilled]
+            backordered = [o for o in placed if o.status == OrderStatus.backordered]
+            self.db.add(RetailerMetrics(
+                sim_day=sim_day,
+                sku=item.sku,
+                stock_quantity=item.quantity_on_hand,
+                retail_price=item.retail_price,
+                orders_placed=len(placed),
+                orders_fulfilled=len(fulfilled),
+                orders_backordered=len(backordered),
+            ))
+        self.db.commit()
 
     def process_backorders(self) -> None:
         # Get all backordered orders, oldest first

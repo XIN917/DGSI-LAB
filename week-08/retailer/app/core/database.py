@@ -33,8 +33,9 @@ def get_db():
 def init_db(reset_day: bool = False) -> None:
     """Initialize the database, creating all tables."""
     from app.models.database import Base, SimStateDB, InventoryItemDB
+    from app.models.metrics import RetailerMetrics  # noqa: F401
     from sqlalchemy import select, update
-    
+
     # Create all tables
     Base.metadata.create_all(bind=engine)
     

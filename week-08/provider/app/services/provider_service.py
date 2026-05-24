@@ -41,12 +41,38 @@ class ProviderService:
         state.value = str(new_day)
 
         self.log_event(new_day, "DAY_ADVANCE", detail=f"Advanced to day {new_day}, lead_time_modifier={lead_time_modifier}")
-        
+
         # Process order state machine
         self._process_orders_state_machine(new_day)
-        
+
+        # Snapshot metrics
+        self._snapshot_metrics(new_day)
+
         self.db.commit()
         return new_day
+
+    def _snapshot_metrics(self, sim_day: int) -> None:
+        from app.models.metrics import ProviderMetrics
+        products = self.db.query(Product).all()
+        for product in products:
+            stock = self.db.query(Stock).filter(Stock.product_id == product.id).first()
+            tiers = self.db.query(PricingTier).filter(
+                PricingTier.product_id == product.id
+            ).order_by(PricingTier.min_quantity.asc()).all()
+            price_tier1 = float(tiers[0].unit_price) if tiers else None
+            pending = self.db.query(Order).filter(Order.product_id == product.id, Order.status == "PENDING").count()
+            shipped = self.db.query(Order).filter(Order.product_id == product.id, Order.status == "SHIPPED").count()
+            delivered = self.db.query(Order).filter(Order.product_id == product.id, Order.delivered_day == sim_day).count()
+            self.db.add(ProviderMetrics(
+                sim_day=sim_day,
+                product_id=product.id,
+                product_name=product.name,
+                stock_quantity=stock.quantity if stock else 0,
+                price_tier1=price_tier1,
+                orders_pending=pending,
+                orders_shipped=shipped,
+                orders_delivered=delivered,
+            ))
 
     def _process_orders_state_machine(self, current_day: int):
         # Shipped -> Delivered (When expected_delivery_day is reached)

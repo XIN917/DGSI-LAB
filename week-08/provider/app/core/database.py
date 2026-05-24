@@ -44,4 +44,5 @@ def init_db():
     from app.models.order import Order
     from app.models.event import Event
     from app.models.simulation import SimState
+    from app.models.metrics import ProviderMetrics  # noqa: F401
     Base.metadata.create_all(bind=engine)
