@@ -55,8 +55,10 @@ Provider: `price set <product> <tier> <price>` — CLI uses positional integers 
 
 ### Phase 3 — Test and run
 
-- [ ] Test provider skill in isolation (set other two to stub, run 1 day)
-- [ ] Test retailer skill in isolation (set other two to stub, run 1 day)
+- [x] Test manufacturer skill in isolation — working correctly (Day 1 baseline, no orders yet, prices held per 2-day rule)
+- [x] Test retailer skill in isolation — working correctly (fulfilled 7, backordered 4, reordered 15+15 units, raised prices +5%)
+- [x] Test provider skill in isolation — initial run found empty DB (not seeded); fixed skill to infer starting levels from `catalog`; retest pending
+- [ ] Re-test provider skill after fix (seed DB first with `reset_all.sh`)
 - [ ] Run all three agents together for at least one full day
 - [ ] Run 15+ day simulation against `holiday-rush.json`
 - [ ] Run 15+ day simulation against `calm-market.json`

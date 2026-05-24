@@ -41,6 +41,7 @@ See `README.md` for setup, start, simulate, and reset instructions.
 ### Provider (:8001) — `provider/venv/bin/provider-cli`
 ```
 provider-cli day current
+provider-cli catalog
 provider-cli stock
 provider-cli orders list [--status pending]
 provider-cli orders show <id>
@@ -67,17 +68,18 @@ manufacturer-cli serve --port 8002
 ### Retailer (:8003) — `retailer/venv/bin/retailer-cli`
 ```
 retailer-cli day current
-retailer-cli inventory           # actual command (skill file says 'stock' — CLI needs fixing)
-retailer-cli customer-orders list / customer-orders show <id>
+retailer-cli stock                              # skill-aligned (also: inventory)
+retailer-cli customers orders                   # skill-aligned (also: customer-orders list)
+retailer-cli customers order <id>
 retailer-cli fulfill <order_id>
 retailer-cli backorder <order_id>
-retailer-cli purchase-orders list / purchase-orders create --sku <sku> --quantity <qty>
-retailer-cli pricing <sku> <price>
+retailer-cli purchase list                      # skill-aligned (also: purchase-orders list)
+retailer-cli purchase create <model> <qty>      # skill-aligned
+retailer-cli price list                         # skill-aligned
+retailer-cli price set <model> <price>          # skill-aligned
 retailer-cli init
 retailer-cli serve --port 8003
 ```
-
-> **Note**: The retailer CLI command names differ from the skill file (which is authoritative per `week8.pdf`). The CLI needs to be updated — see `docs/PLAN.md` Phase 1.
 
 ---
 
@@ -100,10 +102,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 4. Calls `POST /api/day/advance` on each service
 5. Saves output to `logs/day-NNN-[role].log`
 
-**Known gaps (see `docs/PLAN.md`):**
-- Only `demand_modifier` is extracted from scenario events — `supply_modifier`, `lead_time_modifier`, `price_sensitivity` are not yet parsed
-- Overlapping events use last-wins instead of multiply
-- No day-end summary line printed
+All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers. Day-end summary line is printed after each turn.
 
 ---
 
@@ -130,9 +129,10 @@ Days 18–20 in `holiday-rush` have two overlapping events — modifiers multipl
 
 ## What Still Needs Doing
 
-See `docs/PLAN.md` for the full ordered task list. The immediate blockers are:
+See `docs/PLAN.md` for the full ordered task list. Current status:
 
-1. Fix retailer CLI command names to match skill file
-2. Fix `todays_signal()` — add missing signal fields and multiply logic
-3. Add `metrics` tables to all three service DBs
-4. Run and analyse simulations
+- Phase 1 (wiring + fixes) — **complete**
+- Phase 2 (metrics tables) — **complete**
+- Phase 3 (testing) — manufacturer ✓, retailer ✓, provider fix applied (retest pending), full run not yet done
+- Phase 4 (analysis) — not started
+- Phase 5 (final deliverables) — not started
