@@ -11,7 +11,7 @@
     "name": "Factory",
     "url": "http://127.0.0.1:8002",
     "path": "./manufacturer",
-    "skill": "manufacturer/docs/skills.md"
+    "skill": "skills/manufacturer-manager.md"
   },
   "providers": [
     {

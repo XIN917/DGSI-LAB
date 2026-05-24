@@ -234,16 +234,44 @@ def capacity():
     """
     Show current production capacity and utilization.
     """
+    import ast
     db = SessionLocal()
     engine = SimulationEngine(db)
     status = engine.get_status()
-    typer.echo(f"Daily Production Capacity: {status['capacity_per_day']} units")
-    
-    # Simple utilization metric: how many units are being produced today?
-    # For a snapshot, we look at the 'released' orders
+    capacity_per_day = status['capacity_per_day']
+    typer.echo(f"Daily Production Capacity: {capacity_per_day} units")
+
     from app.models.order import ManufacturingOrder
     released_qty = db.query(ManufacturingOrder).filter(ManufacturingOrder.status == "released").count()
     typer.echo(f"Active Production Orders: {released_qty}")
+
+    # Show last 3 days of utilisation history from EventLog
+    from app.models.event import EventLog
+    history = (
+        db.query(EventLog)
+        .filter(EventLog.event_type == "daily_production")
+        .order_by(EventLog.id.desc())
+        .limit(3)
+        .all()
+    )
+    if history:
+        typer.echo(f"\nUtilisation history (last {len(history)} days):")
+        typer.echo(f"  {'Day':>5} | {'Produced':>8} | {'Capacity':>8} | {'Util%':>6}")
+        typer.echo(f"  {'-'*5}-+-{'-'*8}-+-{'-'*8}-+-{'-'*6}")
+        for entry in history:
+            try:
+                data = ast.literal_eval(entry.details)
+                typer.echo(
+                    f"  {data['day']:>5} | {data['produced']:>8.0f} | "
+                    f"{data['capacity']:>8.0f} | {data['utilisation_pct']:>5.1f}%"
+                )
+            except Exception:
+                pass
+        consecutive_low = sum(
+            1 for e in history
+            if ast.literal_eval(e.details).get("utilisation_pct", 100) < 40
+        )
+        typer.echo(f"\nConsecutive days below 40% utilisation: {consecutive_low}")
     db.close()
 
 @app.command()

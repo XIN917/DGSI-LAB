@@ -156,50 +156,8 @@ class SimulationEngine:
         return events
 
     def _generate_demand(self) -> List[Dict]:
-        """Generate new manufacturing orders based on simple random distribution (1-3 per day)."""
-        events = []
-
-        from app.models.order import ManufacturingOrder
-        from app.models.product import ProductModel
-
-        # Simple random distribution: 1-3 new orders per day
-        num_new_orders = random.randint(1, 3)
-        total_orders = 0
-
-        # Get available product models to choose from
-        product_models = self.db.query(ProductModel).all()
-        if not product_models:
-            return events
-
-        for _ in range(num_new_orders):
-            model = random.choice(product_models)
-            # Random quantity between 5 and 20
-            quantity = random.randint(5, 20)
-
-            order = ManufacturingOrder(
-                product_model=model.id,
-                quantity_needed=Decimal(str(quantity)),
-                quantity_produced=Decimal("0"),
-                status="pending",
-                created_date=self.current_date
-            )
-            self.db.add(order)
-            total_orders += 1
-            events.append({
-                "type": "demand_generated",
-                "model": model.id,
-                "quantity": quantity
-            })
-
-        self.db.commit()
-
-        if total_orders > 0:
-            events.insert(0, {
-                "type": "demand_batch",
-                "total_orders": total_orders
-            })
-
-        return events
+        """Demand is driven externally by the retailer via REST. No internal generation."""
+        return []
 
     def _process_manufacturing_orders(self) -> List[Dict]:
         """Process manufacturing orders within daily capacity."""
@@ -237,6 +195,20 @@ class SimulationEngine:
                         "model": order.product_model,
                         "quantity": int(order.quantity_needed)
                     })
+
+        # Always log daily production (even zero) so capacity history is queryable
+        event = EventLog(
+            event_type="daily_production",
+            event_date=self.current_date,
+            details=str({
+                "day": self.current_day,
+                "produced": produced_today,
+                "capacity": capacity_per_day,
+                "utilisation_pct": round(produced_today / capacity_per_day * 100, 1) if capacity_per_day else 0
+            })
+        )
+        self.db.add(event)
+        self.db.commit()
 
         if produced_today > 0:
             events.insert(0, {

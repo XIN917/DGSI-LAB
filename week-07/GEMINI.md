@@ -1,3 +1,5 @@
+> **Current project context is in `CLAUDE.md`. Read that first. This file is the historical record of earlier development steps.**
+
 # DGSI Week 7 - Project Mandates
 
 ## Core Architecture
@@ -50,14 +52,22 @@
 - Logic: Supplier for manufacturer raw materials.
 
 ## Agent Skills
-- **Skill Files**: Found in each service's `docs/` directory (e.g., `manufacturer/docs/skills.md`). Agents should follow the decision frameworks defined therein.
-- **Turn Engine**: The simulation is orchestrated by a turn engine that invokes agents via `claude --print [prompt]` and advances time once all decisions are made.
+- **Skill Files**: Found in the central `skills/` directory (e.g., `skills/manufacturer-manager.md`). Agents should follow the decision frameworks defined therein.
+- **Turn Engine**: Invokes agents via `claude --print --dangerously-skip-permissions --allowedTools Bash --model claude-haiku-4-5-20251001 <prompt>`. Only the manufacturer role calls Claude; retailer and provider remain stubs for Week 7.
+- **Prompt optimisation**: The turn engine pre-fetches all read-only state (stock, sales orders, capacity, production status, price list, purchase list) and injects it into the prompt. The agent skips assessment commands and goes straight to decisions — reduces agent execution from ~70s to ~25s.
+- **Skill price floor**: `skills/manufacturer-manager.md` hardcodes minimum wholesale prices (P3D-Classic €163, P3D-Pro €246) derived from BOM material cost + 15% margin, since `price list` does not expose component costs.
+- **subprocess**: Uses `shell=True` with explicit `PATH=/opt/homebrew/bin:...` to ensure `claude` resolves correctly when cwd changes to a service subdirectory.
+
+## Reset & Testing
+- **Full reset**: `./scripts/reset_all.sh` — deletes all `.db` files then re-seeds. Must delete DBs first; `seed` uses `if not existing` guards and won't overwrite stale reservations otherwise.
+- **Smoke test**: `python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3` — 3 days, ~30s/day. Retailer/provider are stubs; manufacturer agent runs live.
+- **Known test gap**: Retailer stub never places purchase orders with the manufacturer, so the agent sees zero sales orders. Production-release behaviour is not exercised in the smoke test. Verify pricing logic and purchasing decisions instead. Full production-release testing requires Week 8 retailer agent.
 
 ## Known Issues & Future Plans
-- **Claude Authentication (PENDING)**: While the Claude Code integration is implemented in `turn_engine.py`, full end-to-end agent testing is pending local CLI authentication (`claude auth login`). Use the deterministic `test_scenario.sh` for integration verification until auth is complete.
+- **Claude Authentication (VERIFIED)**: Claude Code integration is verified. Note: If `ANTHROPIC_API_KEY` or `ANTHROPIC_BASE_URL` are set in the environment (e.g., pointing to an external provider like DashScope), the CLI may fail with a 403 error. Unset these variables or ensure they point to Anthropic's native API to use Claude Code correctly.
 - **Cross-Service Visibility**: The "Blind Service" mandate is strictly enforced; agents must only use their respective service's CLI/API.
 
 ## Final Review Plan
-- [ ] **Verify AI**: Run a 3-day agent simulation and verify decisions in `logs/`.
+- [x] **Verify AI**: Run a 3-day agent simulation and verify decisions in `logs/`.
 - [ ] **Sync Report**: Ensure `report.md` accurately reflects all core code implementations and Week 7 architecture.
 - [ ] **Audit**: Final check of REST isolation and script functionality.
