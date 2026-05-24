@@ -8,7 +8,7 @@
 
 ## 1. Architecture
 
-Three decoupled FastAPI services communicate exclusively via REST. No shared databases. No cross-service Python imports.
+Three decoupled FastAPI services communicate exclusively via REST. No shared databases. No cross-service Python imports. All services utilize a synchronous SQLAlchemy/SQLite pattern for maximum stability and consistent CLI performance across the turn-based simulation.
 
 ![Architecture](docs/architecture.png)
 
@@ -105,7 +105,7 @@ Each day, in order:
 You may receive market signal information in your prompt. Interpret it:
 - `demand_modifier > 1.5`: high-demand period. Build inventory ahead, consider raising prices.
 - `supply_modifier < 0.7`: constrained supply. Place purchase orders earlier and larger.
-- No signal / modifier ≈ 1.0: business as usual.
+- No signal / modifier ~ 1.0: business as usual.
 
 ## When Done
 
@@ -152,17 +152,21 @@ Print a summary of what you did today and why, in 3–5 bullet points. Then exit
 
 ## 5. Vibe-Coding Notes
 
-### Claude Code (building the software)
+### AI Agents (Copilot, Gemini, Claude Code)
 
 **Did well:**
-- Rapidly scaffolded the full Retailer service (FastAPI, Async SQLAlchemy, Typer CLI, business rules) from a spec in one pass.
-- Diagnosed and fixed the SQLite inode bug: deleting DB files while services are running leaves server processes on the old inode, so the API and CLI silently read/write different files. A non-obvious distributed systems issue that would have taken significant manual debugging.
-- Correct on `--dangerously-skip-permissions` and `stdin=DEVNULL` for subprocess agent invocation — easy to miss and hard to debug when wrong.
+- **Rapid Scaffolding**: Rapidly built the full Retailer service (FastAPI, initial Async SQLAlchemy, Typer CLI, business rules) from a spec in one pass.
+- **Architectural Refinement**: Successfully transitioned the Retailer to a **synchronous architecture** for ecosystem parity. This eliminated CLI dependency issues and provided a more robust execution environment for the orchestrator.
+- **Functional Orchestration**: Completed a functional and robust `turn_engine.py` script for automated agent orchestration.
+- **Deep Debugging**: Diagnosed and fixed the SQLite inode bug: deleting DB files while services are running leaves server processes on the old inode, so the API and CLI silently read/write different files.
+- **Technical Accuracy**: Correct on `--dangerously-skip-permissions` and `stdin=DEVNULL` for subprocess agent invocation — easy to miss and hard to debug when wrong.
 
 **Did poorly:**
-- Generated overly verbose boilerplate (multi-paragraph docstrings, redundant comments) requiring cleanup.
-- Initially placed the retailer DB at a relative path, silently creating a second DB file at the wrong location rather than raising an error.
-- Required several correction rounds before accepting that the skill file was professor-provided and must not be modified — kept proposing skill-file edits until explicitly told to use prompt injection instead.
+- **Integration Blindness**: Initially failed to notice that the Retailer service's API contract (endpoints and JSON schema) was mismatched with the expectations of the orchestrator, leading to silent 404s.
+- **Project Completeness False Positives**: Repeatedly reported the project as finished while missing the critical `retailer-cli` wrapper script required by the ecosystem pattern.
+- **Boilerplate Overload**: Generated overly verbose boilerplate (multi-paragraph docstrings, redundant comments) requiring manual cleanup.
+- **Relative Path Pitfalls**: Initially placed the retailer DB at a relative path, silently creating a second DB file at the wrong location.
+- **Constraint Negotiation**: Required several correction rounds before accepting that the skill file was professor-provided and must not be modified.
 
 ### The Manufacturer Agent (executing the role)
 

@@ -1,8 +1,8 @@
 """JSON import/export utilities for Retailer."""
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from pathlib import Path
 
 from app.models.database import (
@@ -13,18 +13,18 @@ from app.models.database import (
     SimStateDB,
 )
 
-async def export_full_state(session: AsyncSession) -> dict:
+def export_full_state(session: Session) -> dict:
     """Export the complete retailer state as a JSON-serialisable dict."""
     
     # Fetch all data
-    customer_orders = (await session.execute(select(CustomerOrderDB))).scalars().all()
-    inventory = (await session.execute(select(InventoryItemDB))).scalars().all()
-    purchase_orders = (await session.execute(select(PurchaseOrderDB))).scalars().all()
-    events = (await session.execute(select(EventLogDB).order_by(EventLogDB.id))).scalars().all()
-    sim_state = (await session.execute(select(SimStateDB))).scalars().all()
+    customer_orders = session.execute(select(CustomerOrderDB)).scalars().all()
+    inventory = session.execute(select(InventoryItemDB)).scalars().all()
+    purchase_orders = session.execute(select(PurchaseOrderDB)).scalars().all()
+    events = session.execute(select(EventLogDB).order_by(EventLogDB.id)).scalars().all()
+    sim_state = session.execute(select(SimStateDB)).scalars().all()
 
     return {
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "sim_state": {s.key: s.value for s in sim_state},
         "inventory": [
             {
@@ -78,15 +78,15 @@ async def export_full_state(session: AsyncSession) -> dict:
         ],
     }
 
-async def import_full_state(session: AsyncSession, data: dict) -> dict:
+def import_full_state(session: Session, data: dict) -> dict:
     """Import a full retailer state export."""
     
     # Clear existing data
-    await session.execute(delete(EventLogDB))
-    await session.execute(delete(PurchaseOrderDB))
-    await session.execute(delete(CustomerOrderDB))
-    await session.execute(delete(InventoryItemDB))
-    await session.execute(delete(SimStateDB))
+    session.execute(delete(EventLogDB))
+    session.execute(delete(PurchaseOrderDB))
+    session.execute(delete(CustomerOrderDB))
+    session.execute(delete(InventoryItemDB))
+    session.execute(delete(SimStateDB))
     
     # Restore Sim State
     for key, value in data.get("sim_state", {}).items():
@@ -140,8 +140,8 @@ async def import_full_state(session: AsyncSession, data: dict) -> dict:
             entity_type=e["entity_type"],
             entity_id=e.get("entity_id"),
             details=e["details"],
-            created_at=datetime.fromisoformat(e["created_at"]) if e.get("created_at") else datetime.utcnow(),
+            created_at=datetime.fromisoformat(e["created_at"]) if e.get("created_at") else datetime.now(UTC),
         ))
     
-    await session.commit()
+    session.commit()
     return {"status": "imported"}

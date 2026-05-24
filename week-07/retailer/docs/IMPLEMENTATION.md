@@ -18,7 +18,7 @@ This document tracks the step-by-step wiring of the Retailer App's API endpoints
 #### Step 1.2: Wire ManufacturerClient
 - Implement PO creation and status polling
 - Add error handling for REST calls
-- Ensure async compatibility
+- Synchronous implementation matching ecosystem standards
 
 #### Step 1.3: Update Models
 - Add SQLAlchemy models for database persistence
@@ -99,8 +99,8 @@ This document tracks the step-by-step wiring of the Retailer App's API endpoints
 
 ### Completed:
 - Basic app scaffold with placeholder endpoints
-- ManufacturerClient with async HTTP calls
-- RetailerService stub methods
+- ManufacturerClient with synchronous HTTP calls
+- RetailerService implementation with synchronous DB sessions
 - Pydantic models for data structures
 - **SQLAlchemy database models** for CustomerOrderDB, InventoryItemDB, PurchaseOrderDB, EventLogDB, SimStateDB
 - **Enhanced RetailerService** with customer order creation, inventory management, day advancement, and event logging
@@ -109,7 +109,7 @@ This document tracks the step-by-step wiring of the Retailer App's API endpoints
 - **Wired CLI commands** for catalog, customer-orders (create/list), purchase-orders (create), day current/advance
 - **Added catalog and inventory API endpoints**
 - **Fixed Pydantic imports** (BaseSettings moved to pydantic-settings)
-- **Added aiosqlite dependency** for async SQLite support
+- **Synchronized database layer** to match Manufacturer/Provider architectural patterns
 - **Updated READMEs** for provider and retailer apps to include virtual environment setup
 - **Configured uv package management** with proper virtual environment usage
 - **Tested app creation and CLI functionality** - all working ✅
