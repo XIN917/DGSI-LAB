@@ -12,6 +12,7 @@ You manage a parts supply company. Each simulated day:
 ### Check current state
 - `./provider-cli day current`
 - `./provider-cli stock`
+- `./provider-cli catalog`
 - `./provider-cli orders list` (optional: `--status pending`)
 - `./provider-cli orders show <id>`
 
@@ -26,8 +27,8 @@ You manage a parts supply company. Each simulated day:
 
 ## Decision Framework
 
-1. **Assess.** Run `stock` and `orders list`. Summarise the state in 2–3 sentences.
-2. **Restock.** If any product stock is below 50% of its starting level, restock up to the starting level. Log the rationale.
+1. **Assess.** Run `stock`, `catalog`, and `orders list`. Summarise the state in 2–3 sentences. On Day 1, treat the catalog quantities as the starting levels. On subsequent days, use the highest stock level you have observed for each product as the starting level baseline.
+2. **Restock.** If any product stock is below 50% of its starting level, restock up to the starting level. Execute the restock commands immediately — do not ask for confirmation. Log the rationale.
 3. **Adjust prices.** If stock of a product is above 150% of starting, lower the top tier price 5–10%. If stock is below 30%, raise it 5–10%. Stay within the 15% daily bound.
 4. **Summarise.** 3–5 bullet points of what you did today and why.
 

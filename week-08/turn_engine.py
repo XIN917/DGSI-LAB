@@ -96,7 +96,7 @@ def prefetch_state(role, cwd):
     commands = {
         "manufacturer": ["stock", "sales orders", "production status", "capacity", "price list", "purchase list", "suppliers list"],
         "retailer":     ["stock", "customers orders", "purchase list", "price list"],
-        "provider":     ["stock", "orders list", "catalog"],
+        "provider":     ["catalog", "stock", "orders list"],
     }
     lines = []
     for cmd in commands.get(role, []):
