@@ -1,0 +1,18 @@
+graph TD
+    TE["Turn Engine\nturn_engine.py"]
+
+    subgraph "Supply Chain"
+        P["Provider\n:8001\nSQLite provider.db"]
+        M["Manufacturer\n:8002\nSQLite simulation.db"]
+        R["Retailer\n:8003\nSQLite retailer.db"]
+    end
+
+    TE -->|"POST /api/day/advance\nGET /api/catalog"| R
+    TE -->|"POST /api/day/advance\npre-fetch CLI state"| M
+    TE -->|"POST /api/day/advance"| P
+
+    R -->|"POST /api/orders (wholesale)\nGET /api/catalog"| M
+    M -->|"POST /api/orders\nGET /api/catalog"| P
+
+    TE -->|"inject customer orders\nPOST /api/customer-orders"| R
+    TE -->|"claude --print ...\nmanufacturer agent"| M

@@ -1,6 +1,10 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import AnyUrl
 from pydantic import ConfigDict
+
+_DATA_DIR = Path(__file__).parent.parent.parent / "data"
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class RetailerSettings(BaseSettings):
@@ -8,7 +12,7 @@ class RetailerSettings(BaseSettings):
 
     name: str = "PrinterWorld"
     port: int = 8003
-    database_url: str = "sqlite+aiosqlite:///data/retailer.db"
+    database_url: str = f"sqlite+aiosqlite:///{_DATA_DIR / 'retailer.db'}"
     manufacturer_url: AnyUrl = "http://localhost:8002"
     manufacturer_username: str = "admin"
     manufacturer_password: str = "admin123"

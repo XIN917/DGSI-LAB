@@ -1,138 +1,177 @@
-# DGSI Week 7: Retailer Service Implementation and Full Integration Report
+# DGSI Week 7: Retailer Service, Turn Engine, and AI Agent Orchestration
 
-- **Author:** David Morais, Zixin Zhang, Zhipeng Lin and Zhehan Xiang
-- **Date:** May 21, 2026
+- **Authors:** David Morais, Zixin Zhang, Zhipeng Lin, Zhehan Xiang
+- **Date:** May 24, 2026
 - **Repository:** [https://github.com/XIN917/DGSI-LAB](https://github.com/XIN917/DGSI-LAB)
-- **Subject:** Retailer Development and Supply Chain Integration (Provider <-> Manufacturer <-> Retailer)
 
 ---
 
-## 1. Executive Summary
+## 1. Architecture
 
-This week focused on three primary deliverables: the ground-up implementation of the new Retailer service, the end-to-end integration of the complete three-tier supply chain, and the introduction of automated orchestration via a Turn Engine and AI agents. We have successfully connected the Parts Provider, the 3D Printer Manufacturer, and the newly built Retailer into a functional ecosystem. The system now supports a complete, automated lifecycle: from simulated consumer demand to agent-driven production and raw material procurement.
+Three decoupled FastAPI services communicate exclusively via REST. No shared databases. No cross-service Python imports.
 
+![Architecture](docs/architecture.png)
 
-## 2. Technical Stack & Service Map
+**Service roles:**
 
-| Service | Port | Primary Tech | Role |
-| :--- | :--- | :--- | :--- |
-| **Provider** | 8001 | FastAPI, SQLAlchemy | Raw Material Supply |
-| **Manufacturer** | 8002 | FastAPI, SQLAlchemy, Typer | Production & Wholesale |
-| **Retailer** | 8003 | FastAPI, Async SQLAlchemy, Typer | Consumer Sales & PO Management |
-| **Orchestration**| - | Python, Claude Code | Turn Engine & AI Agents |
+| Service | Port | Week 7 status |
+|---|---|---|
+| Provider | 8001 | Stub — no agent |
+| Manufacturer | 8002 | AI agent (Claude Haiku) |
+| Retailer | 8003 | New service — stub agent |
+| Turn Engine | — | Orchestrator script |
 
-### **Supply Chain Flow Diagram**
-![Supply Chain Flow](./docs/sequenceDiagram.png)
+**Per-day sequence:**
 
-## 3. New Retailer Service Implementation
+![Sequence Diagram](docs/sequenceDiagram.png)
 
-The Retailer service was developed as a modern REST-capable application to manage consumer-facing operations.
+---
 
-### **Architectural Highlights:**
-- **FastAPI Framework:** Exposes REST endpoints for catalog sync, order management, and simulation control.
-- **Async SQLAlchemy:** Implements a non-blocking database layer for high-concurrency simulation.
-- **Retailer CLI:** A dedicated entry point (`retailer-cli`) for administrative tasks like initialization, inventory checks, and manual price setting.
-- **Manufacturer REST Client:** A specialized client for secure communication and PO synchronization with the Manufacturer tier.
+## 2. Turn Engine Design
 
-### **Advanced Business Logic:**
-- **15% Minimum Markup Enforcement:** Logic that automatically rejects retail prices failing to meet the mandatory 15% margin over wholesale costs.
-- **Backorder Management:** Automated fulfillment system that scans and fulfills pending customer orders immediately upon receiving new stock.
-- **Identity Awareness:** The Retailer now transmits its unique identity (e.g., "PrinterWorld") during procurement to ensure the Manufacturer can track inbound sales orders accurately.
+The turn engine (`turn_engine.py`) drives one simulated day per invocation cycle. The per-day sequence is:
 
-## 4. Automation & Orchestration (Week 7 POC)
+1. **Read scenario signal** — demand modifier and active events for this day
+2. **Inject customer orders** — stochastic Gaussian demand posted to the Retailer
+3. **Retailer agent** (stub this week)
+4. **Manufacturer agent** — Claude Haiku via `claude --print`
+5. **Provider agent** (stub this week)
+6. **Advance all services** — `POST /api/day/advance` to all three in lock-step
 
-The integrated ecosystem ensures a seamless flow of data and goods across three independent services, orchestrated by a central **Turn Engine**.
+**Why this order?** Demand must arrive at the Retailer before the Manufacturer acts, so the Manufacturer can see any new sales orders placed upstream. Providers are called last because their role is purely reactive to Manufacturer purchase orders already placed in the same turn. Day advancement happens at the very end so all agents operate on the same day number.
 
-### **Turn-Based Orchestration Logic:**
-To maintain synchronization, the Turn Engine follows a strict **Downstream-to-Upstream** decision order:
-1.  **Demand Injection**: Generates consumer orders for the Retailer based on scenario signals.
-2.  **Retailer Turn**: The Retailer agent decides how many printers to buy from the Manufacturer.
-3.  **Manufacturer Turn**: The Manufacturer agent decides which orders to produce and how many parts to buy.
-4.  **Provider Turn**: The Provider processes shipments.
-5.  **Synchronization**: The engine sends a synchronized `day advance` signal to all services in lock-step.
+**Pre-fetch optimisation.** Before invoking the agent, the turn engine runs all read-only CLI commands (`stock`, `sales orders`, `capacity`, `production status`, `price list`, `purchase list`, `suppliers list`) and injects their output into the prompt. The agent skips assessment reads and goes straight to decisions. Execution time dropped from ~70 s to ~25 s per turn.
 
-### **AI Agent Integration (Claude Code):**
-The system uses **Claude Code** to play operational roles. The Turn Engine invokes agents via `claude --print [prompt]`, passing them a skill file (decision framework) and the current simulation context.
+**Prompt notes injection.** Runtime guardrails are appended to the prompt rather than modifying the professor-provided skill file. Two active notes:
+- Day 1 guard: price freeze until utilisation history exists
+- Supplier name reminder: use exact names from pre-fetched `suppliers list`, never guess
 
-## 5. Developer Experience & Scripting
+---
 
-To simplify the management of a distributed ecosystem, we introduced an automation suite:
+## 3. The Skill File
 
-- **`scripts/setup_envs.sh`:** A "one-command" setup script that creates virtual environments and installs all dependencies using `uv` or `pip`.
-- **`scripts/start_all.sh`:** Manages background processes and redirects output to a unified `logs/` directory.
-- **`turn_engine.py`:** The central conductor for multi-day, agent-driven simulations.
-- **`scripts/test_scenario.sh`:** A deterministic validation script for quick health checks.
+```markdown
+# Skill: Manufacturer Manager
 
-## 6. Automated Integration Test Results
+## Your Role
 
-The following output demonstrates a complete, automated execution of the supply chain integration (Retailer Backorder -> Manufacturer PO -> Synchronized Day Advance).
+You manage the production of a 3D printer factory. Each simulated day you:
+1. Review incoming orders from retailers
+2. Check inventory of parts and finished printers
+3. Release sales orders to production when materials allow
+4. Order parts from suppliers when stock runs low
+5. Adjust wholesale prices based on demand vs capacity
 
-```text
-=== 1. INITIALIZING DATABASES ===
-Provider data seeded successfully.
-Manufacturer database seeded.
-✅ Database initialized successfully
+## Available Commands
 
-=== 2. RETAILER: CREATING CUSTOMER DEMAND ===
-Created customer order ID 1 for 10 x P3D-Classic
-Created purchase order ID 1 with manufacturer order 1: 10 x P3D-Classic (pending)
+### Check current state
+- `./manufacturer-cli day current`
+- `./manufacturer-cli stock`
+- `./manufacturer-cli sales orders`
+- `./manufacturer-cli sales order <id>`
+- `./manufacturer-cli production status`
+- `./manufacturer-cli capacity`
 
-=== 3. MANUFACTURER: RELEASING TO PRODUCTION ===
-Releasing Manufacturer Order #0001
-Order #0001 released to production.
+### Purchasing
+- `./manufacturer-cli suppliers list`
+- `./manufacturer-cli suppliers catalog <supplier_name>`
+- `./manufacturer-cli purchase list`
+- `./manufacturer-cli purchase create --supplier <name> --product <id> --qty <n>`
 
-=== 4. SIMULATING 3 DAYS OF PROGRESS ===
---- Advancing Day 1 ---
-Advanced to day 1
-Advanced from day 1 to 2
-Advanced to day 1
-...
---- Advancing Day 3 ---
-Advanced to day 3
-Advanced from day 3 to 4
-Advanced to day 3
+### Production
+- `./manufacturer-cli production release <order_id>`
 
-=== 5. FINAL VERIFICATION ===
-Manufacturer Order Status:
-ID   | SKU          | RETAILER        | QTY    | STATUS       | PRODUCED
-0001 | P3D-Classic  | PrinterWorld    |   10.0 | delivered    |   10.0
+### Pricing
+- `./manufacturer-cli price list`
+- `./manufacturer-cli price set <model> <price>`
 
-Retailer Inventory:
-Inventory:
-  P3D-Classic: on hand 5, reserved 10, retail $1500.0
+## DO NOT
+- Do NOT call `day advance`. The turn engine does that.
+- Do NOT release more orders than daily capacity allows.
+- Do NOT order parts that will arrive after the orders needing them are overdue if a faster supplier exists.
+
+## Decision Framework
+
+Each day, in order:
+
+1. **Assess.** Run `stock`, `sales orders`, `capacity`, `production status`. Summarise in 2–3 sentences before deciding anything.
+2. **Fulfill what you can.** For each pending sales order, if parts are in stock and production capacity is available, release it. Prioritise oldest orders.
+3. **Order what you need.** For each part where stock is below two days of expected consumption, consult `suppliers catalog` for each supplier and place a purchase order with the best option. Justify your supplier choice in one sentence.
+4. **Adjust prices.** If orders exceed capacity by more than 50% for 2+ days, raise wholesale prices by 5–10%. If utilisation is below 40% for 2+ days, lower them by 5–10%. Never set a price below the minimum floor: P3D-Classic €163, P3D-Pro €246 (material cost + 15% margin).
+5. **Log your reasoning.** Before each mutation, print a one-line explanation: "releasing order 17 because P3D-Classic stock=8 and all parts available".
+
+## Market Signals
+
+You may receive market signal information in your prompt. Interpret it:
+- `demand_modifier > 1.5`: high-demand period. Build inventory ahead, consider raising prices.
+- `supply_modifier < 0.7`: constrained supply. Place purchase orders earlier and larger.
+- No signal / modifier ≈ 1.0: business as usual.
+
+## When Done
+
+Print a summary of what you did today and why, in 3–5 bullet points. Then exit. Do not advance the day.
 ```
 
-## 7. Bug Fixes & Stability
+**Two design decisions:**
 
-Key technical hurdles resolved during the final integration phase:
-- **Distributed Identity Tracking:** Updated the `ManufacturingOrder` model and REST schemas to store `retailer_name`, enabling midstream tracking of sales orders.
-- **Database Schema Migration:** Patched the Manufacturer's SQLite database to include the new `retailer_name` column without losing historical data.
-- **Claude CLI Refactoring:** Corrected the Turn Engine's subprocess flags to match the latest `claude --print` syntax for non-interactive agent execution.
-- **Package Discovery Fix:** Resolved setuptools discovery errors by explicitly defining package structures in `pyproject.toml` files.
+**Decision 1 — Hardcoded price floors.** The `price list` command does not expose BOM component costs, so the agent cannot calculate a margin floor on its own. We hardcoded minimum wholesale prices directly in the skill file (P3D-Classic €163, P3D-Pro €246 = material cost + 15%). The alternative was to expose BOM costs via a new CLI command, but that would require modifying the service code. The hardcoded floor is fragile — if BOM costs change, the skill file needs a manual update — but it works for the current scenario.
 
-## 8. Final Status
-
-| Metric | Status | Verification |
-| :--- | :--- | :--- |
-| **Retailer App** | [OK] 100% | Unit & Integration tests passing (13/13) |
-| **Integration Chain** | [OK] 100% | Full handshake verified via `test_scenario.sh` |
-| **Orchestration** | [OK] 100% | Turn Engine implements Downstream-to-Upstream logic |
-| **AI Agents** | [POC] | Claude Code integration verified; pending auth |
-| **Documentation** | [OK] 100% | Updated README, TESTING, and PROJECT MANDATES |
-
-## 9. Useful Commands
-
-| Category | Command |
-| :--- | :--- |
-| **Setup** | `./scripts/setup_envs.sh` |
-| **Execution** | `./scripts/start_all.sh` |
-| **Simulation** | `python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3` |
-| **Health Check** | `./scripts/test_scenario.sh` |
-| **Cleanup** | `pkill -f 'cli serve'` |
-| **Logs** | `tail -f logs/manufacturer.log` |
-| **Database Reset**| `./manufacturer/venv/bin/manufacturer-cli seed` |
-| **Verify AI Auth**| `claude --print "ping"` |
+**Decision 2 — Consecutive-day utilisation rule.** Early drafts checked current-day utilisation only, causing the agent to cut prices on Day 1 with no history. We changed the rule to require 2+ consecutive days below 40% utilisation. The `capacity` CLI command was extended to show a rolling utilisation history (last 3 days) and a consecutive-low count, giving the agent exactly what it needs to apply the rule without doing its own EventLog queries.
 
 ---
-**Setup Command:** `./scripts/setup_envs.sh`
-**Simulation Command:** `python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3`
+
+## 4. Proof-of-Concept Run
+
+**Scenario:** `smoke-test.json` — steady-state demand, modifier 1.0, Gaussian mean 4 orders/day. Retailer is a stub (no purchase orders sent to Manufacturer), so the agent correctly observes zero sales orders throughout.
+
+### Day 1 — Hold everything
+
+> *"No sales orders are pending from retailers. Daily capacity is 250 units; utilization is 0% today. All raw materials exceed the two-day consumption floor. Hold all prices. Day 1 has no capacity history; the 2-day utilization rule requires at least 2 days of data."*
+
+**What it did well:** Correctly applied the Day 1 guard and gave a methodical per-component inventory check with explicit day-of-supply calculations (e.g. "frame_kit: 120 available / 8 needed = 15 days of supply [checked]"). Structured output was clean and easy to audit.
+
+**Where it was shaky:** The component-by-component breakdown (8 items, one line each) was verbose for a zero-action day. A human operator would have written "all components > 10 days supply, no action needed" in one line.
+
+### Day 2 — Count but don't act
+
+> *"No change. Price adjustment rule requires 2+ consecutive days below 40% utilisation. We have 1 day (Day 1) and are tracking for Day 2, but cannot act until the threshold is met."*
+
+**What it did well:** Demonstrated genuine multi-turn memory through the CLI state — it correctly counted "1 day so far" rather than hallucinating history. The reasoning was explicit and traceable.
+
+**Where it was shaky:** The agent noted the retailer stub situation ("Awaiting retailer orders — Week 8 retailer agent"), which it inferred from the prompt context. Correct observation, but it read as padding rather than a decision.
+
+### Day 3 — First price action
+
+> *"Lowered P3D-Classic price from €1200 to €1140 (5% reduction) due to 2 consecutive days of 0% utilization (well below 40% threshold). P3D-Pro price unchanged at €246 — already at material cost floor; cannot lower further."*
+
+**What it did well:** Applied the 2-consecutive-day rule correctly. Recognised the P3D-Pro floor constraint without a Day 3 reminder — it inferred from the skill file that no further cut was possible.
+
+**Where it was shaky:** The 5% cut is the minimum of the allowed 5–10% band. With 0% utilisation (not merely below 40%) a more aggressive agent might argue for a steeper cut. The agent consistently chose the conservative end, which is safe but may slow inventory correction in a real supply-chain scenario.
+
+---
+
+## 5. Vibe-Coding Notes
+
+### Claude Code (building the software)
+
+**Did well:**
+- Rapidly scaffolded the full Retailer service (FastAPI, Async SQLAlchemy, Typer CLI, business rules) from a spec in one pass.
+- Diagnosed and fixed the SQLite inode bug: deleting DB files while services are running leaves server processes on the old inode, so the API and CLI silently read/write different files. A non-obvious distributed systems issue that would have taken significant manual debugging.
+- Correct on `--dangerously-skip-permissions` and `stdin=DEVNULL` for subprocess agent invocation — easy to miss and hard to debug when wrong.
+
+**Did poorly:**
+- Generated overly verbose boilerplate (multi-paragraph docstrings, redundant comments) requiring cleanup.
+- Initially placed the retailer DB at a relative path, silently creating a second DB file at the wrong location rather than raising an error.
+- Required several correction rounds before accepting that the skill file was professor-provided and must not be modified — kept proposing skill-file edits until explicitly told to use prompt injection instead.
+
+### The Manufacturer Agent (executing the role)
+
+**Did well:**
+- Respected `DO NOT advance day` consistently across all runs — never called `day advance`.
+- Applied multi-turn state correctly: counted consecutive utilisation days from the pre-fetched `capacity` output rather than hallucinating history.
+- Self-imposed the price floor on P3D-Pro on Day 3 without an explicit per-day reminder — generalised the floor rule from the skill file.
+
+**Did poorly:**
+- Always chose the conservative end of the 5–10% price band regardless of severity. No gradient reasoning applied.
+- Verbose per-component inventory checks on zero-action days added noise without insight.
+- On early runs (before prompt notes injection), invented supplier names not present in `suppliers list`, causing CLI errors. The agent did not self-correct by re-reading the available supplier names from its own pre-fetched state.

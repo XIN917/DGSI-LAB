@@ -17,6 +17,7 @@
     "P3D-Pro": {
       "name": "P3D Pro",
       "assembly_time_days": 2,
+      "wholesale_price": 246.0,
       "bom": {
         "frame_kit_pro": {"qty": 1},
         "pcb_control": {"qty": 1, "pcb_ref": "CTRL-V3"},

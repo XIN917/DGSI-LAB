@@ -24,30 +24,30 @@ sequenceDiagram
     end
 
     rect rgb(235, 245, 255)
-        Note over TE,MA: PHASE 2: Retailer Decisions (Downstream)
-        TE->>RA: Invoke AI Agent (Claude Code)
+        Note over TE,MA: PHASE 2: Retailer Decisions (Stub — Week 8)
+        TE->>RA: Invoke Stub (no agent configured)
         activate RA
-        RA->>RA: Analyze Stock & Pricing
-        RA->>MA: POST /api/orders (Restock printers)
-        Note right of MA: Order saved as 'pending'
+        Note right of RA: No action taken
         deactivate RA
     end
 
     rect rgb(235, 255, 235)
-        Note over TE,PA: PHASE 3: Manufacturer Decisions (Midstream)
-        TE->>MA: Invoke AI Agent (Claude Code)
+        Note over TE,PA: PHASE 3: Manufacturer Decisions (AI Agent — Week 7)
+        TE->>MA: Invoke AI Agent (Claude Haiku)
         activate MA
-        MA->>MA: Plan Production & Review BOM
-        MA->>PA: POST /api/orders (Purchase parts)
+        MA->>MA: Assess stock, orders & capacity
+        MA->>MA: Release pending sales orders to production
+        MA->>PA: POST /api/orders (Purchase parts if below 2-day threshold)
+        MA->>MA: Adjust wholesale prices based on utilisation
         Note right of PA: Lead time tracking begins
         deactivate MA
     end
 
     rect rgb(255, 245, 235)
-        Note over TE,PA: PHASE 4: Provider Processing (Upstream)
-        TE->>PA: Invoke Stub / Agent
+        Note over TE,PA: PHASE 4: Provider Processing (Stub — Week 7)
+        TE->>PA: Invoke Stub (no agent configured)
         activate PA
-        PA->>PA: Process Shipments &<br/>Update Wholesale Pricing
+        Note right of PA: No action taken
         deactivate PA
     end
 

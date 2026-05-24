@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Turn engine: orchestrates one simulated day across all apps."""
 import argparse
-import shlex
 import subprocess
 import json
 import random
@@ -9,12 +8,24 @@ import sys
 from pathlib import Path
 import time
 
-# Try to import httpx, if not available, we will suggest installing it
 try:
     import httpx
 except ImportError:
-    print("Error: 'httpx' library not found. Please install it with 'pip install httpx'.")
+    print("Error: 'httpx' not found. Run: pip install httpx")
     sys.exit(1)
+
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich import box
+    from rich.text import Text
+    from rich.markdown import Markdown
+except ImportError:
+    print("Error: 'rich' not found. Run: pip install rich")
+    sys.exit(1)
+
+console = Console()
 
 def load_config(path):
     return json.loads(Path(path).read_text())
@@ -28,110 +39,145 @@ def todays_signal(day, scenario):
         if event["start_day"] <= day <= event["end_day"]:
             signal["events"].append(event)
             signal["demand_modifier"] = event.get("demand_modifier", 1.0)
-    
     signal.setdefault("demand_modifier", 1.0)
     signal["base_demand"] = scenario.get("base_demand", {"mean": 5, "variance": 2})
     return signal
 
 def generate_customer_orders(retailer_url, signal):
-    print(f"Generating customer orders for {retailer_url}...")
     try:
         response = httpx.get(f"{retailer_url}/api/catalog")
         catalog = response.json()
     except Exception as e:
-        print(f"Error fetching catalog: {e}")
+        console.print(f"  [red]✗ Could not fetch catalog: {e}[/red]")
         return
 
-    # Deterministic generator from Part 1
     base = signal.get("base_demand", {"mean": 5, "variance": 2})
     modifier = signal.get("demand_modifier", 1.0)
-    
+    total = 0
+
     for item in catalog:
         model = item["sku"]
         price = item["retail_price"]
-        # Use wholesale_price as base_price for demand curve, or a default
         base_price = item.get("wholesale_price", 0)
         if base_price <= 0:
             base_price = price / 1.3
-        
         mean_orders = base["mean"] * modifier
-        # Higher prices -> less demand
         target_price = base_price * 1.3
         price_factor = max(0.2, 1.0 - (price - target_price) / target_price)
         adjusted_mean = mean_orders * price_factor
         n = max(0, int(random.gauss(adjusted_mean, base["variance"])))
-        
         if n > 0:
-            print(f"  Placing {n} orders for {model}")
+            total += n
+            console.print(f"  [cyan]{model}[/cyan]  [white]{n} orders[/white]")
             for _ in range(n):
                 try:
                     httpx.post(f"{retailer_url}/api/orders",
                                json={"customer": "auto", "model": model, "quantity": 1})
                 except Exception as e:
-                    print(f"  Error placing order: {e}")
+                    console.print(f"  [red]✗ Order error: {e}[/red]")
+
+    if total == 0:
+        console.print("  [dim]No orders generated[/dim]")
+
+def prefetch_state(role, cwd):
+    """Run read-only CLI commands and return combined output."""
+    cli = f"./{role}-cli"
+    commands = {
+        "manufacturer": ["stock", "sales orders", "production status", "capacity", "price list", "purchase list", "suppliers list"],
+        "retailer":     ["inventory", "customer-orders list", "purchase-orders list", "catalog"],
+        "provider":     ["stock", "orders list", "catalog"],
+    }
+    lines = []
+    for cmd in commands.get(role, []):
+        try:
+            result = subprocess.run(
+                f"{cli} {cmd}", shell=True, capture_output=True, text=True, cwd=cwd, timeout=10
+            )
+            out = result.stdout.strip() or result.stderr.strip()
+            lines.append(f"### {cli} {cmd}\n{out}")
+        except Exception as e:
+            lines.append(f"### {cli} {cmd}\nerror: {e}")
+    return "\n\n".join(lines)
 
 def run_agent_or_stub(role, skill_path, context, cwd, verbose=False):
-    """Phase 1: stub. Phase 2: call claude --print."""
+    role_label = role.upper()
+
     if skill_path is None:
-        print(f"[stub] {role} would make decisions here")
+        console.print(f"  [dim]{role_label}  stub — no skill configured[/dim]")
         return
-    
+
     abs_skill_path = Path(skill_path).absolute()
     if not abs_skill_path.exists():
-        print(f"[{role}] Warning: skill file not found at {abs_skill_path}")
-        print(f"[stub] {role} would make decisions here")
+        console.print(f"  [yellow]{role_label}  stub — skill not found: {skill_path}[/yellow]")
         return
-    
-    if verbose:
-        print(f"Running agent for {role} using skill file {abs_skill_path}...")
-        print("  (This typically takes 1-2 minutes. Please wait...)")
-    else:
-        print(f"Running agent for {role}...")
-    prompt = f"""
-You are the {role} agent for this simulation.
-Skill file path: {abs_skill_path}
-Today's context: {context}
-Execute your daily decisions following the skill's decision framework.
-Do NOT advance the day - the turn engine does that.
-"""
+
+    state = prefetch_state(role, cwd)
+    day_val = json.loads(context).get("day", 0)
+
+    notes = []
+    if role == "manufacturer":
+        if day_val == 1:
+            notes.append(
+                "NOTE: This is Day 1. The capacity history has no previous days. "
+                "Do NOT adjust prices today — the 2-day utilisation rule requires at least 2 days of history. Hold all prices."
+            )
+        notes.append(
+            "NOTE: Supplier names are pre-fetched below under '### ./manufacturer-cli suppliers list'. "
+            "Use those exact names when calling 'purchase create --supplier <name>'. Do not guess."
+        )
+
+    notes_block = ("\n\n" + "\n".join(notes)) if notes else ""
+
+    prompt = (
+        f"Read {abs_skill_path} and make today's decisions.\n"
+        f"Today's context: {context}{notes_block}\n\n"
+        f"Current state (already fetched — skip all read commands, go straight to decisions):\n{state}"
+    )
     start_time = time.time()
+
     try:
-        day_val = json.loads(context).get("day", 0)
-        # Week 7 uses Claude Code with --print flag
-        command = [
-            "claude",
-            "--print",
-            prompt
-        ]
-        if verbose:
-            safe_command = " ".join(shlex.quote(p) for p in command)
-            print(f"  Claude command: {safe_command}")
-        
+        import os
+        env = os.environ.copy()
+        env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + env.get("PATH", "")
+
+        cmd = (
+            "claude --print --dangerously-skip-permissions "
+            "--allowedTools Bash "
+            "--model claude-haiku-4-5-20251001 "
+            + json.dumps(prompt)
+        )
+
+        stdout_lines = []
+
+        console.print(f"  [bold blue]{role_label}[/bold blue] [dim]thinking...[/dim]")
         process = subprocess.Popen(
-            command,
+            cmd,
+            shell=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             cwd=cwd,
+            env=env,
             bufsize=1
         )
-
-        stdout_lines = []
-        # Use simple prefix to distinguish agent output
-        print(f"\n--- {role.upper()} AGENT START ---")
         while True:
             line = process.stdout.readline()
             if not line and process.poll() is not None:
                 break
             if line:
-                print(line, end="", flush=True)
                 stdout_lines.append(line)
-        print(f"--- {role.upper()} AGENT END ---\n")
 
         return_code = process.wait()
         stdout_content = "".join(stdout_lines)
         duration = time.time() - start_time
-        print(f"  Done! Execution took {duration:.1f}s")
+
+        console.print(Panel(
+            Markdown(stdout_content.strip()),
+            title=f"[bold blue]{role_label} AGENT[/bold blue]  [dim]{duration:.0f}s[/dim]",
+            border_style="blue",
+            padding=(1, 2),
+        ))
 
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
@@ -139,58 +185,59 @@ Do NOT advance the day - the turn engine does that.
         log_file.write_text(stdout_content)
 
         if return_code != 0:
-            print(f"[{role}] Claude exited with return code {return_code}")
+            console.print(f"  [red]✗ Claude exited with code {return_code}[/red]")
         else:
-            print(f"[{role}] Agent execution complete. Log saved to {log_file}")
-    except subprocess.TimeoutExpired as e:
-        print(f"[{role}] Error: Agent execution timed out after 180s")
-        stdout_content = "".join(stdout_lines)
-        if stdout_content:
-            print(stdout_content)
+            console.print(f"  [dim]Log → {log_file}[/dim]")
+
     except Exception as e:
-        print(f"[{role}] Error: {e}")
+        console.print(f"  [red]✗ {role_label} error: {e}[/red]")
+
 def advance_all(urls):
-    print("Advancing all apps to the next day...")
+    console.print("\n[bold]Advancing all services...[/bold]")
     for url in urls:
         try:
             httpx.post(f"{url}/api/day/advance")
-            print(f"  {url} advanced.")
+            console.print(f"  [green]✓[/green] {url}")
         except Exception as e:
-            print(f"  Error advancing {url}: {e}")
+            console.print(f"  [red]✗[/red] {url}: {e}")
 
 def run_day(day, config, scenario, verbose=False):
     signal = todays_signal(day, scenario)
-    if verbose:
-        print(f"\n{'='*60}\n DAY {day} signal={signal}\n{'='*60}")
-    else:
-        print(f"\n--- DAY {day} ---")
-    
-    # 1. Generate customer orders
+
+    modifier = signal.get("demand_modifier", 1.0)
+    events = signal.get("events", [])
+    event_desc = events[0].get("description", events[0]["name"]) if events else "No active events"
+    modifier_color = "green" if modifier >= 1.0 else "yellow"
+
+    console.print()
+    console.rule(f"[bold white] DAY {day} [/bold white]", style="bright_blue")
+    console.print(f"  [dim]Event:[/dim] {event_desc}   "
+                  f"[dim]Demand:[/dim] [{modifier_color}]x{modifier}[/{modifier_color}]")
+    console.print()
+
+    console.print("[bold]Customer demand[/bold]")
     for retailer in config["retailers"]:
         generate_customer_orders(retailer["url"], signal)
-    
-    # 2. Run agents/stubs
-    # Retailers first (downstream)
+
+    console.print()
+    console.print("[bold]Agent decisions[/bold]")
     for retailer in config["retailers"]:
-        run_agent_or_stub("retailer", retailer.get("skill"), 
+        run_agent_or_stub("retailer", retailer.get("skill"),
                          json.dumps(signal), retailer["path"], verbose=verbose)
-    
-    # Manufacturer
-    run_agent_or_stub("manufacturer", 
-                     config["manufacturer"].get("skill"), 
-                     json.dumps(signal), 
+
+    run_agent_or_stub("manufacturer",
+                     config["manufacturer"].get("skill"),
+                     json.dumps(signal),
                      config["manufacturer"]["path"],
                      verbose=verbose)
-    
-    # Providers
+
     for provider in config["providers"]:
-        run_agent_or_stub("provider", provider.get("skill"), 
+        run_agent_or_stub("provider", provider.get("skill"),
                          json.dumps(signal), provider["path"], verbose=verbose)
-    
-    # 3. Advance all
-    urls = [r["url"] for r in config["retailers"]] + \
-           [config["manufacturer"]["url"]] + \
-           [p["url"] for p in config["providers"]]
+
+    urls = ([r["url"] for r in config["retailers"]] +
+            [config["manufacturer"]["url"]] +
+            [p["url"] for p in config["providers"]])
     advance_all(urls)
 
 def parse_args():
@@ -207,8 +254,18 @@ if __name__ == "__main__":
     config = load_config(args.config_json)
     scenario = load_scenario(args.scenario_json)
 
-    # Start simulation from current day across apps
-    # For Week 7 POC, we just run for N days
+    console.print(Panel(
+        f"[bold]Config:[/bold] {args.config_json}   "
+        f"[bold]Scenario:[/bold] {args.scenario_json}   "
+        f"[bold]Days:[/bold] {args.days}",
+        title="[bold cyan] DGSI Turn Engine [/bold cyan]",
+        border_style="cyan",
+    ))
+
     for day in range(1, args.days + 1):
         run_day(day, config, scenario, verbose=args.verbose)
-        time.sleep(1) # Brief pause between days
+        time.sleep(1)
+
+    console.print()
+    console.rule("[bold green] Simulation complete [/bold green]", style="green")
+    console.print()
