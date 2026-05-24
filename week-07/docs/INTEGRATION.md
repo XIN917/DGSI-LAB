@@ -54,7 +54,7 @@
 - Synchronized all project documentation (PRD, GEMINI, README, REPORT) for Week 7 submission.
 
 ### 2026-05-14
-- Started integration based on Week 7 PRD and skills.md requirements.
+- Started integration based on Week 7 PRD and `skills/manufacturer-manager.md` requirements.
 - Identified major gaps in Manufacturer wholesale capabilities.
 - Completed full API and logic alignment between Manufacturer and Retailer.
 - Resolved CLI parsing and installation issues.

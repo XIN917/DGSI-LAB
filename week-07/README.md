@@ -40,18 +40,26 @@ The full supply chain lifecycle can be executed using the provided automation sc
     ```bash
     ./scripts/start_all.sh
     ```
-2.  **Turn Engine (Agent Orchestration):**
-    Run the turn-based simulation where agents (via Claude Code) make operational decisions. Replace `<days>` with the number of simulated days you wish to run:
+2.  **Reset all services to Day 0:**
+    ```bash
+    ./scripts/reset_all.sh
+    ```
+3.  **Turn Engine (Agent Orchestration):**
+    Run the turn-based simulation where the manufacturer agent (via Claude Code) makes operational decisions. Retailer and provider run as stubs. Replace `<days>` with the number of simulated days:
     ```bash
     # Run for 3 simulated days
     python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3
+
+    # Run with verbose output
+    python3 turn_engine.py config/sim.json scenarios/smoke-test.json 3 -v
     ```
-3.  **Deterministic Health Check:**
+    Agent logs are saved to `logs/day-NNN-manufacturer.log`.
+4.  **Deterministic Health Check:**
     Run a scripted, no-agent scenario to verify basic plumbing:
     ```bash
     ./scripts/test_scenario.sh
     ```
-4.  **Stop all servers:**
+5.  **Stop all servers:**
     ```bash
     pkill -f 'cli serve'
     ```
