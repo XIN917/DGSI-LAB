@@ -52,7 +52,7 @@ Each day, in order:
 You may receive market signal information in your prompt. Interpret it:
 - `demand_modifier > 1.5`: high-demand period. Build inventory ahead, consider raising prices.
 - `supply_modifier < 0.7`: constrained supply. Place purchase orders earlier and larger.
-- No signal / modifier ≈ 1.0: business as usual.
+- No signal / modifier ~ 1.0: business as usual.
 
 ## When Done
 

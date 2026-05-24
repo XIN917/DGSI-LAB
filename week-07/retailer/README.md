@@ -67,8 +67,8 @@ retailer-cli customer-orders list
 retailer-cli customer-orders create --sku P3D-Classic --quantity 2
 
 # Manage Simulation Day
-retailer-cli day-current
-retailer-cli day-advance
+retailer-cli day current
+retailer-cli day advance
 
 # Update Retail Pricing (Enforces 15% markup)
 retailer-cli pricing P3D-Classic 1600.0

@@ -66,8 +66,11 @@
 ## Known Issues & Future Plans
 - **Claude Authentication (VERIFIED)**: Claude Code integration is verified. Note: If `ANTHROPIC_API_KEY` or `ANTHROPIC_BASE_URL` are set in the environment (e.g., pointing to an external provider like DashScope), the CLI may fail with a 403 error. Unset these variables or ensure they point to Anthropic's native API to use Claude Code correctly.
 - **Cross-Service Visibility**: The "Blind Service" mandate is strictly enforced; agents must only use their respective service's CLI/API.
+- **Retailer Order Intake**: Fixed discrepancy between Turn Engine's JSON-based demand generation and Retailer's original query-param logic.
 
 ## Final Review Plan
-- [x] **Verify AI**: Run a 3-day agent simulation and verify decisions in `logs/`.
-- [ ] **Sync Report**: Ensure `report.md` accurately reflects all core code implementations and Week 7 architecture.
-- [ ] **Audit**: Final check of REST isolation and script functionality.
+- [x] **Verify AI**: Run a 3-day agent simulation and verify decisions in `logs/` (Note: requires valid Claude API credentials).
+- [x] **Sync Report**: Ensure `report.md` accurately reflects all core code implementations and Week 7 architecture.
+- [x] **Audit**: Final check of REST isolation and script functionality.
+- [x] **Retailer CLI**: Verified `retailer/retailer-cli` exists and is compatible with the ecosystem.
+- [x] **API Alignment**: Synchronized `turn_engine.py` with Retailer endpoints and JSON schema (trailing slashes removed for clean responses).

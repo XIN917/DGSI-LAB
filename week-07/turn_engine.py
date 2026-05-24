@@ -71,7 +71,7 @@ def generate_customer_orders(retailer_url, signal):
             console.print(f"  [cyan]{model}[/cyan]  [white]{n} orders[/white]")
             for _ in range(n):
                 try:
-                    httpx.post(f"{retailer_url}/api/orders",
+                    httpx.post(f"{retailer_url}/api/customer-orders",
                                json={"customer": "auto", "model": model, "quantity": 1})
                 except Exception as e:
                     console.print(f"  [red]✗ Order error: {e}[/red]")

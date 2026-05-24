@@ -12,7 +12,7 @@ class RetailerSettings(BaseSettings):
 
     name: str = "PrinterWorld"
     port: int = 8003
-    database_url: str = f"sqlite+aiosqlite:///{_DATA_DIR / 'retailer.db'}"
+    database_url: str = f"sqlite:///{_DATA_DIR / 'retailer.db'}"
     manufacturer_url: AnyUrl = "http://localhost:8002"
     manufacturer_username: str = "admin"
     manufacturer_password: str = "admin123"
