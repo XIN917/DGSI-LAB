@@ -79,7 +79,7 @@ To prevent synchronization drift, all services must:
 ## 5. Agent Skills (Claude Code Integration)
 
 The system uses **Claude Code** to play operational roles.
-- **Skill Files**: Markdown documents (e.g., `docs/skills.md`) that define the agent's role, available commands, and decision framework.
+- **Skill Files**: Markdown documents (e.g., `skills/manufacturer-manager.md`) that define the agent's role, available commands, and decision framework.
 - **Execution**: The Turn Engine calls Claude Code via `subprocess.run(["claude", "--print", "--prompt", ...])` to perform a "no-human-in-the-loop" turn.
 - **Constraints**: Agents are forbidden from advancing the day themselves; they only make operational decisions (ordering stock, releasing production, setting prices).
 
