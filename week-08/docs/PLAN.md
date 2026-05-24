@@ -36,7 +36,7 @@ Provider: `price set <product> <tier> <price>` — CLI uses positional integers 
 
 ### Phase 1 — Wire and fix (blockers before any simulation)
 
-- [ ] Update retailer CLI to match skill file commands (rename/add: `stock`, `customers orders`, `customers order <id>`, `purchase list`, `purchase create <model> <qty>`, `price list`, `price set <model> <price>`)
+- [x] Update retailer CLI to match skill file commands (rename/add: `stock`, `customers orders`, `customers order <id>`, `purchase list`, `purchase create <model> <qty>`, `price list`, `price set <model> <price>`)
 - [x] Wire provider skill in `config/sim.json`: set `"skill": "skills/provider-manager.md"`
 - [x] Wire retailer skill in `config/sim.json`: set `"skill": "skills/retail-manager.md"`
 - [ ] Fix `todays_signal()` in `turn_engine.py`: extract `supply_modifier`, `lead_time_modifier`, `price_sensitivity` (currently only `demand_modifier`)

@@ -14,7 +14,13 @@ from app.core.database import init_db, SessionLocal
 
 app = typer.Typer(help="Retailer Management CLI - Manage customer demand, inventory, and simulation time.")
 day_app = typer.Typer(help="Control the simulated passage of time.")
+customers_app = typer.Typer(help="View customer orders.")
+purchase_app = typer.Typer(help="Manage purchase orders with manufacturer.")
+price_app = typer.Typer(help="View and set retail prices.")
 app.add_typer(day_app, name="day")
+app.add_typer(customers_app, name="customers")
+app.add_typer(purchase_app, name="purchase")
+app.add_typer(price_app, name="price")
 
 
 def get_service():
@@ -43,6 +49,25 @@ def catalog() -> None:
                 f"  {item.sku}: {item.name} - "
                 f"Retail: ${item.retail_price} | "
                 f"Wholesale: ${item.wholesale_price}"
+            )
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+
+
+@app.command()
+def stock() -> None:
+    """Display current finished goods inventory (alias for inventory)."""
+    try:
+        service = get_service()
+        items = service.list_inventory()
+        if not items:
+            typer.echo("No inventory found.")
+            return
+        typer.echo("Inventory:")
+        for item in items:
+            typer.echo(
+                f"  {item.sku}: on hand {item.quantity_on_hand}, "
+                f"reserved {item.quantity_reserved}, retail ${item.retail_price}"
             )
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
@@ -261,6 +286,116 @@ def import_command(file: Path = typer.Argument(..., help="Path to the JSON file 
 def serve(port: int = typer.Option(8003, "--port", "-p", help="Port to run the Retailer REST API on.")):
     """Start the Retailer REST API server."""
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+
+
+# --- customers subcommands ---
+
+@customers_app.command("orders")
+def customers_orders() -> None:
+    """List all customer orders."""
+    try:
+        service = get_service()
+        orders = service.list_customer_orders()
+        if not orders:
+            typer.echo("No customer orders found.")
+            return
+        typer.echo("Customer Orders:")
+        for order in orders:
+            status = getattr(order.status, "value", order.status)
+            typer.echo(
+                f"  ID {order.id}: {order.quantity} x {order.sku} - "
+                f"Status: {status} - ${order.retail_price}"
+            )
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+
+
+@customers_app.command("order")
+def customers_order(order_id: int = typer.Argument(..., help="Customer order ID")) -> None:
+    """Show a specific customer order."""
+    try:
+        service = get_service()
+        orders = service.list_customer_orders()
+        order = next((o for o in orders if o.id == order_id), None)
+        if not order:
+            typer.echo(f"Order {order_id} not found.")
+            raise typer.Exit(1)
+        status = getattr(order.status, "value", order.status)
+        typer.echo(f"Order {order.id}: {order.quantity} x {order.sku} - Status: {status} - ${order.retail_price}")
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+
+
+# --- purchase subcommands ---
+
+@purchase_app.command("list")
+def purchase_list() -> None:
+    """List all purchase orders with manufacturer."""
+    try:
+        service = get_service()
+        orders = service.list_purchase_orders()
+        if not orders:
+            typer.echo("No purchase orders found.")
+            return
+        typer.echo("Purchase Orders:")
+        for order in orders:
+            typer.echo(
+                f"  ID {order.id}: {order.quantity} x {order.sku} - "
+                f"Manufacturer ID: {order.manufacturer_po_id} - Status: {order.status}"
+            )
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+
+
+@purchase_app.command("create")
+def purchase_create(
+    model: str = typer.Argument(..., help="Printer model SKU"),
+    qty: int = typer.Argument(..., help="Quantity to order"),
+) -> None:
+    """Place a purchase order with the manufacturer."""
+    try:
+        service = get_service()
+        result = service.create_purchase_order(model, qty)
+        typer.echo(
+            f"Created purchase order ID {result['id']} with manufacturer order "
+            f"{result['manufacturer_po_id']}: {qty} x {model} ({result['status']})"
+        )
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+
+
+# --- price subcommands ---
+
+@price_app.command("list")
+def price_list() -> None:
+    """List current retail prices for all SKUs."""
+    try:
+        service = get_service()
+        items = service.list_inventory()
+        if not items:
+            typer.echo("No pricing data found.")
+            return
+        typer.echo("Retail Prices:")
+        for item in items:
+            typer.echo(f"  {item.sku}: ${item.retail_price}")
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+
+
+@price_app.command("set")
+def price_set(
+    model: str = typer.Argument(..., help="Printer model SKU"),
+    price: float = typer.Argument(..., help="New retail price"),
+) -> None:
+    """Set retail price for a SKU (must be at least 20% above wholesale)."""
+    try:
+        service = get_service()
+        item = service.set_retail_price(model, price)
+        typer.echo(f"✅ Updated {model} price to ${item.retail_price}")
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}", err=True)
 
 
 if __name__ == "__main__":
