@@ -45,4 +45,37 @@ do
 done
 
 "$ROOT/manufacturer/venv/bin/python" "$ROOT/turn_engine.py" "$ROOT/$CONFIG" "$ROOT/$SCENARIO" "$DAYS"
+
+# Sanity check: each service must have at least one metrics row before we try
+# to plot. Without this, generate_charts.py either crashes with KeyError or
+# silently emits empty charts that look like a successful run.
+WEEK8_ROOT="$ROOT" "$ROOT/manufacturer/venv/bin/python" - <<'PY'
+import os, sqlite3, sys
+from pathlib import Path
+root = Path(os.environ["WEEK8_ROOT"])
+dbs = {
+    "provider": root / "provider" / "data" / "provider.db",
+    "manufacturer": root / "manufacturer" / "data" / "simulation.db",
+    "retailer": root / "retailer" / "data" / "retailer.db",
+}
+empty = []
+for service, p in dbs.items():
+    if not p.exists():
+        empty.append(f"{service} (db file missing: {p})")
+        continue
+    try:
+        con = sqlite3.connect(p)
+        cur = con.execute("SELECT COUNT(*) FROM metrics")
+        n = cur.fetchone()[0]
+        con.close()
+        if n == 0:
+            empty.append(f"{service} (0 metrics rows)")
+    except sqlite3.Error as e:
+        empty.append(f"{service} (sqlite error: {e})")
+if empty:
+    print("ERROR: cannot generate charts — no metrics captured for: " + ", ".join(empty), file=sys.stderr)
+    print("Check logs/day-XXX-engine-error.log for the cause.", file=sys.stderr)
+    sys.exit(2)
+PY
+
 "$ROOT/manufacturer/venv/bin/python" "$ROOT/analysis/generate_charts.py" "$ROOT/$SCENARIO"

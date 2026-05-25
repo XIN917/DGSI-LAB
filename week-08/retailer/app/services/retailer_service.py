@@ -150,13 +150,13 @@ class RetailerService:
                 if item.sku == sku:
                     retail_price = item.retail_price
                     break
-        if inventory and inventory.quantity_on_hand >= quantity:
-            # Fulfill immediately
+        # Atomic reserve: a single UPDATE checks stock and decrements in one shot.
+        # Avoids the TOCTOU race where two concurrent orders both pass a pre-check
+        # before either commits, oversellling the same units.
+        if inventory and await self.reserve_inventory(sku, quantity):
             status = OrderStatus.fulfilled
             fulfilled_day = current_day
-            await self.reserve_inventory(sku, quantity)
         else:
-            # Backorder
             status = OrderStatus.backordered
             fulfilled_day = None
 
@@ -227,17 +227,25 @@ class RetailerService:
                 for item in result.scalars()
             ]
 
-    async def reserve_inventory(self, sku: str, quantity: int) -> None:
+    async def reserve_inventory(self, sku: str, quantity: int) -> bool:
+        """Atomic conditional reserve.
+
+        Performs a single UPDATE guarded by `quantity_on_hand >= quantity`,
+        so concurrent callers cannot oversell the same units. Returns True
+        if the reservation succeeded, False if there was not enough stock.
+        """
         async with self.session_local() as session:
-            await session.execute(
+            result = await session.execute(
                 update(InventoryItemDB)
                 .where(InventoryItemDB.sku == sku)
+                .where(InventoryItemDB.quantity_on_hand >= quantity)
                 .values(
                     quantity_on_hand=InventoryItemDB.quantity_on_hand - quantity,
                     quantity_reserved=InventoryItemDB.quantity_reserved + quantity,
                 )
             )
             await session.commit()
+            return result.rowcount > 0
 
     async def set_retail_price(self, sku: str, price: float) -> InventoryItem:
         if price <= 0:
@@ -312,7 +320,20 @@ class RetailerService:
                 ))
             return catalog
         except Exception as e:
-            # Fallback to hardcoded catalog if manufacturer is unreachable
+            # Fallback to hardcoded catalog if manufacturer is unreachable.
+            # Log it: silently masking a missing upstream corrupts price-sensitive
+            # demand calculations downstream.
+            try:
+                current_day = await self.get_current_day()
+                await self.log_event(
+                    current_day,
+                    "catalog_fallback",
+                    "catalog",
+                    None,
+                    f"Manufacturer catalog unreachable, using hardcoded fallback: {e}",
+                )
+            except Exception:
+                pass  # Don't let logging failure swallow the response
             return [
                 ProductCatalogItem(sku="P3D-Classic", name="Classic 3D Printer", retail_price=1500.0, wholesale_price=1200.0),
                 ProductCatalogItem(sku="P3D-Pro", name="Professional 3D Printer", retail_price=2500.0, wholesale_price=2000.0),
@@ -345,15 +366,12 @@ class RetailerService:
             current_day = await self.get_current_day()
 
             for order in backorders:
-                inventory = await self.get_inventory_item(order.sku)
-                if inventory and inventory.quantity_on_hand >= order.quantity:
-                    # Fulfill it!
-                    await self.reserve_inventory(order.sku, order.quantity)
-                    
-                    # Update order status
+                # Atomic reserve avoids double-fulfilling the same units when two
+                # backorders for the same SKU are processed in the same tick.
+                if await self.reserve_inventory(order.sku, order.quantity):
                     order.status = OrderStatus.fulfilled
                     order.fulfilled_day = current_day
-                    
+
                     await self.log_event(
                         current_day,
                         "customer_order_fulfilled",
@@ -361,7 +379,7 @@ class RetailerService:
                         order.id,
                         f"Backorder fulfilled for {order.quantity} x {order.sku}",
                     )
-            
+
             await session.commit()
 
     async def check_purchase_order_deliveries(self) -> None:
@@ -398,9 +416,17 @@ class RetailerService:
                         po.expected_delivery_day = manufacturer_po.get("expected_delivery_day")
                         
                 except Exception as e:
-                    # Skip if manufacturer is down or PO not found
+                    # Log and skip; without this the PO stays "pending" forever
+                    # and the operator has no signal that sync is failing.
+                    await self.log_event(
+                        current_day,
+                        "purchase_order_sync_failed",
+                        "purchase_order",
+                        po.id,
+                        f"Failed to sync PO {po.id} (manufacturer_po_id={po.manufacturer_po_id}): {e}",
+                    )
                     continue
-            
+
             await session.commit()
 
     async def receive_inventory(self, sku: str, quantity: int, cost: float) -> None:

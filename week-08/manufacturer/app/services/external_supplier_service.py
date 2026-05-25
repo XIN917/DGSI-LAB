@@ -86,7 +86,15 @@ class ExternalSupplierService:
         from datetime import timedelta
         engine = SimulationEngine(self.db)
         current_dt = datetime.combine(engine.current_date, datetime.min.time())
-        
+
+        # Trust the provider's expected_delivery_day: it already reflects the
+        # active lead_time_modifier from the scenario. Recomputing locally
+        # with the base lead_time_days would ignore the modifier and break
+        # production planning under chip-shortage / holiday scenarios.
+        placed_day = int(remote_order.get("placed_day", 0))
+        expected_day = int(remote_order.get("expected_delivery_day", placed_day))
+        lead_days = max(0, expected_day - placed_day)
+
         po = PurchaseOrder(
             supplier_id=supplier.id,
             product_name=product["name"].lower().replace(" ", "_"), # Simplified mapping for now
@@ -94,7 +102,7 @@ class ExternalSupplierService:
             quantity_delivered=Decimal("0"),
             unit_cost=Decimal(str(remote_order["unit_price"])),
             order_date=current_dt,
-            expected_delivery=current_dt + timedelta(days=product["lead_time_days"]),
+            expected_delivery=current_dt + timedelta(days=lead_days),
             status=local_status,
             external_id=remote_order["id"]
         )

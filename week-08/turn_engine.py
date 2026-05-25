@@ -26,31 +26,40 @@ class Engine:
         self.days = days
         self.services = self.config["services"]
         self.client = httpx.Client(timeout=30.0)
+        self._provider_catalog: list[dict] | None = None
         LOG_DIR.mkdir(exist_ok=True)
 
     def run(self) -> None:
         for day in range(1, self.days + 1):
-            signal = signal_for_day(self.scenario, day)
-            self.apply_hard_effects(signal.modifiers)
-            self.generate_customer_demand(day, signal.modifiers)
+            # Per-day error boundary: a transient HTTP failure mid-run should
+            # not kill the whole simulation. Log and continue with the next
+            # day so we still get partial analysis instead of nothing.
+            try:
+                signal = signal_for_day(self.scenario, day)
+                self.apply_hard_effects(signal.modifiers)
+                self.generate_customer_demand(day, signal.modifiers)
 
-            role_results = []
-            for role in ("retail", "manufacturer", "provider"):
-                result = self.run_role(day, role, signal)
-                role_results.append(f"{role}:{result}")
+                role_results = []
+                for role in ("retail", "manufacturer", "provider"):
+                    result = self.run_role(day, role, signal)
+                    role_results.append(f"{role}:{result}")
 
-            for service in ("retailer", "manufacturer", "provider"):
-                self.post(service, "/api/day/advance")
+                for service in ("retailer", "manufacturer", "provider"):
+                    self.post(service, "/api/day/advance", tolerate_errors=True)
 
-            for service in ("retailer", "manufacturer", "provider"):
-                self.post(service, "/api/metrics/snapshot")
+                for service in ("retailer", "manufacturer", "provider"):
+                    self.post(service, "/api/metrics/snapshot", tolerate_errors=True)
 
-            summary = self.daily_summary()
-            print(
-                f"day={day:03d} signal={signal.name} "
-                f"mods={json.dumps(signal.modifiers, sort_keys=True)} "
-                f"roles={','.join(role_results)} summary={summary}"
-            )
+                summary = self.daily_summary()
+                print(
+                    f"day={day:03d} signal={signal.name} "
+                    f"mods={json.dumps(signal.modifiers, sort_keys=True)} "
+                    f"roles={','.join(role_results)} summary={summary}"
+                )
+            except Exception as exc:
+                err_log = LOG_DIR / f"day-{day:03d}-engine-error.log"
+                err_log.write_text(f"day={day} aborted: {exc}\n", encoding="utf-8")
+                print(f"day={day:03d} ENGINE_ERROR={exc} (continuing)", file=sys.stderr)
 
     def apply_hard_effects(self, modifiers: dict[str, float]) -> None:
         self.post(
@@ -154,12 +163,36 @@ class Engine:
         stock = self.get("manufacturer", "/api/inventory", headers=self.auth(token), tolerate_errors=True) or {}
         for item in stock.get("items", []):
             if item.get("unit_type") == "raw" and float(item.get("quantity", 0)) < self.config["fallback"]["manufacturer_raw_threshold"]:
+                provider_product_id = self.provider_product_id_for(item.get("product_name", ""))
+                if provider_product_id is None:
+                    continue  # no matching provider product; skip silently rather than restock the wrong one
                 self.post(
                     "provider",
-                    "/api/stock/restock/1",
+                    f"/api/stock/restock/{provider_product_id}",
                     json={"quantity": int(self.config["fallback"]["manufacturer_restock_quantity"])},
                     tolerate_errors=True,
                 )
+
+    def provider_product_id_for(self, material_name: str) -> int | None:
+        """Map a manufacturer material name (e.g. 'frame_kit') to a provider product_id.
+
+        Caches the provider catalog on first call. Matches by normalized name
+        (lowercased, spaces/underscores collapsed) since the manufacturer and
+        provider name materials slightly differently in seed data.
+        """
+        if not material_name:
+            return None
+        if self._provider_catalog is None:
+            self._provider_catalog = self.get("provider", "/api/catalog/", tolerate_errors=True) or []
+
+        def norm(s: str) -> str:
+            return s.lower().replace(" ", "").replace("_", "").replace("-", "")
+
+        target = norm(material_name)
+        for product in self._provider_catalog:
+            if norm(str(product.get("name", ""))) == target:
+                return int(product["id"])
+        return None
 
     def fallback_provider(self) -> None:
         qty = int(self.config["fallback"]["provider_restock_quantity"])
@@ -177,11 +210,19 @@ class Engine:
             return f"summary_unavailable={exc}"
 
     def manufacturer_token(self) -> str | None:
-        auth = self.config.get("manufacturer_auth", {})
+        # Require explicit credentials in sim.json. Refusing to silently fall
+        # back to demo creds (admin/admin123) prevents the engine from
+        # appearing to work in a misconfigured environment with default seed.
+        auth = self.config.get("manufacturer_auth")
+        if not auth or "username" not in auth or "password" not in auth:
+            raise KeyError(
+                "config['manufacturer_auth'] must define 'username' and 'password'; "
+                "no defaults are accepted to avoid silently using demo credentials."
+            )
         try:
             response = self.client.post(
                 self.services["manufacturer"].rstrip("/") + "/api/auth/login",
-                data={"username": auth.get("username", "admin"), "password": auth.get("password", "admin123")},
+                data={"username": auth["username"], "password": auth["password"]},
             )
             response.raise_for_status()
             return response.json()["access_token"]

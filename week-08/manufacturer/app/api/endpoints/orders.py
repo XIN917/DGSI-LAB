@@ -131,7 +131,7 @@ def release_order(
     )
     db.add(event)
     db.commit()
-    return _serialize(order)
+    return _serialize(order, svc=svc)
 
 
 @router.post("/{order_id}/cancel")
