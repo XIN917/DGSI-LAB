@@ -2,14 +2,14 @@ from datetime import UTC, datetime
 from fastapi import APIRouter
 from sqlalchemy import text, select
 
-from app.core.database import AsyncSessionLocal
+from app.core import database as _db_module
 from app.models.database import CustomerOrderDB, InventoryItemDB, SimStateDB
 
 router = APIRouter()
 
 
 async def _current_day() -> int:
-    async with AsyncSessionLocal() as session:
+    async with _db_module.AsyncSessionLocal() as session:
         result = await session.execute(select(SimStateDB.value).where(SimStateDB.key == "current_day"))
         row = result.first()
         return int(row.value) if row else 0
@@ -51,7 +51,7 @@ async def _insert(session, day: int, metric: str, entity: str, value: float) -> 
 @router.post("/snapshot")
 async def snapshot_metrics():
     day = await _current_day()
-    async with AsyncSessionLocal() as session:
+    async with _db_module.AsyncSessionLocal() as session:
         await _ensure_table(session)
         await session.execute(text("DELETE FROM metrics_snapshots WHERE sim_day = :day"), {"day": day})
 
@@ -79,7 +79,7 @@ async def snapshot_metrics():
 
 @router.get("")
 async def get_metrics():
-    async with AsyncSessionLocal() as session:
+    async with _db_module.AsyncSessionLocal() as session:
         await _ensure_table(session)
         rows = await session.execute(
             text(

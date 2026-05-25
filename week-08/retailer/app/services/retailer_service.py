@@ -2,7 +2,10 @@ from typing import Callable, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from app.core.database import AsyncSessionLocal
+# Import the module (not the name) so that AsyncSessionLocal is resolved at
+# RetailerService construction time. This lets tests override
+# `database.AsyncSessionLocal` to point at a per-test engine.
+from app.core import database as _db_module
 from app.models.database import (
     CustomerOrderDB,
     InventoryItemDB,
@@ -17,9 +20,18 @@ from app.services.manufacturer_client import ManufacturerClient
 
 
 class RetailerService:
-    def __init__(self, session_local: Callable[[], AsyncSession] = AsyncSessionLocal):
+    def __init__(self, session_local: Optional[Callable[[], AsyncSession]] = None):
         self.manufacturer_client = ManufacturerClient()
-        self.session_local = session_local
+        # `session_local` is resolved dynamically via the property below so
+        # that endpoint-module-level `service = RetailerService()` (which runs
+        # only once on first import of app.main) picks up per-test factory
+        # overrides set on `_db_module.AsyncSessionLocal`. Storing the factory
+        # eagerly would freeze it to whichever test ran first.
+        self._session_local_override = session_local
+
+    @property
+    def session_local(self) -> Callable[[], AsyncSession]:
+        return self._session_local_override or _db_module.AsyncSessionLocal
 
     async def get_current_day(self) -> int:
         async with self.session_local() as session:
