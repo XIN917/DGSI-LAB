@@ -38,4 +38,10 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    s = Settings()
+    if not s.SECRET_KEY:
+        raise RuntimeError(
+            "SECRET_KEY env var must be set to a non-empty value; "
+            "JWTs signed with an empty key are trivially forgeable."
+        )
+    return s

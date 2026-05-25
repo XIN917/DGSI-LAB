@@ -61,6 +61,28 @@ def test_consume(db_session, sample_inventory):
     assert float(item.quantity) == 90.0
 
 
+def test_consume_full_reservation(db_session, sample_inventory):
+    """Regression: consume must succeed when the entire on-hand stock is reserved.
+
+    Reproduces the historical bug where `consume()` validated against
+    `available = quantity - reserved`, so a full reservation (reserved == quantity)
+    made available == 0 and blocked the production order forever.
+    """
+    svc = InventoryService(db_session)
+    on_hand = svc.get_by_product("frame_kit").quantity
+    assert svc.reserve("frame_kit", on_hand) is True
+    assert svc.consume("frame_kit", on_hand) is True
+    item = svc.get_by_product("frame_kit")
+    assert item.quantity == Decimal("0")
+    assert item.reserved_quantity == Decimal("0")
+
+
+def test_consume_without_reservation_fails(db_session, sample_inventory):
+    """Consumption requires a prior reservation of at least that quantity."""
+    svc = InventoryService(db_session)
+    assert svc.consume("frame_kit", Decimal("10")) is False
+
+
 def test_adjust_existing(db_session, sample_inventory):
     svc = InventoryService(db_session)
     item = svc.adjust("frame_kit", Decimal("999"))

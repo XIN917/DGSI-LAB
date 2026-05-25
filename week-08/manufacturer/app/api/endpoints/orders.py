@@ -1,4 +1,5 @@
 """Manufacturing Order API endpoints."""
+import json
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -93,7 +94,7 @@ def create_order(
     event = EventLog(
         event_type="order_created_manual",
         event_date=datetime.utcnow(),
-        details=str({
+        details=json.dumps({
             "order_id": order.id,
             "model": body.product_model,
             "quantity": body.quantity,
@@ -121,7 +122,7 @@ def release_order(
     event = EventLog(
         event_type="order_released",
         event_date=datetime.utcnow(),
-        details=str({
+        details=json.dumps({
             "order_id": order_id,
             "model": order.product_model,
             "quantity": float(order.quantity_needed),
@@ -154,7 +155,7 @@ def cancel_order(
     event = EventLog(
         event_type="order_cancelled",
         event_date=datetime.utcnow(),
-        details=str({"order_id": order_id, "user": current_user.username}),
+        details=json.dumps({"order_id": order_id, "user": current_user.username}),
     )
     db.add(event)
     db.commit()

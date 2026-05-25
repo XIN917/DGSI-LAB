@@ -1,4 +1,5 @@
 """Inventory API endpoints."""
+import json
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -88,7 +89,7 @@ def adjust_inventory(
     event = EventLog(
         event_type="inventory_adjustment",
         event_date=datetime.utcnow(),
-        details=str({
+        details=json.dumps({
             "product": body.product_name,
             "old_qty": old_qty,
             "new_qty": body.new_quantity,

@@ -1,4 +1,5 @@
 """Simulation engine for day advancement."""
+import json
 from datetime import datetime, timedelta
 from typing import List, Dict
 import random
@@ -263,7 +264,7 @@ class SimulationEngine:
         event = EventLog(
             event_type="inventory_snapshot",
             event_date=self.current_date,
-            details=str(snapshot)
+            details=json.dumps(snapshot)
         )
         self.db.add(event)
         self.db.commit()

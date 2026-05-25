@@ -8,6 +8,22 @@ A multi-service supply chain simulator consisting of a parts **Provider**, a 3D 
 - **[Manufacturer](./manufacturer/README.md)**: Simulates a 3D printer factory. Manages BOMs, production lines, and wholesale fulfillment.
 - **[Retailer](./retailer/README.md)**: Simulates a consumer store. Manages retail pricing, customer demand, and stock replenishment.
 
+## Configuration & Security
+
+The Manufacturer service refuses to boot without a non-empty `SECRET_KEY`
+(JWT signing key). Create `manufacturer/.env` from `manufacturer/.env.example`:
+
+```bash
+cp manufacturer/.env.example manufacturer/.env
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"  # paste into SECRET_KEY=
+```
+
+> ⚠️ **Secrets policy** — Never commit `.env`, API keys, or tokens. If a
+> credential is ever pushed (even briefly), rotate it on the provider's
+> console immediately; removing it from the working tree does NOT remove
+> it from git history. `.gitignore` already excludes `.env`, `*.db`, and
+> `logs/`.
+
 ## Quick Start (Installation)
 
 To get started, you must set up the virtual environment for each service. From the root directory:

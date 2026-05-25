@@ -33,8 +33,12 @@ def load_json(path: str | Path) -> dict[str, Any]:
 def signal_for_day(scenario: dict[str, Any], day: int) -> ScenarioSignal:
     """Merge all scenario events active on a day.
 
-    Numeric modifiers multiply when multiple events overlap. Missing modifiers
-    default to 1.0 so calm days are neutral.
+    Composition rule for overlapping events: numeric modifiers MULTIPLY
+    (not max/min). Rationale: overlapping pressures should compound — e.g.
+    a holiday peak (demand x1.9) that lands during supplier-congestion
+    (supply x0.65) produces stronger combined pressure than either alone,
+    which is what surfaces the bullwhip dynamic the week-8 spec asks for.
+    Missing modifiers default to 1.0 so calm days remain neutral.
     """
     modifiers = {key: 1.0 for key in NUMERIC_MODIFIERS}
     notes: list[str] = []

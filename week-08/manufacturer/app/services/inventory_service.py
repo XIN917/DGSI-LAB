@@ -44,13 +44,19 @@ class InventoryService:
         return True
 
     def consume(self, product_name: str, quantity: Decimal) -> bool:
-        """Consume materials from inventory."""
+        """Consume previously-reserved materials from inventory.
+
+        Validates against `reserved_quantity` (not `available`) because
+        consumption operates on the reservation made earlier by `reserve()`.
+        Validating against `available` would block consumption whenever the
+        full reservation matches the request — a deadlock for any released
+        production order.
+        """
         inv = self.get_by_product(product_name)
         if not inv:
             return False
 
-        available = inv.quantity - inv.reserved_quantity
-        if available < quantity:
+        if inv.reserved_quantity < quantity or inv.quantity < quantity:
             return False
 
         inv.quantity -= quantity

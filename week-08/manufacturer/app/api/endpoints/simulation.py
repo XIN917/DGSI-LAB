@@ -1,4 +1,5 @@
 """Simulation control API endpoints."""
+import json
 from typing import Dict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -55,7 +56,7 @@ def advance_day(
     event = EventLog(
         event_type="day_advanced",
         event_date=datetime.utcnow(),
-        details=str({
+        details=json.dumps({
             "from_day": result["previous_day"],
             "to_day": result["new_day"],
             "user": current_user.username,

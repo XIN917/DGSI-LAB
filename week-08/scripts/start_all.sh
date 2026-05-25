@@ -5,6 +5,19 @@ PROVIDER_PORT=8001
 MANUFACTURER_PORT=8002
 RETAILER_PORT=8003
 
+# Manufacturer requires SECRET_KEY for JWT signing. Fail fast if missing.
+if [ -z "${SECRET_KEY}" ]; then
+    if [ -f manufacturer/.env ]; then
+        # shellcheck disable=SC1091
+        set -a; . manufacturer/.env; set +a
+    fi
+fi
+if [ -z "${SECRET_KEY}" ]; then
+    echo "❌ SECRET_KEY is not set. Export it or create manufacturer/.env (see manufacturer/.env.example)."
+    exit 1
+fi
+export SECRET_KEY
+
 # Helper to check if a port is in use
 check_port() {
     lsof -i :$1 > /dev/null

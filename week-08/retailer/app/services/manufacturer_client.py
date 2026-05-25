@@ -4,6 +4,10 @@ from typing import Dict, Any, Optional
 from app.core.config import settings
 
 
+class ManufacturerClientError(RuntimeError):
+    """Raised when an upstream Manufacturer API call fails."""
+
+
 class ManufacturerClient:
     VALID_SKUS = {"P3D-Classic", "P3D-Pro"}
 
@@ -57,7 +61,7 @@ class ManufacturerClient:
                     "message": f"Placed manufacturer order #{order.get('id')} for {quantity}x {sku}",
                 }
             except httpx.HTTPError as e:
-                raise Exception(f"Failed to place order with manufacturer: {e}")
+                raise ManufacturerClientError(f"Failed to place order with manufacturer: {e}") from e
 
     async def get_order(self, order_id: int) -> Dict[str, Any]:
         """Get purchase order details from manufacturer."""
@@ -71,7 +75,7 @@ class ManufacturerClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
-                raise Exception(f"Failed to get order from manufacturer: {e}")
+                raise ManufacturerClientError(f"Failed to get order from manufacturer: {e}") from e
 
     async def get_catalog(self) -> Dict[str, Any]:
         """Get product catalog from manufacturer."""
@@ -85,7 +89,7 @@ class ManufacturerClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
-                raise Exception(f"Failed to get catalog from manufacturer: {e}")
+                raise ManufacturerClientError(f"Failed to get catalog from manufacturer: {e}") from e
 
     async def get_current_day(self) -> int:
         """Get current simulation day from manufacturer."""
@@ -100,7 +104,7 @@ class ManufacturerClient:
                 data = response.json()
                 return data.get("current_day", 0)
             except httpx.HTTPError as e:
-                raise Exception(f"Failed to get current day from manufacturer: {e}")
+                raise ManufacturerClientError(f"Failed to get current day from manufacturer: {e}") from e
 
     async def advance_day(self) -> Dict[str, Any]:
         """Advance simulation day in manufacturer."""
@@ -114,4 +118,4 @@ class ManufacturerClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
-                raise Exception(f"Failed to advance day in manufacturer: {e}")
+                raise ManufacturerClientError(f"Failed to advance day in manufacturer: {e}") from e

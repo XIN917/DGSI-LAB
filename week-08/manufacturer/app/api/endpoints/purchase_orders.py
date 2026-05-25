@@ -113,7 +113,7 @@ def create_purchase_order(
     event = EventLog(
         event_type="po_created",
         event_date=datetime.combine(sim_now, datetime.min.time()),
-        details=str({
+        details=json.dumps({
             "supplier": supplier.name,
             "product": body.product_name,
             "quantity": body.quantity,
@@ -146,7 +146,7 @@ def cancel_purchase_order(
     event = EventLog(
         event_type="po_cancelled",
         event_date=datetime.utcnow(),
-        details=str({"po_id": po_id, "user": current_user.username}),
+        details=json.dumps({"po_id": po_id, "user": current_user.username}),
     )
     db.add(event)
     db.commit()
