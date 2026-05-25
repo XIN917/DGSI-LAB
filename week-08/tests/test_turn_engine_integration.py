@@ -337,6 +337,196 @@ def test_apply_hard_effects_forwards_compounded_modifiers(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Edge: Claude binary is missing → engine should fall back, not crash
+# ---------------------------------------------------------------------------
+
+
+def test_run_claude_returns_missing_when_binary_does_not_exist(tmp_path):
+    """A configured `claude_path` that doesn't exist must return
+    'missing' (and the run_role path then triggers fallback). This pins
+    the contract that lets the simulation survive on a CI box without
+    Claude installed."""
+    config = _base_config(tmp_path)
+    config["claude_path"] = "/definitely/does/not/exist/claude"
+    config["fallback_mode"] = "auto"  # try Claude first, then fallback
+    engine = _build_engine(tmp_path, config, _calm_scenario(), days=1)
+
+    class _Sig:
+        name = "test"
+        modifiers = {"demand_modifier": 1.0}
+
+    assert engine.run_claude(day=1, role="retail", signal=_Sig()) == "missing"
+
+
+# ---------------------------------------------------------------------------
+# Edge: manufacturer auth fails → token() returns None, auth() returns {}
+# ---------------------------------------------------------------------------
+
+
+def test_manufacturer_token_returns_none_when_login_endpoint_fails(tmp_path):
+    def manufacturer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/auth/login":
+            return httpx.Response(401, json={"detail": "invalid credentials"})
+        return httpx.Response(404)
+
+    mocks = _MockServices(manufacturer_handler=manufacturer)
+    engine = _build_engine(tmp_path, _base_config(tmp_path), _calm_scenario(), days=1)
+    engine.client = httpx.Client(transport=mocks.transport(), timeout=5.0)
+
+    assert engine.manufacturer_token() is None
+    # auth() with a None token must produce an empty headers dict, not crash
+    assert engine.auth(None) == {}
+
+
+# ---------------------------------------------------------------------------
+# Edge: snapshot endpoint 500s on one service — engine continues to next day
+# ---------------------------------------------------------------------------
+
+
+def test_engine_tolerates_snapshot_failure_on_one_service(tmp_path):
+    """`/api/metrics/snapshot` now uses tolerate_errors=True. A 500 from
+    one service must not abort the day or the next day."""
+    snapshot_calls = {"provider": 0, "manufacturer": 0, "retailer": 0}
+
+    def factory(host: str) -> Callable[[httpx.Request], httpx.Response]:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/api/metrics/snapshot":
+                snapshot_calls[host] += 1
+                if host == "manufacturer":
+                    return httpx.Response(500, json={"error": "oops"})
+                return httpx.Response(200, json={"snapshotted": True})
+            if request.url.path == "/api/auth/login":
+                return httpx.Response(200, json={"access_token": "tok"})
+            if request.url.path == "/api/inventory":
+                return httpx.Response(200, json=[] if host == "retailer" else {"items": []})
+            if request.url.path == "/api/customer-orders/":
+                return httpx.Response(200, json=[])
+            if request.url.path == "/api/catalog/":
+                return httpx.Response(200, json=[])
+            if request.url.path == "/api/stock/":
+                return httpx.Response(200, json=[])
+            if request.url.path == "/api/orders":
+                return httpx.Response(200, json=[])
+            return httpx.Response(200, json={"ok": True})
+        return handler
+
+    mocks = _MockServices(factory("provider"), factory("manufacturer"), factory("retailer"))
+    engine = _build_engine(tmp_path, _base_config(tmp_path), _calm_scenario(), days=2)
+    engine.client = httpx.Client(transport=mocks.transport(), timeout=5.0)
+
+    engine.run()  # must NOT raise even though manufacturer 500s
+
+    assert snapshot_calls["provider"] == 2
+    assert snapshot_calls["retailer"] == 2
+    # Manufacturer was called both days even though it 500'd both times
+    assert snapshot_calls["manufacturer"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Edge: nothing below threshold — fallback makes zero restock calls
+# ---------------------------------------------------------------------------
+
+
+def test_fallback_makes_no_restock_calls_when_everything_above_threshold(tmp_path):
+    """Healthy inventory across the board: the engine must not issue any
+    spurious /restock calls. This pins that the threshold checks are
+    actually used."""
+    restock_calls: list[str] = []
+
+    def provider(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/api/stock/restock/"):
+            restock_calls.append(request.url.path)
+        if request.url.path == "/api/catalog/":
+            return httpx.Response(200, json=[])
+        if request.url.path == "/api/stock/":
+            return httpx.Response(
+                200, json=[{"product_id": 1, "quantity": 9999}]
+            )
+        return httpx.Response(200, json={"ok": True})
+
+    def manufacturer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/auth/login":
+            return httpx.Response(200, json={"access_token": "tok"})
+        if request.url.path == "/api/orders":
+            return httpx.Response(200, json=[])
+        if request.url.path == "/api/inventory":
+            return httpx.Response(
+                200,
+                json={"items": [{"product_name": "pcb_control", "unit_type": "raw", "quantity": 9999}]},
+            )
+        return httpx.Response(200, json={"ok": True})
+
+    def retailer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/inventory":
+            return httpx.Response(
+                200,
+                json=[{"sku": "P3D-Classic", "quantity_on_hand": 9999, "retail_price": 1500.0}],
+            )
+        if request.url.path == "/api/customer-orders/":
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, json={"ok": True})
+
+    mocks = _MockServices(provider, manufacturer, retailer)
+    engine = _build_engine(tmp_path, _base_config(tmp_path), _calm_scenario(), days=1)
+    engine.client = httpx.Client(transport=mocks.transport(), timeout=5.0)
+
+    engine.run()
+    assert restock_calls == []
+
+
+# ---------------------------------------------------------------------------
+# Edge: scenario with zero days outside any event still produces baseline
+# ---------------------------------------------------------------------------
+
+
+def test_engine_runs_baseline_day_outside_any_scenario_event(tmp_path):
+    """Day 50 with scenarios only declared up to day 5: engine must
+    still send modifiers={1,1,1,1} to the provider, not skip the call."""
+    received: list[dict] = []
+
+    def provider(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/scenario/effects":
+            received.append(json.loads(request.content))
+        if request.url.path == "/api/catalog/":
+            return httpx.Response(200, json=[])
+        if request.url.path == "/api/stock/":
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, json={"ok": True})
+
+    def manufacturer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/auth/login":
+            return httpx.Response(200, json={"access_token": "tok"})
+        return httpx.Response(200, json={"items": []} if "inventory" in request.url.path else [])
+
+    def retailer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/inventory":
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, json={"ok": True})
+
+    scenario = {
+        "events": [
+            {"start_day": 1, "end_day": 5, "demand_modifier": 5.0, "supply_modifier": 0.2}
+        ]
+    }
+    # We jump directly to day 50 by constructing the engine and calling
+    # apply_hard_effects rather than running 50 days.
+    from scenario_utils import signal_for_day
+
+    services = _MockServices(provider, manufacturer, retailer)
+    engine = _build_engine(tmp_path, _base_config(tmp_path), scenario, days=1)
+    engine.client = httpx.Client(transport=services.transport(), timeout=5.0)
+
+    engine.apply_hard_effects(signal_for_day(scenario, day=50).modifiers)
+
+    assert received == [{"lead_time_modifier": 1.0, "supply_modifier": 1.0}]
+
+
+# ---------------------------------------------------------------------------
+# Original test
+# ---------------------------------------------------------------------------
+
+
 def test_each_day_advances_then_snapshots_all_three_services(tmp_path):
     services_called: list[tuple[str, str]] = []
 
