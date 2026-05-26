@@ -607,7 +607,7 @@ services:
       - ./data:/app/data  # Persist SQLite database
     environment:
       - SECRET_KEY=${SECRET_KEY:-$(openssl rand -hex 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32)}
-      - DATABASE_URL=sqlite:///app/data/simulation.db
+      - DATABASE_URL=sqlite:///app/data/manufacturer.db
       - SEED_SAMPLE_DATA=true
     restart: unless-stopped
 
@@ -630,7 +630,7 @@ echo "Starting 3D Printer Production Simulator..."
 mkdir -p /app/data
 
 # Initialize database if it doesn't exist
-if [ ! -f /app/data/simulation.db ]; then
+if [ ! -f /app/data/manufacturer.db ]; then
     echo "Initializing database..."
     python -c "
 from app.core.database import engine, Base

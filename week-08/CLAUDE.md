@@ -4,7 +4,7 @@
 
 An autonomous multi-agent supply chain simulation. Three services (Provider, Manufacturer, Retailer) each run by an LLM agent. A turn engine orchestrates them through simulated days. Scenarios inject market pressure. The goal is emergent coordination — agents share no memory and never talk directly; the only shared state is the world in their databases.
 
-Full spec: `docs/PRD.md` | Implementation tasks: `docs/PLAN.md`
+Full spec: `docs/PRD.md` | Tasks: `docs/PLAN.md` | Requirements: `docs/REQUIREMENTS.md`
 
 ---
 
@@ -21,23 +21,31 @@ week-08/
 ├── skills/            # Agent skill files (one per role)
 ├── scripts/           # Setup, start, reset scripts
 ├── logs/              # Per-turn agent logs (git-ignored)
+├── tests/             # Project-level integration and logic tests
 └── docs/
     ├── PRD.md         # Product spec
-    └── PLAN.md        # Task list and current state
+    ├── PLAN.md        # Task list and current state
+    ├── REQUIREMENTS.md # Consolidated project requirements
+    ├── ANALYSIS.md     # Visualization and interpretation guide
+    └── DELIVERY.md     # Final submission checklist
 ```
 
 Each service has its own virtualenv at `<service>/venv/`.
 
 ---
 
-## How to Run
-
-See `README.md` for setup, start, simulate, and reset instructions.
+## How to Run & Test
+See **`README.md`** for detailed instructions on:
+- Setting up environments
+- Starting/Stopping services
+- Running simulations (`turn_engine.py`)
+- Generating charts (`visualize.py`)
+- Running project-level tests (`pytest tests/`)
 
 ---
 
 ## Services and CLIs
-
+...
 ### Provider (:8001) — `provider/venv/bin/provider-cli`
 ```
 provider-cli day current
@@ -98,11 +106,19 @@ Skill files live in `skills/`. They define each agent's role, available commands
 `turn_engine.py` drives the simulation. Each day:
 1. Reads scenario signal for the day (`todays_signal()`)
 2. Generates customer demand at retailer
-3. Runs agents: retailer → manufacturer → provider
-4. Calls `POST /api/day/advance` on each service
-5. Saves output to `logs/day-NNN-[role].log`
+3. Prefetches manufacturer + provider state in parallel while retailer agent runs
+4. Runs retailer agent, then manufacturer + provider agents in parallel
+5. Calls `POST /api/day/advance` on each service
+6. Saves all three agents' output to `logs/day-NNN.log` (one file per day)
+7. Prints global inventory snapshot table (all three services)
+8. Appends KPI row to `logs/run.csv`
+9. At end of run: prints summary table and writes `logs/{scenario}-summary.log`
 
-All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers. Day-end summary line is printed after each turn.
+All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers.
+
+Agent turn limits: retailer 5, manufacturer 4, provider 3. Default output is compact; pass `-v` for full agent reasoning.
+
+**Known gotcha:** `manufacturer/providers.json` must exist and point to the provider service URL. It is tracked in git. All databases are named consistently as `<service>.db` (e.g., `manufacturer/data/manufacturer.db`).
 
 ---
 
@@ -113,6 +129,17 @@ All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `le
 - **Overlapping scenario events multiply modifiers** (not last-wins). This is intentional — it produces the bullwhip effect.
 - Price floors: P3D-Classic €163, P3D-Pro €246 (manufacturer minimum).
 - One simulation run should complete in ≤ 30 minutes wall clock.
+
+---
+
+## Simulation Philosophy (From Week8.pdf)
+
+**The goal is not a clean run. The goal is a readable run.**
+
+What Can Go Wrong (and what to do about it):
+- **Agent mistakes:** An agent making a bad call and cascading into a crisis. **Do not rewind** — watch what happens.
+- **Ambiguities:** A skill ambiguity revealing itself mid-run. Note it, let the run finish, and fix the skill for the next run.
+- **Timeouts:** Stuck agents (timeouts). Log them, move on. A system that survives one flaky agent is more interesting than a perfect one.
 
 ---
 
@@ -133,6 +160,6 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 
 - Phase 1 (wiring + fixes) — **complete**
 - Phase 2 (metrics tables) — **complete**
-- Phase 3 (testing) — manufacturer ✓, retailer ✓, provider fix applied (retest pending), full run not yet done
-- Phase 4 (analysis) — not started
+- Phase 3 (testing & visualization) — **complete** (visualize.py implemented; 15-day calm-market run verified: 80.3% fill rate)
+- Phase 4 (analysis) — **in progress** (holiday-rush 25-day run and final report pending)
 - Phase 5 (final deliverables) — not started

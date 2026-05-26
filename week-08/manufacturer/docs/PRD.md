@@ -973,7 +973,7 @@ services:
       - ./data:/app/data  # Persist SQLite database
     environment:
       - SECRET_KEY=${SECRET_KEY:-$(openssl rand -hex 32)}
-      - DATABASE_URL=sqlite:///data/simulation.db
+      - DATABASE_URL=sqlite:///data/manufacturer.db
 ```
 
 **entrypoint.sh:**
@@ -982,7 +982,7 @@ services:
 set -e
 
 # Initialize database if not exists
-if [ ! -f /app/data/simulation.db ]; then
+if [ ! -f /app/data/manufacturer.db ]; then
     mkdir -p /app/data
     python -m app.core.database_init
 fi
@@ -1016,7 +1016,7 @@ docker compose up --build
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `SECRET_KEY` | Yes* | Random | Cryptographic secret |
-| `DATABASE_URL` | Yes* | sqlite:///data/simulation.db | Database connection |
+| `DATABASE_URL` | Yes* | sqlite:///data/manufacturer.db | Database connection |
 | `SIMULATION_START_DATE` | No | 2026-04-01 | Initial simulation date |
 | `DEFAULT_CAPACITY_PER_DAY` | No | 250 | Production capacity |
 

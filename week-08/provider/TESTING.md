@@ -8,7 +8,7 @@ To start from a clean state, run the following commands:
 
 ```bash
 # Delete existing databases and re-seed
-rm manufacturer/app/data/simulation.db provider/app/data/provider.db
+rm manufacturer/data/manufacturer.db provider/data/provider.db
 manufacturer/manufacturer-cli seed
 provider/provider-cli seed
 ```

@@ -5,7 +5,7 @@ echo "Starting 3D Printer Production Simulator..."
 
 mkdir -p /app/data
 
-if [ ! -f /app/data/simulation.db ]; then
+if [ ! -f /app/data/manufacturer.db ]; then
     echo "Initializing database..."
     PYTHONPATH=. python3 -c "
 from app.core.database import engine, Base

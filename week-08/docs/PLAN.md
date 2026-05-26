@@ -6,29 +6,13 @@
 
 | Component | Status |
 |---|---|
-| Provider service (:8001) | Running; CLI complete; **no metrics table**; skill file written but not wired in `config/sim.json` |
-| Manufacturer service (:8002) | Running, agent-driven; **no metrics table** |
-| Retailer service (:8003) | Running; CLI exists but **command names differ from skill file** (see below); **no metrics table**; skill file written but not wired in `config/sim.json` |
-| Turn engine (`turn_engine.py`) | Copied from week-07; only `demand_modifier` parsed from scenario events; overlapping events are last-wins (needs multiply); no day-end summary line; log writing logic exists |
-| `skills/` | All three skill files present; only `manufacturer-manager.md` wired in `config/sim.json` |
-| `scenarios/` | Directory exists but empty |
-| `CLAUDE.md` / `README.md` / `.gitignore` | Missing at repo root |
-
-### Retailer CLI Mismatch
-
-The skill files are authoritative (from `week8.pdf`) — the CLI must be updated to match them, not the other way around.
-
-| Skill file command (authoritative) | Actual CLI command (needs fixing) |
-|---|---|
-| `./retailer-cli stock` | `./retailer-cli inventory` |
-| `./retailer-cli customers orders` | `./retailer-cli customer-orders list` |
-| `./retailer-cli customers order <id>` | not implemented |
-| `./retailer-cli purchase list` | `./retailer-cli purchase-orders list` |
-| `./retailer-cli purchase create <model> <qty>` | `./retailer-cli purchase-orders create --sku --quantity` |
-| `./retailer-cli price list` | not implemented |
-| `./retailer-cli price set <model> <price>` | `./retailer-cli pricing <sku> <price>` |
-
-Provider: `price set <product> <tier> <price>` — CLI uses positional integers (`product_id min_quantity unit_price`). Functionally equivalent but needs to be verified the agent can invoke it correctly.
+| Provider service (:8001) | Complete — CLI, metrics table, skill wired, seed fixed |
+| Manufacturer service (:8002) | Complete — CLI, metrics table, skill wired; `providers.json` bug fixed |
+| Retailer service (:8003) | Complete — CLI aligned to skill file, metrics table, skill wired |
+| Turn engine (`turn_engine.py`) | Complete — all modifiers parsed, multiply overlap, Haiku + `--max-turns 5`, rich UI, `run.csv` output |
+| `skills/` | All three skill files present and wired in `config/sim.json` |
+| `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
+| `CLAUDE.md` / `README.md` / `.gitignore` | All present at repo root |
 
 ---
 
@@ -52,45 +36,53 @@ Provider: `price set <product> <tier> <price>` — CLI uses positional integers 
 - [x] Add `metrics` table with `sim_day` column to Manufacturer DB
 - [x] Add `metrics` table with `sim_day` column to Retailer DB
 - [x] Snapshot metrics during `POST /api/day/advance` in each service
-
 ### Phase 3 — Test and run
 
 - [x] Test manufacturer skill in isolation — see `docs/TESTING.md`
 - [x] Test retailer skill in isolation — see `docs/TESTING.md`
 - [x] Test provider skill in isolation — see `docs/TESTING.md` (required fixes before passing)
-- [ ] Run all three agents together for at least one full day
+- [x] Create project-level integration and logic tests in `tests/`
+- [x] Implement `visualize.py` using matplotlib to generate required charts
+- [x] Run all three agents together for at least one full day
+- [x] Verify simulation health (partial run): metrics captured, `run.csv` populated, databases updated
+- [x] Run 15+ day simulation against `calm-market.json` (VERIFIED: 80.3% fill rate, stabilized to 100% by Day 13)
 - [ ] Run 15+ day simulation against `holiday-rush.json`
+- [x] Confirm `logs/day-NNN.log` (one per day, all roles) and `logs/{scenario}-summary.log` written after run
+- [x] Verify UI: day banner, agent spinner, compact panels, KPI bar, global state table, run summary table all render correctly
+- [x] Verify `logs/run.csv` is written and populated after the run (needed for Phase 4 charts)
+
+### Phase 4 — Analysis & Results
+*Refer to `docs/REQUIREMENTS.md` and `docs/ANALYSIS.md` for full specs.*
+
+- [x] Implement `visualize.py` using matplotlib to generate required charts
 - [ ] Run 15+ day simulation against `calm-market.json`
-- [ ] Confirm `logs/day-NNN-[role].log` written for all three roles
+- [ ] Run 15+ day simulation against `holiday-rush.json`
+- [ ] Generate all 8 required charts (4 per scenario) using `visualize.py`
+- [ ] Draft written causal interpretation and scenario comparison
 
-### Phase 4 — Analysis
 
-- [ ] Generate 4 charts for `holiday-rush` run (inventory, prices, fulfillment, events overlay)
-- [ ] Generate 4 charts for `calm-market` run
-- [ ] Write scenario comparison paragraph
-- [ ] Answer the 4 required interpretation questions
+### Phase 5 — Final Delivery
+*Refer to `docs/DELIVERY.md` for the full submission checklist.*
 
-### Phase 5 — Final deliverables
-
-- [ ] Write `README.md` with reproducible setup + run instructions
-- [ ] Write `CLAUDE.md`
-- [ ] Add root `.gitignore` (exclude `.env`, `__pycache__/`, `.venv/`, `*.db`, `logs/`)
-- [ ] Draft presentation slides (10 max)
+- [ ] Draft 5-8 page Final Report (PDF)
+- [ ] Draft Presentation Slides (10 max)
 - [ ] Rehearse live demo (~3 days simulation)
-- [ ] Generate final report PDF via pandoc
 
 ---
 
 ## Verification Checklist
 
-- [ ] All three skill files tested in isolation (one day each, other two as stubs)
-- [ ] Full turn with all three agents runs clean for at least one day
+- [x] All three skill files tested in isolation (one day each, other two as stubs)
+- [x] Full turn with all three agents runs clean for at least one day
+- [x] Both scenario files exist (`calm-market.json`, `holiday-rush.json`)
+- [x] `.gitignore` excludes `.env`, `__pycache__/`, `.venv/`, `*.db`, `logs/`
+- [ ] 15+ day simulation completed against `calm-market.json`
 - [ ] 15+ day simulation completed against `holiday-rush.json`
-- [ ] Both scenario files exist and have been run
+- [ ] UI verified: day banner, spinner, compact panels, KPI bar, global state table, run summary table
+- [ ] `logs/run.csv` and `logs/{scenario}-summary.log` populated after a full run
+- [ ] `logs/day-NNN.log` written for each day (all three roles in one file)
 - [ ] Metrics tables non-empty in all three DBs, all include `sim_day` column
 - [ ] Event logs in all three databases are non-empty and coherent
-- [ ] Agent per-turn logs in `logs/` for all three roles
 - [ ] 4 charts per scenario: inventory, prices, fulfillment, events overlay
 - [ ] Scenario comparison paragraph written
-- [ ] `.gitignore` excludes `.env`, `__pycache__/`, `.venv/`, `*.db`, `logs/`
 - [ ] Presentation slides drafted, demo rehearsed

@@ -264,15 +264,15 @@ class SimulationEngine:
         parts_stock = {i.product_name: float(i.quantity) for i in inv_items}
 
         for product in products:
-            finished_inv = next((i for i in inv_items if i.product_name == product.model_name), None)
+            finished_inv = next((i for i in inv_items if i.product_name == product.id), None)
             finished_stock = int(finished_inv.quantity) if finished_inv else 0
 
             pending = self.db.query(ManufacturingOrder).filter(
-                ManufacturingOrder.product_model_id == product.id,
+                ManufacturingOrder.product_model == product.id,
                 ManufacturingOrder.status.in_(["pending", "released"])
             ).count()
             completed = self.db.query(ManufacturingOrder).filter(
-                ManufacturingOrder.product_model_id == product.id,
+                ManufacturingOrder.product_model == product.id,
                 ManufacturingOrder.status == "completed"
             ).count()
 
@@ -282,9 +282,9 @@ class SimulationEngine:
 
             self.db.add(ManufacturerMetrics(
                 sim_day=sim_day,
-                model_name=product.model_name,
+                model_name=product.id,
                 finished_stock=finished_stock,
-                wholesale_price=float(product.base_price) if product.base_price else None,
+                wholesale_price=float(product.wholesale_price) if product.wholesale_price else None,
                 sales_orders_pending=pending,
                 sales_orders_completed=completed,
                 production_utilisation=utilisation,

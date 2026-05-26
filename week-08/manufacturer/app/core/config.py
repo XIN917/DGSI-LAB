@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
 
     # Database
-    DATABASE_URL: str = "sqlite:///./data/simulation.db"
+    DATABASE_URL: str = "sqlite:///./data/manufacturer.db"
 
     # Simulation defaults
     DEFAULT_CAPACITY_PER_DAY: int = 250
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Seed data
     SEED_SAMPLE_DATA: bool = True
 
-    PROVIDERS_JSON_PATH: str = str(Path(__file__).parent.parent.parent / "data" / "providers.json")
+    PROVIDERS_JSON_PATH: str = str(Path(__file__).parent.parent.parent / "providers.json")
 
     class Config:
         env_file = ".env"
