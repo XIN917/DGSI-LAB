@@ -52,10 +52,16 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
   color: var(--fg-secondary) !important;
 }
 
-/* Specific text elements - removed !important from global to allow specific overrides */
-.stMarkdown, .stText, p, li, span, label {
+/* Specific text elements - keep spans out so Streamlit icon ligatures keep their font. */
+.stMarkdown, .stText, p, li, label {
   font-family: 'Fira Sans', sans-serif !important;
   color: var(--fg-secondary);
+}
+
+span[class*="material-symbols"],
+span[class*="MaterialIcons"],
+span[data-testid*="stIconMaterial"] {
+  font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
 }
 
 /* ── App background ── */
@@ -199,9 +205,27 @@ input, textarea {
   border-radius: var(--r-md) !important;
   background: var(--bg-card) !important;
 }
-.stExpander summary {
+.stExpander details,
+.stExpander details[open],
+.stExpander summary,
+[data-testid="stExpander"] details,
+[data-testid="stExpander"] details[open],
+[data-testid="stExpander"] summary {
+  background: var(--bg-card) !important;
+}
+.stExpander summary,
+[data-testid="stExpander"] summary {
   color: var(--fg-primary) !important;
   font-size: 13px !important;
+  border-radius: var(--r-md) var(--r-md) 0 0 !important;
+}
+.stExpander summary:hover,
+[data-testid="stExpander"] summary:hover {
+  background: #263347 !important;
+}
+.stExpander [data-testid="stExpanderDetails"],
+[data-testid="stExpanderDetails"] {
+  background: var(--bg-card) !important;
 }
 
 /* ── Alert / info ── */
