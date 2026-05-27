@@ -6,6 +6,7 @@ import subprocess
 import json
 import os
 import random
+import shutil
 import sys
 from pathlib import Path
 import time
@@ -31,6 +32,26 @@ except ImportError:
     sys.exit(1)
 
 console = Console()
+
+COMPACT_ROLE_CONTRACTS = {
+    "provider": """Role: Provider parts supplier.
+Hard rules: never call day advance; never change any tier price by more than 15% in one day; do not let a product hit zero when orders are pending.
+Use prefetched stock/orders as your assessment. Restock any product below 50% of its observed baseline back toward baseline. Raise prices 5-10% when stock is below 30%; lower top-tier prices 5-10% when stock is above 150%.
+Commands: ./provider-cli restock <product> <quantity>; ./provider-cli price set <product> <tier> <price>.""",
+    "manufacturer": """Role: Manufacturer 3D printer factory.
+Hard rules: never call day advance; do not exceed daily capacity; release oldest producible sales orders first; buy bottleneck parts when stock is below about two days of expected consumption. Price floors: P3D-Classic EUR 163, P3D-Pro EUR 246.
+Use prefetched stock, sales orders, capacity, and supplier names as your assessment. If a release fails, buy the missing part instead of repeatedly retrying the same blocked release.
+Commands: ./manufacturer-cli production release <order_id>; ./manufacturer-cli purchase create --supplier <name> --product <id> --qty <n>; ./manufacturer-cli price set <model> <price>.""",
+    "retailer": """Role: Retailer selling finished printers.
+Hard rules: never call day advance; fulfill customer orders from stock where possible; mark insufficient-stock orders as backordered; reorder printers when stock is below roughly three days of recent demand.
+Use prefetched stock, customer orders, purchase orders, and prices as your assessment. Raise retail prices about 5% when stock is tight; lower about 5% when inventory is piling up.
+Commands: ./retailer-cli fulfill <order_id>; ./retailer-cli backorder <order_id>; ./retailer-cli purchase create <model> <qty>; ./retailer-cli price set <model> <price>.""",
+}
+
+ACTIVE_ROW_KEYWORDS = (
+    "pending", "backorder", "backordered", "open", "created", "confirmed",
+    "processing", "released", "blocked", "failed", "insufficient", "overdue",
+)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +81,71 @@ def todays_signal(day, scenario):
                 signal["price_sensitivity"] = "high"
     signal["base_demand"] = scenario.get("base_demand", {"mean": 5, "variance": 2})
     return signal
+
+def parse_retailer_inventory(items):
+    """Return SKU -> on-hand quantity from retailer API inventory payloads."""
+    inventory = {}
+    for item in items:
+        sku = item.get("sku")
+        qty = item.get("quantity_on_hand", item.get("quantity"))
+        if sku is not None and qty is not None:
+            inventory[sku] = qty
+    return inventory
+
+def parse_manufacturer_stock_output(output):
+    """Return product -> quantity from the manufacturer CLI stock table."""
+    inventory = {}
+    for line in output.splitlines():
+        if "|" in line:
+            cells = [cell.strip() for cell in line.split("|")]
+            if len(cells) < 3 or cells[0].upper() == "TYPE":
+                continue
+            product, qty_text = cells[1], cells[2]
+        else:
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            product, qty_text = parts[0], parts[-1]
+
+        try:
+            qty = float(qty_text.replace(",", ""))
+        except ValueError:
+            continue
+        inventory[product] = int(qty) if qty.is_integer() else qty
+    return inventory
+
+def compact_cli_output(output, max_lines=18):
+    """Keep CLI prefetch text bounded while preserving headers and active rows."""
+    lines = [line.rstrip() for line in output.splitlines() if line.strip()]
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+
+    header = lines[:4]
+    active = [
+        line for line in lines[4:]
+        if any(keyword in line.lower() for keyword in ACTIVE_ROW_KEYWORDS)
+    ]
+    tail = lines[-6:]
+
+    selected = []
+    seen = set()
+    for line in header + active + tail:
+        if line not in seen:
+            selected.append(line)
+            seen.add(line)
+        if len(selected) >= max_lines:
+            break
+
+    omitted = len(lines) - len(selected)
+    if omitted > 0:
+        selected.append(f"... ({omitted} older/less relevant rows omitted)")
+    return "\n".join(selected)
+
+def role_contract(role, skill_path=None, full_skill_prompt=False):
+    """Return full skill text for debugging or compact role contract for normal runs."""
+    if full_skill_prompt and skill_path:
+        return Path(skill_path).absolute().read_text()
+    return COMPACT_ROLE_CONTRACTS.get(role, "")
 
 # ── Customer demand ───────────────────────────────────────────────────────────
 
@@ -102,13 +188,13 @@ def generate_customer_orders(retailer_url, signal):
 
 # ── Prefetch ──────────────────────────────────────────────────────────────────
 
-def prefetch_state(role, cwd):
+def prefetch_state(role, cwd, compact=True):
     """Run read-only CLI commands in parallel and return combined output."""
     cli = f"./{role}-cli"
     commands = {
-        "manufacturer": ["stock", "sales orders", "production status", "capacity", "suppliers list", "purchase list"],
+        "manufacturer": ["stock", "sales orders", "capacity", "suppliers list"],
         "retailer":     ["stock", "customers orders", "purchase list", "price list"],
-        "provider":     ["stock", "orders list"],
+        "provider":     ["stock", "orders list --status pending"],
     }
 
     def run_cmd(cmd):
@@ -117,6 +203,8 @@ def prefetch_state(role, cwd):
                 f"{cli} {cmd}", shell=True, capture_output=True, text=True, cwd=cwd, timeout=10
             )
             out = result.stdout.strip() or result.stderr.strip()
+            if compact:
+                out = compact_cli_output(out)
             return cmd, f"### {cli} {cmd}\n{out}"
         except Exception as e:
             return cmd, f"### {cli} {cmd}\nerror: {e}"
@@ -130,14 +218,26 @@ def prefetch_state(role, cwd):
 
 # ── Agent runner ──────────────────────────────────────────────────────────────
 
-def run_agent(role, skill_path, context, cwd, verbose=False, day_log=None, spinner=True, prefetched_state=None):
+def run_agent(
+    role,
+    skill_path,
+    context,
+    cwd,
+    verbose=False,
+    day_log=None,
+    spinner=True,
+    prefetched_state=None,
+    model="claude-haiku-4-5-20251001",
+    full_skill_prompt=False,
+):
     role_label = role.upper()
     role_colors = {"retailer": "magenta", "manufacturer": "blue", "provider": "green"}
     color = role_colors.get(role, "white")
-    abs_skill_path = Path(skill_path).absolute()
+    abs_skill_path = Path(skill_path).absolute() if skill_path else None
 
     state = prefetched_state if prefetched_state is not None else prefetch_state(role, cwd)
     day_val = json.loads(context).get("day", 0)
+    skill_content = role_contract(role, abs_skill_path, full_skill_prompt)
 
     notes = []
     if role == "manufacturer":
@@ -154,9 +254,15 @@ def run_agent(role, skill_path, context, cwd, verbose=False, day_log=None, spinn
     notes_block = ("\n\n" + "\n".join(notes)) if notes else ""
 
     prompt = (
-        f"Read {abs_skill_path} and make today's decisions.\n"
+        f"Your role and decision rules:\n{skill_content}\n\n"
         f"Today's context: {context}{notes_block}\n\n"
-        f"Current state (already fetched — skip all read commands, go straight to decisions):\n{state}"
+        f"Current state (already fetched — skip all read commands, go straight to decisions):\n{state}\n\n"
+        "EFFICIENCY RULES:\n"
+        "1. Treat the pre-fetched current state above as the required assessment step from your role rules.\n"
+        "2. Do not run read-only commands (stock, orders, capacity, catalog, price list) unless a mutation fails and you need to diagnose it.\n"
+        "3. Perform related mutation commands (purchase, release, price set, restock, etc.) in as few Bash turns as practical.\n"
+        "4. Final output must be at most 3 bullets and under 120 words. Do not restate the full assessment.\n"
+        "5. After mutations and the short summary, exit."
     )
     start_time = time.time()
 
@@ -164,11 +270,11 @@ def run_agent(role, skill_path, context, cwd, verbose=False, day_log=None, spinn
         env = os.environ.copy()
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + env.get("PATH", "")
 
-        max_turns = {"retailer": 7, "manufacturer": 8, "provider": 5}.get(role, 6)
+        max_turns = {"retailer": 4, "manufacturer": 6, "provider": 4}.get(role, 4)
         cmd = [
             "claude", "--print", "--dangerously-skip-permissions",
             "--allowedTools", "Bash",
-            "--model", "claude-haiku-4-5-20251001",
+            "--model", model,
             "--max-turns", str(max_turns),
             prompt,
         ]
@@ -270,8 +376,7 @@ def fetch_global_state(config):
         retailer_url = config["retailers"][0]["url"]
         r = httpx.get(f"{retailer_url}/api/inventory", timeout=5)
         if r.status_code == 200:
-            for item in r.json():
-                state["retailer"][item["sku"]] = item["quantity"]
+            state["retailer"].update(parse_retailer_inventory(r.json()))
     except Exception:
         pass
 
@@ -282,11 +387,7 @@ def fetch_global_state(config):
             "./manufacturer-cli stock", shell=True, capture_output=True, text=True,
             cwd=mfr_path, timeout=10
         )
-        # Parse lines like "P3D-Classic    8"
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[-1].isdigit():
-                state["manufacturer"][parts[0]] = int(parts[-1])
+        state["manufacturer"].update(parse_manufacturer_stock_output(result.stdout))
     except Exception:
         pass
 
@@ -445,11 +546,21 @@ def print_day_banner(day, total_days, signal, scenario_name):
 
 # ── Main day runner ───────────────────────────────────────────────────────────
 
-def run_day(day, total_days, config, scenario, scenario_name, verbose=False):
+def run_day(
+    day,
+    total_days,
+    config,
+    scenario,
+    scenario_name,
+    verbose=False,
+    output_dir=None,
+    model="claude-haiku-4-5-20251001",
+    full_skill_prompt=False,
+):
     signal = todays_signal(day, scenario)
-
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
+    
+    log_dir = output_dir if output_dir else Path("logs")
+    log_dir.mkdir(exist_ok=True, parents=True)
     day_log = log_dir / f"day-{day:03d}.log"
     day_log.write_text(f"=== DAY {day} | scenario: {scenario_name} ===\n\n")
 
@@ -459,30 +570,49 @@ def run_day(day, total_days, config, scenario, scenario_name, verbose=False):
     for retailer in config["retailers"]:
         generate_customer_orders(retailer["url"], signal)
 
+    if day == 1:
+        # Seed a random Day 0 purchase order so manufacturer has something to process on Day 1
+        retailer_cfg = config["retailers"][0]
+        classic_qty = random.randint(5, 15)
+        pro_qty = random.randint(3, 10)
+        for model_sku, qty in [("P3D-Classic", classic_qty), ("P3D-Pro", pro_qty)]:
+            subprocess.run(
+                f"./retailer-cli purchase create {model_sku} {qty}",
+                shell=True, cwd=retailer_cfg["path"], capture_output=True
+            )
+        console.print(f"  [dim]Seeded Day 0 orders: {classic_qty}× Classic, {pro_qty}× Pro[/dim]")
+
     console.print("\n[bold]Agent decisions[/bold]")
 
-    # Prefetch manufacturer+provider state while retailer is running
-    parallel_agents = [
-        ("manufacturer", config["manufacturer"].get("skill"), config["manufacturer"]["path"]),
+    # 1. Prefetch state for all agents at once
+    all_agent_roles = [
+        ("retailer", config["retailers"][0]["path"]), # Assuming 1 retailer for path lookup
+        ("manufacturer", config["manufacturer"]["path"]),
     ] + [
-        ("provider", p.get("skill"), p["path"]) for p in config["providers"]
+        ("provider", p["path"]) for p in config["providers"]
     ]
-    with ThreadPoolExecutor(max_workers=len(parallel_agents)) as prefetch_ex:
+    
+    with ThreadPoolExecutor(max_workers=len(all_agent_roles)) as prefetch_ex:
         prefetch_futures = {
-            role: prefetch_ex.submit(prefetch_state, role, path)
-            for role, _, path in parallel_agents
+            role: prefetch_ex.submit(prefetch_state, role, path, not full_skill_prompt)
+            for role, path in all_agent_roles
         }
-        for retailer in config["retailers"]:
-            run_agent("retailer", retailer.get("skill"),
-                             json.dumps(signal), retailer["path"], verbose=verbose, day_log=day_log)
         prefetched = {role: f.result() for role, f in prefetch_futures.items()}
 
-    # Manufacturer and provider run in parallel using pre-fetched state
-    with ThreadPoolExecutor(max_workers=len(parallel_agents)) as executor:
+    # 2. Run all three agents in parallel (manufacturer sees yesterday's retailer orders)
+    all_agents = []
+    for retailer in config["retailers"]:
+        all_agents.append(("retailer", retailer.get("skill"), retailer["path"]))
+    for provider in config["providers"]:
+        all_agents.append(("provider", provider.get("skill"), provider["path"]))
+    mfr = config["manufacturer"]
+    all_agents.append(("manufacturer", mfr.get("skill"), mfr["path"]))
+
+    with ThreadPoolExecutor(max_workers=len(all_agents)) as executor:
         futures = {
             executor.submit(run_agent, role, skill, json.dumps(signal), path,
-                            verbose, day_log, False, prefetched.get(role)): role
-            for role, skill, path in parallel_agents
+                            verbose, day_log, False, prefetched.get(role), model, full_skill_prompt): role
+            for role, skill, path in all_agents
         }
         for future in as_completed(futures):
             future.result()
@@ -500,6 +630,12 @@ def parse_args():
     parser.add_argument("days", type=int, help="Number of days to simulate")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print full agent output (default: compact 3-line summary)")
+    parser.add_argument("--model", default="claude-haiku-4-5-20251001",
+                        help="LLM model to use for agents; availability depends on your Claude account")
+    parser.add_argument("--start-day", type=int, default=1,
+                        help="First simulated day to run, for resuming/chunking long scenarios (default: 1)")
+    parser.add_argument("--full-skill-prompt", action="store_true",
+                        help="Send full skill markdown to agents instead of compact role contracts")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -511,16 +647,40 @@ if __name__ == "__main__":
     console.print(Panel(
         f"[bold]Config:[/bold] {args.config_json}   "
         f"[bold]Scenario:[/bold] {scenario_name}   "
-        f"[bold]Days:[/bold] {args.days}   "
-        f"[bold]Mode:[/bold] {'verbose' if args.verbose else 'compact'}",
+        f"[bold]Days:[/bold] {args.start_day}-{args.days}   "
+        f"[bold]Model:[/bold] {args.model}   "
+        f"[bold]Mode:[/bold] {'verbose' if args.verbose else 'compact'}   "
+        f"[bold]Prompt:[/bold] {'full skill' if args.full_skill_prompt else 'compact role'}",
         title="[bold cyan] DGSI Turn Engine [/bold cyan]",
         border_style="cyan",
     ))
 
     run_start = time.time()
-    for day in range(1, args.days + 1):
-        run_day(day, args.days, config, scenario, scenario_name, verbose=args.verbose)
+    output_dir = Path("logs") / scenario_name
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    if args.start_day < 1 or args.start_day > args.days:
+        raise SystemExit("--start-day must be between 1 and days")
+
+    for day in range(args.start_day, args.days + 1):
+        run_day(
+            day,
+            args.days,
+            config,
+            scenario,
+            scenario_name,
+            verbose=args.verbose,
+            output_dir=output_dir,
+            model=args.model,
+            full_skill_prompt=args.full_skill_prompt,
+        )
     run_duration = time.time() - run_start
+
+    # Final logic: backup DBs and write summary to the scenario folder
+    console.print(f"\n[bold cyan]Backing up databases to {output_dir}...[/bold cyan]")
+    shutil.copy("provider/data/provider.db", output_dir / "provider.db")
+    shutil.copy("manufacturer/data/manufacturer.db", output_dir / "manufacturer.db")
+    shutil.copy("retailer/data/retailer.db", output_dir / "retailer.db")
 
     console.print()
     mins, secs = divmod(int(run_duration), 60)

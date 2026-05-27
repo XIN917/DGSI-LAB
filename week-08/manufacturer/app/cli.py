@@ -293,7 +293,7 @@ def serve(port: int = typer.Option(8002, "--port", "-p", help="Port to run the M
     
     Default port is 8002. This allows access to the web dashboard and REST endpoints.
     """
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
 
 if __name__ == "__main__":
     init_db()

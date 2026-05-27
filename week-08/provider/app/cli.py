@@ -199,7 +199,7 @@ def serve(port: int = typer.Option(8001, "--port", "-p", help="Port to run the P
     
     Default port is 8001. Use this to allow the manufacturer to place orders.
     """
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
 
 if __name__ == "__main__":
     app()

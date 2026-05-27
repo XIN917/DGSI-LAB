@@ -242,17 +242,30 @@ You manage a retail store that sells 3D printers to end customers. Each simulate
 
 ## Turn Engine
 
-**Entry point:** `python turn_engine.py config/sim.json scenarios/<file>.json <days>`
+**Entry point:** `python turn_engine.py config/sim.json scenarios/<file>.json <days> [--model <model_name>] [--start-day N] [--full-skill-prompt]`
 
 Each turn:
 1. Read current scenario signal for the day (demand, supply, lead time, price sensitivity modifiers)
 2. Generate customer orders at retailer (Poisson-distributed, modulated by `demand_modifier`)
-3. Run retailer agent → manufacturer agent → provider agent
-4. Call `POST /api/day/advance` on each service
-5. Save agent output to `logs/day-NNN-[role].log`
-6. Print summary line: `Day N: X customer orders / Y fulfilled / Z backordered / W stockout`
+3. On Day 1 only: seed random purchase orders (Classic + Pro) at retailer so manufacturer has pending work from the start
+4. Prefetch decision-relevant state for all agents in parallel
+5. Run all three agents (Retailer, Manufacturer, Provider) in parallel — manufacturer operates on previous day's retailer orders (realistic 1-day lag)
+6. Call `POST /api/day/advance` on each service
+7. Save agent output to `logs/{scenario}/day-NNN.log` (consolidated)
+8. Print summary line: `Day N: X customer orders / Y fulfilled / Z backordered / W stockout`
 
-**Overlapping events**: when multiple scenario events are active on the same day, **multiply modifiers** (e.g. `demand_modifier` 1.5 × 2.5 = 3.75). This produces the bullwhip effect.
+At end of run:
+- Snapshot `provider.db`, `manufacturer.db`, and `retailer.db` into `logs/{scenario}/`.
+- Print run summary table.
+
+**Optimizations**: 
+- **Full Parallelization**: All three agents run concurrently, cutting per-day wall time roughly in half.
+- **Compact Role Contracts**: Default prompts use concise per-role contracts with hard rules, thresholds, and command syntax. `--full-skill-prompt` restores the original full skill markdown for debugging.
+- **Trimmed Prefetch**: Agents receive only decision-relevant state, with long CLI outputs capped to headers, active rows, and recent rows.
+- **Action Batching**: Agents treat prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
+- **Model Override**: `--model` flag selects the LLM brain. Model availability depends on the active Claude account.
+- **Run Chunking**: `--start-day N` resumes long scenarios from day N using the current database state.
+- **Stable Max-Turn Budgets**: Retailer 4, Manufacturer 6, Provider 4. Do not reduce these again; lower limits truncated valid provider/manufacturer decisions during longer runs.
 
 **Time-box**: one full run must complete in ≤ ~30 minutes of wall clock. If longer, per-turn prompts are too large or the timeout is too permissive.
 
@@ -346,7 +359,7 @@ Each service snapshots per-day metrics into a `metrics` table during `POST /api/
 All `metrics` tables include a `sim_day` integer column. Query by day to produce time-series for charts.
 
 **Four observability requirements:**
-1. Per-turn agent logs: `logs/day-NNN-[role].log` (one file per role per day)
+1. Per-day agent logs: `logs/{scenario}/day-NNN.log` (one file per day containing all roles)
 2. Per-event log in each database's `events` table
 3. `metrics` table with `sim_day` in all three databases
 4. Turn engine summary line after each day: `Day 7: 12 customer orders / 9 fulfilled / 2 backordered / 1 stockout`

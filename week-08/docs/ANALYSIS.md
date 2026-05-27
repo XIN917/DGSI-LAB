@@ -4,7 +4,14 @@ This document outlines the specific visualization and interpretation requirement
 
 ## 1. Required Charts
 
-For **each** scenario (`calm-market` and `holiday-rush`), generate the following four charts using `matplotlib`:
+For **each** scenario (`calm-market` and `holiday-rush`), generate the following four charts using `matplotlib`.
+
+**Execution:**
+```bash
+# To generate from archived data (recommended):
+./manufacturer/venv/bin/python visualize.py logs/calm-market
+./manufacturer/venv/bin/python visualize.py logs/holiday-rush
+```
 
 | Chart | Lines/Bars | Source Data |
 |---|---|---|

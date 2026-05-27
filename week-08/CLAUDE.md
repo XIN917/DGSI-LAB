@@ -106,17 +106,26 @@ Skill files live in `skills/`. They define each agent's role, available commands
 `turn_engine.py` drives the simulation. Each day:
 1. Reads scenario signal for the day (`todays_signal()`)
 2. Generates customer demand at retailer
-3. Prefetches manufacturer + provider state in parallel while retailer agent runs
-4. Runs retailer agent, then manufacturer + provider agents in parallel
-5. Calls `POST /api/day/advance` on each service
-6. Saves all three agents' output to `logs/day-NNN.log` (one file per day)
-7. Prints global inventory snapshot table (all three services)
-8. Appends KPI row to `logs/run.csv`
-9. At end of run: prints summary table and writes `logs/{scenario}-summary.log`
+3. On Day 1 only: seeds random purchase orders (Classic + Pro) at the retailer so the manufacturer has something to process from the start
+4. Prefetches state for all agents (Retailer, Manufacturer, Provider) in parallel
+5. Runs all three agents in parallel (manufacturer processes previous day's retailer orders)
+6. Calls `POST /api/day/advance` on each service
+7. Saves all three agents' output to `logs/{scenario}/day-NNN.log`
+8. Prints global inventory snapshot table (all three services)
+9. Appends KPI row to `logs/run.csv`
+10. At end of run: snapshots databases to `logs/{scenario}/` and prints summary table
+
+**Optimizations:**
+- **Full Parallelization**: All three agents run concurrently each day. Manufacturer operates on previous day's retailer orders (realistic 1-day lag).
+- **Compact Role Contracts**: Normal runs send compact per-role rules instead of the full markdown skill files every day. Use `--full-skill-prompt` when debugging agent behavior against the original skill text.
+- **Trimmed Prefetch**: Each agent receives decision-relevant state with long CLI outputs capped to preserve headers, active rows, and recent rows.
+- **Action Batching**: Agents are instructed to use the prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
+- **Model Flexibility**: Use `--model` to switch LLM brains. Model availability depends on the active Claude account.
+- **Run Chunking**: Use `--start-day N` to resume long scenarios without rerunning previous days.
 
 All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers.
 
-Agent turn limits: retailer 5, manufacturer 4, provider 3. Default output is compact; pass `-v` for full agent reasoning.
+Agent turn limits: retailer 4, manufacturer 6, provider 4. **Do not reduce these max-turn budgets again**: provider and manufacturer hit `Reached max turns` during longer 25-day runs when the limits were lower, especially after day 10 when release failures and purchase orders require extra tool turns. Default output is compact; pass `-v` for full console display and `--full-skill-prompt` for full skill markdown prompts.
 
 **Known gotcha:** `manufacturer/providers.json` must exist and point to the provider service URL. It is tracked in git. All databases are named consistently as `<service>.db` (e.g., `manufacturer/data/manufacturer.db`).
 
@@ -126,9 +135,21 @@ Agent turn limits: retailer 5, manufacturer 4, provider 3. Default output is com
 
 - **Never call `day advance` directly.** The turn engine does that via `POST /api/day/advance`.
 - **Never change skill files to match the CLI.** The skill files are spec; fix the CLI.
+- **Do not reduce agent max-turn budgets below retailer 4, manufacturer 6, provider 4.** These are intentionally higher than the first optimized values to keep long scenario runs from truncating valid decisions.
+- **Keep compact prompts as the default for long runs.** Full skill prompts are for debugging; they increase token usage substantially over 25-day scenarios.
 - **Overlapping scenario events multiply modifiers** (not last-wins). This is intentional — it produces the bullwhip effect.
 - Price floors: P3D-Classic €163, P3D-Pro €246 (manufacturer minimum).
 - One simulation run should complete in ≤ 30 minutes wall clock.
+
+---
+
+## Known Bugs Fixed
+
+- **`reload=True` uvicorn bug:** All three services had `reload=True` which caused WatchFiles to restart the server mid-run when any file was edited. Fixed to `reload=False` in all three `cli.py` serve commands. Do not revert this.
+- **Agent max-turns bug:** Prompts previously asked agents to `Read <skill_file>` which consumed a turn before any action. Fixed by embedding skill content directly in the prompt string in `turn_engine.py`.
+- **Long-run max-turn truncation:** Provider/manufacturer later hit `Reached max turns` in 25-day runs after earlier turn limits were set too low. Current budgets are retailer 4, manufacturer 6, provider 4; keep them there unless a future change proves a higher budget is needed.
+- **Manufacturer never orders frame_kit:** Seed was 120 units — enough for 30+ days of calm demand, so the agent never triggered a reorder. Lowered to 20 (frame_kit) and 15 (frame_kit_pro) in `manufacturer/sample_data/default_production_plan.json` so the agent must order within the first few days.
+- **prices.png zigzag:** Manufacturer metrics table writes multiple rows per sim_day (one per price change). Fixed in `visualize.py` with `groupby(...).last()` deduplication.
 
 ---
 
@@ -160,6 +181,6 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 
 - Phase 1 (wiring + fixes) — **complete**
 - Phase 2 (metrics tables) — **complete**
-- Phase 3 (testing & visualization) — **complete** (visualize.py implemented; 15-day calm-market run verified: 80.3% fill rate)
-- Phase 4 (analysis) — **in progress** (holiday-rush 25-day run and final report pending)
+- Phase 3 (testing & visualization) — **complete** (visualize.py implemented; 15-day calm-market run verified: 100% fill rate all 15 days; **needs rerun** after reload=False fix)
+- Phase 4 (analysis) — **in progress** (both scenario runs pending; calm-market needs rerun for complete manufacturer DB)
 - Phase 5 (final deliverables) — not started

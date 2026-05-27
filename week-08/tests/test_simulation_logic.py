@@ -1,5 +1,11 @@
 import pytest
-from turn_engine import todays_signal
+from turn_engine import (
+    compact_cli_output,
+    parse_manufacturer_stock_output,
+    parse_retailer_inventory,
+    role_contract,
+    todays_signal,
+)
 
 def test_todays_signal_multiplicative_modifiers():
     scenario = {
@@ -81,3 +87,58 @@ def test_todays_signal_base_demand():
 
     # Default if missing
     assert todays_signal(1, {})["base_demand"] == {"mean": 5, "variance": 2}
+
+def test_parse_retailer_inventory_uses_on_hand_quantity():
+    payload = [
+        {"sku": "P3D-Classic", "quantity_on_hand": 8, "quantity_reserved": 2},
+        {"sku": "P3D-Pro", "quantity_on_hand": 3, "quantity_reserved": 0},
+    ]
+
+    assert parse_retailer_inventory(payload) == {
+        "P3D-Classic": 8,
+        "P3D-Pro": 3,
+    }
+
+def test_parse_manufacturer_stock_output_accepts_cli_table():
+    output = """TYPE       | PRODUCT              |      QTY | RESERVED |  AVAILABLE
+-----------------------------------------------------------------
+finished   | P3D-Classic          |     8.00 |     0.00 |       8.00
+raw        | frame_kit            |    20.50 |     0.00 |      20.50
+"""
+
+    assert parse_manufacturer_stock_output(output) == {
+        "P3D-Classic": 8,
+        "frame_kit": 20.5,
+    }
+
+def test_compact_cli_output_keeps_active_rows_and_bounds_history():
+    output = "\n".join(
+        [
+            "ID | STATUS | SKU",
+            "-- | ------ | ---",
+            "1 | fulfilled | P3D-Classic",
+            "2 | delivered | P3D-Pro",
+            "3 | pending | P3D-Pro",
+            "4 | fulfilled | P3D-Classic",
+            "5 | blocked | P3D-Pro",
+            "6 | delivered | P3D-Pro",
+            "7 | fulfilled | P3D-Classic",
+            "8 | delivered | P3D-Pro",
+            "9 | fulfilled | P3D-Classic",
+            "10 | delivered | P3D-Pro",
+        ]
+    )
+
+    compacted = compact_cli_output(output, max_lines=7)
+
+    assert "3 | pending | P3D-Pro" in compacted
+    assert "5 | blocked | P3D-Pro" in compacted
+    assert "omitted" in compacted
+    assert len(compacted.splitlines()) <= 8
+
+def test_role_contract_defaults_to_compact_provider_rules():
+    contract = role_contract("provider")
+
+    assert "Provider parts supplier" in contract
+    assert "never call day advance" in contract
+    assert "50%" in contract

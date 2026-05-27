@@ -49,21 +49,38 @@ python turn_engine.py config/sim.json scenarios/holiday-rush.json 25
 # Calm 15-day baseline
 python turn_engine.py config/sim.json scenarios/calm-market.json 15
 
+# Switch LLM model with --model
+python turn_engine.py config/sim.json scenarios/calm-market.json 15 --model <model_name>
+
 # Full agent reasoning output (default: compact 3-line summary)
 python turn_engine.py config/sim.json scenarios/calm-market.json 15 -v
+
+# Resume/chunk a long run after session limits
+python turn_engine.py config/sim.json scenarios/holiday-rush.json 25 --start-day 16
+
+# Debug with the original full skill markdown instead of compact role contracts
+python turn_engine.py config/sim.json scenarios/calm-market.json 15 --full-skill-prompt
 ```
 
-Agent logs are saved to `logs/day-NNN-[role].log` after each turn. KPI data (fulfillment rate, demand/supply modifiers) is appended to `logs/run.csv` for analysis.
+Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are automatically snapshotted to the same directory at the end of each run. KPI data is appended to `logs/run.csv`. Normal runs use compact role contracts and capped prefetch output to reduce token usage; pass `--full-skill-prompt` only when debugging agent behavior.
 
 > **Note:** `manufacturer/providers.json` must exist and point to the provider URL (`http://127.0.0.1:8001`). It is tracked in git — if missing, manufacturer procurement will silently fail every day.
+>
+> **Note:** All three services run with `reload=False`. Do not change this — `reload=True` causes WatchFiles to restart the server mid-run if any file is edited, corrupting the manufacturer DB mid-simulation.
+>
+> **Note:** Manufacturer seed inventory for `frame_kit` is intentionally low (20 units) so the manufacturer agent is forced to order from the provider within the first few days. Do not raise it or the reorder behavior disappears in short runs.
 
 ### 5. Visualize Results
 
-After a simulation run, generate charts to analyze agent behavior and supply chain dynamics:
+After a simulation run, generate charts to analyze agent behavior and supply chain dynamics. You can visualize the "live" current state or an archived run:
 
 ```bash
-# Uses manufacturer venv which has matplotlib/pandas installed
+# Visualize the most recent "live" run
 ./manufacturer/venv/bin/python visualize.py
+
+# Visualize a specific archived scenario
+./manufacturer/venv/bin/python visualize.py logs/calm-market
+./manufacturer/venv/bin/python visualize.py logs/holiday-rush
 ```
 
 Charts are saved to `docs/charts/{scenario_name}/`.

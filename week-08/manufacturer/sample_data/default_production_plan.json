@@ -162,8 +162,8 @@
     }
   ],
   "initial_inventory": {
-    "frame_kit": {"qty": 120, "type": "raw"},
-    "frame_kit_pro": {"qty": 60, "type": "raw"},
+    "frame_kit": {"qty": 20, "type": "raw"},
+    "frame_kit_pro": {"qty": 15, "type": "raw"},
     "pcb_control": {"qty": 200, "type": "raw"},
     "stepper_motor": {"qty": 400, "type": "raw"},
     "hotend": {"qty": 100, "type": "raw"},

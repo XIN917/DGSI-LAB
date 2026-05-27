@@ -285,7 +285,7 @@ def import_command(file: Path = typer.Argument(..., help="Path to the JSON file 
 @app.command()
 def serve(port: int = typer.Option(8003, "--port", "-p", help="Port to run the Retailer REST API on.")):
     """Start the Retailer REST API server."""
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
 
 
 # --- customers subcommands ---

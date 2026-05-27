@@ -111,11 +111,15 @@
 
 ## Performance Analysis
 
-### 15-day Run Duration (approx. 15m 22s)
+### 15-day Run Duration (approx. 7m - 10m)
 
-**Observation:** The run took roughly 1 minute per simulated day.
-**Analysis:** This is determined to be baseline behavior for the current architecture:
-- **Sequential Agents**: Retailer runs first to generate demand for the Manufacturer, followed by Manufacturer/Provider in parallel.
-- **LLM Latency**: Each day involves 2 sequential LLM interaction phases (approx. 30s-40s each).
-- **Bug Impact**: The `AttributeError` in the manufacturer service did not significantly slow down the run (it failed instantly), but it invalidated the manufacturer's logic by keeping it stuck on Day 2.
-**Verdict:** The duration is normal; no further performance optimization is required for Phase 3.
+**Observation:** Roughly 25s-50s per simulated day (variance driven by LLM response time).
+**Analysis:** Optimized architecture:
+- **Full Parallelization**: All three agents run concurrently each day; per-day time is bounded by the slowest single agent.
+- **Trimmed Prefetch**: Agents receive only decision-relevant state, reducing prompt token count.
+- **Day 1 Seed**: Random purchase orders injected before Day 1 agents run, so manufacturer has pending work from the start.
+- **LLM Latency**: Single parallel phase per day (approx. 20s-50s depending on agent complexity).
+- **Token Controls**: Normal runs use compact role contracts, capped prefetch output, and short final summaries. Use `--full-skill-prompt` only for debugging.
+- **Chunking**: Use `--start-day N` to resume a long scenario after session limits without rerunning earlier days.
+- **Max-Turn Budgets**: Current limits are retailer 4, manufacturer 6, provider 4. Do not reduce them again; lower limits caused provider/manufacturer `Reached max turns` truncation in longer 25-day runs.
+**Verdict:** Duration is acceptable for a 15-day run. Further gains should come from a faster model or smaller prompts, not tighter max_turns.

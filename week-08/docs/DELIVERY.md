@@ -25,20 +25,7 @@ This document tracks the tasks required for the final submission of the DGSI Wee
     - [ ] Evaluation of what worked/failed.
     - [ ] Redesign reflection.
 
-## Part 6: Presentation & Demo
-*Target: Max 10 slides + 3-day live demo.*
-
-- [ ] **Slide Deck (10 slides)**
-    - [ ] System Overview (Arch diagram).
-    - [ ] Agent Design (1 slide per role).
-    - [ ] Results: "The Most Interesting Chart".
-    - [ ] Reflection: Lessons learned.
-- [ ] **Live Demo Rehearsal**
-    - [ ] Choose a 3-day window for demo.
-    - [ ] Narrate agent logic in real-time.
-    - [ ] Prepare fallback plan for agent stalling.
-
-## Part 7: Repository Final Polish
+## Part 6: Repository Final Polish
 - [ ] Final `CLAUDE.md` and `README.md` review.
 - [ ] Final `.gitignore` check (ensure no `.db` or `logs/` are tracked).
 - [ ] Clean commit history with issue references.

@@ -14,10 +14,9 @@ rm -f "$ROOT/retailer/data/retailer.db"
 rm -f "$ROOT/provider/data/provider.db"
 
 echo "  Clearing agent and service logs..."
-rm -f "$ROOT/logs/day-"*.log
-rm -f "$ROOT/logs/"*"-summary.log"
 rm -f "$ROOT/logs/run.csv"
 rm -f "$ROOT/logs/manufacturer.log" "$ROOT/logs/provider.log" "$ROOT/logs/retailer.log"
+# Note: scenario subdirectories in logs/ are preserved
 
 echo "  Seeding fresh state..."
 "$ROOT/provider/venv/bin/provider-cli" seed
@@ -26,5 +25,6 @@ echo "  Seeding fresh state..."
 
 echo "  Restarting services..."
 "$SCRIPT_DIR/start_all.sh"
+sleep 3
 
 echo "Done. All services reset to Day 0 with clean databases."
