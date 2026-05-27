@@ -54,7 +54,11 @@ def generate_charts(scenario_name, data_dir=None):
         print(f"No data found in {run_csv} for scenario: {scenario_name}")
         return
 
-    output_dir = Path(f"docs/charts/{scenario_name}")
+    if data_dir:
+        output_dir = Path(data_dir) / "charts"
+    else:
+        output_dir = Path(f"logs/charts/{scenario_name}")
+    
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Deduplicate metrics to one row per (sim_day, product) — keep last snapshot of the day

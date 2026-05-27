@@ -13,6 +13,8 @@ For **each** scenario (`calm-market` and `holiday-rush`), generate the following
 ./manufacturer/venv/bin/python visualize.py logs/holiday-rush
 ```
 
+> **Note:** Charts are saved to `logs/charts/{scenario_name}/` or within a `charts/` subdirectory of the archive folder provided.
+
 | Chart | Lines/Bars | Source Data |
 |---|---|---|
 | **Inventory** | Parts stock (Mfr), Finished printers (Mfr), Printer stock (Retail) | `metrics` tables in Mfr & Retailer DBs |

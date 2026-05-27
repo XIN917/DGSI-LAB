@@ -21,7 +21,7 @@ Turn Engine
 
 Each day the turn engine:
 1. Generates customer demand (modulated by scenario events)
-2. Runs each agent in order (retailer → manufacturer → provider)
+2. Runs all three agents in parallel (manufacturer operates on previous day's retailer orders)
 3. Calls `POST /api/day/advance` on each service
 4. Prints a one-line summary and saves per-agent logs
 
@@ -265,7 +265,6 @@ At end of run:
 - **Action Batching**: Agents treat prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
 - **Model Override**: `--model` flag selects the LLM brain. Model availability depends on the active Claude account.
 - **Run Chunking**: `--start-day N` resumes long scenarios from day N using the current database state.
-- **Stable Max-Turn Budgets**: Retailer 4, Manufacturer 6, Provider 4. Do not reduce these again; lower limits truncated valid provider/manufacturer decisions during longer runs.
 
 **Time-box**: one full run must complete in ≤ ~30 minutes of wall clock. If longer, per-turn prompts are too large or the timeout is too permissive.
 

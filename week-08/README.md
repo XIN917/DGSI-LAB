@@ -83,11 +83,18 @@ After a simulation run, generate charts to analyze agent behavior and supply cha
 ./manufacturer/venv/bin/python visualize.py logs/holiday-rush
 ```
 
-Charts are saved to `docs/charts/{scenario_name}/`.
+Charts are saved to `logs/charts/{scenario_name}/` (or a `charts/` subdirectory of the archive folder if provided).
 
 ### 6. Running Tests
 
-Run the project-level integration and logic tests to verify the system:
+Run the focused delivery-sync regression tests before any full scenario run:
+
+```bash
+cd manufacturer && pytest tests/test_api/test_day_advance.py -W error
+cd ../retailer && pytest tests/test_services/test_purchase_order_sync.py
+```
+
+Run all project-level integration and logic tests:
 
 ```bash
 # Uses manufacturer venv for dependencies
@@ -116,12 +123,11 @@ week-08/
 ├── scenarios/         # Scenario JSON files
 ├── skills/            # LLM agent skill files (one per role)
 ├── scripts/           # Setup, start, reset helpers
-├── logs/              # Per-turn agent logs and run.csv (git-ignored)
+├── logs/              # Per-turn agent logs, run.csv, and charts/ (git-ignored)
 └── docs/
     ├── PRD.md         # Full product spec
     ├── PLAN.md        # Implementation task list
-    ├── ANALYSIS.md    # Visualization requirements and interpretation guide
-    └── charts/        # Generated analysis plots (git-ignored)
+    └── ANALYSIS.md    # Visualization requirements and interpretation guide
 ```
 
 ---

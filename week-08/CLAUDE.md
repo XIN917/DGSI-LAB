@@ -20,7 +20,7 @@ week-08/
 ├── scenarios/         # Scenario JSON files (calm-market, holiday-rush)
 ├── skills/            # Agent skill files (one per role)
 ├── scripts/           # Setup, start, reset scripts
-├── logs/              # Per-turn agent logs (git-ignored)
+├── logs/              # Per-turn agent logs and generated charts (git-ignored)
 ├── tests/             # Project-level integration and logic tests
 └── docs/
     ├── PRD.md         # Product spec
@@ -125,7 +125,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 
 All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers.
 
-Agent turn limits: retailer 4, manufacturer 6, provider 4. **Do not reduce these max-turn budgets again**: provider and manufacturer hit `Reached max turns` during longer 25-day runs when the limits were lower, especially after day 10 when release failures and purchase orders require extra tool turns. Default output is compact; pass `-v` for full console display and `--full-skill-prompt` for full skill markdown prompts.
+Agent turn limits: retailer 6, manufacturer 8, provider 8. **Do not reduce these max-turn budgets again**: provider and manufacturer hit `Reached max turns` during longer 25-day runs when the limits were lower, especially after day 10 when release failures and purchase orders require extra tool turns. The retailer budget was raised to 6 and provider/manufacturer to 8 after day-9 truncation in calm-market runs and to keep 25-day scenarios from stalling. Default output is compact; pass `-v` for full console display and `--full-skill-prompt` for full skill markdown prompts.
 
 **Known gotcha:** `manufacturer/providers.json` must exist and point to the provider service URL. It is tracked in git. All databases are named consistently as `<service>.db` (e.g., `manufacturer/data/manufacturer.db`).
 
@@ -137,7 +137,7 @@ Agent turn limits: retailer 4, manufacturer 6, provider 4. **Do not reduce these
 
 - **Never call `day advance` directly.** The turn engine does that via `POST /api/day/advance`.
 - **Never change skill files to match the CLI.** The skill files are spec; fix the CLI.
-- **Do not reduce agent max-turn budgets below retailer 4, manufacturer 6, provider 4.** These are intentionally higher than the first optimized values to keep long scenario runs from truncating valid decisions.
+- **Do not reduce agent max-turn budgets below retailer 6, manufacturer 8, provider 8.** These are intentionally higher than the first optimized values to keep long scenario runs from truncating valid decisions.
 - **Keep compact prompts as the default for long runs.** Full skill prompts are for debugging; they increase token usage substantially over 25-day scenarios.
 - **Overlapping scenario events multiply modifiers** (not last-wins). This is intentional — it produces the bullwhip effect.
 - Price floors: P3D-Classic €163, P3D-Pro €246 (manufacturer minimum).
@@ -149,7 +149,7 @@ Agent turn limits: retailer 4, manufacturer 6, provider 4. **Do not reduce these
 
 - **`reload=True` uvicorn bug:** All three services had `reload=True` which caused WatchFiles to restart the server mid-run when any file was edited. Fixed to `reload=False` in all three `cli.py` serve commands. Do not revert this.
 - **Agent max-turns bug:** Prompts previously asked agents to `Read <skill_file>` which consumed a turn before any action. Fixed by embedding skill content directly in the prompt string in `turn_engine.py`.
-- **Long-run max-turn truncation:** Provider/manufacturer later hit `Reached max turns` in 25-day runs after earlier turn limits were set too low. Current budgets are retailer 4, manufacturer 6, provider 4; keep them there unless a future change proves a higher budget is needed.
+- **Long-run max-turn truncation:** Provider/manufacturer later hit `Reached max turns` in 25-day runs after earlier turn limits were set too low. Current budgets are retailer 6, manufacturer 8, provider 8; keep them there unless a future change proves a higher budget is needed.
 - **Manufacturer never orders frame_kit:** Seed was 120 units — enough for 30+ days of calm demand, so the agent never triggered a reorder. Lowered to 20 (frame_kit) and 15 (frame_kit_pro) in `manufacturer/sample_data/default_production_plan.json` so the agent must order within the first few days.
 - **prices.png zigzag:** Manufacturer metrics table writes multiple rows per sim_day (one per price change). Fixed in `visualize.py` with `groupby(...).last()` deduplication.
 - **HTTP advance skipped external supplier receipts:** Manufacturer CLI `day advance` polled external suppliers, but the turn engine uses HTTP `POST /api/day/advance`, so provider deliveries reduced provider stock while manufacturer raw-material inventory stayed frozen. Fixed by polling `ExternalSupplierService` in both manufacturer HTTP advance endpoints.

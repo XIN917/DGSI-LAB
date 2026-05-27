@@ -270,7 +270,7 @@ def run_agent(
         env = os.environ.copy()
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + env.get("PATH", "")
 
-        max_turns = {"retailer": 4, "manufacturer": 6, "provider": 4}.get(role, 4)
+        max_turns = {"retailer": 6, "manufacturer": 8, "provider": 8}.get(role, 4)
         cmd = [
             "claude", "--print", "--dangerously-skip-permissions",
             "--allowedTools", "Bash",

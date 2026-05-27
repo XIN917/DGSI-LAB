@@ -45,12 +45,12 @@
 - [x] Implement `visualize.py` using matplotlib to generate required charts
 - [x] Run all three agents together for at least one full day
 - [x] Verify simulation health (partial run): metrics captured, `run.csv` populated, databases updated
-- [x] Run 15+ day simulation against `calm-market.json` (VERIFIED: 100% fill rate all 15 days, 12m 18s wall clock; **needs rerun** — manufacturer DB only had 3 days due to uvicorn reload=True bug; fixed)
+- [x] Run 15+ day simulation against `calm-market.json` (VERIFIED post-delivery-sync fix: all 15 day logs + archived DBs in `logs/calm-market/`)
 - [ ] Run 15+ day simulation against `holiday-rush.json`
 - [x] Confirm `logs/{scenario}/day-NNN.log` (one per day, all roles) and `logs/{scenario}-summary.log` written after run
 - [x] Verify UI: day banner, agent spinner, compact panels, KPI bar, global state table, run summary table all render correctly
 - [x] Verify `logs/run.csv` is written and populated after the run (needed for Phase 4 charts)
-- [x] Raise and document agent max-turn budgets after long-run truncation: retailer 4, manufacturer 6, provider 4. Do not reduce these again.
+- [x] Raise and document agent max-turn budgets after long-run truncation: retailer 6, manufacturer 8, provider 8. Do not reduce these again.
 - [x] Reduce long-run token usage: compact role contracts by default, `--full-skill-prompt` debug fallback, capped prefetch output, short final summaries, and `--start-day` run chunking.
 - [x] Fix delivery-sync regression: manufacturer HTTP advance polls external suppliers; retailer syncs all non-terminal purchase orders.
 - [x] Add cheap regression tests for delivery sync: `manufacturer/tests/test_api/test_day_advance.py` and `retailer/tests/test_services/test_purchase_order_sync.py`.
@@ -60,9 +60,9 @@
 *Refer to `docs/REQUIREMENTS.md` and `docs/ANALYSIS.md` for full specs.*
 
 - [x] Implement `visualize.py` using matplotlib to generate required charts
-- [ ] Run 15+ day simulation against `calm-market.json` after delivery-sync fixes
+- [x] Run 15+ day simulation against `calm-market.json` after delivery-sync fixes
 - [ ] Run 25-day simulation against `holiday-rush.json`
-- [ ] Generate all 8 required charts (4 per scenario) using `visualize.py`
+- [ ] Generate all 8 required charts (4 per scenario) using `visualize.py` — calm-market charts done (`logs/charts/calm-market/`); holiday-rush pending run
 - [ ] Draft written causal interpretation and scenario comparison
 
 
@@ -80,13 +80,13 @@
 - [x] Full turn with all three agents runs clean for at least one day
 - [x] Both scenario files exist (`calm-market.json`, `holiday-rush.json`)
 - [x] `.gitignore` excludes `.env`, `__pycache__/`, `.venv/`, `*.db`, `logs/`
-- [ ] 15+ day simulation completed against `calm-market.json` after delivery-sync fixes
+- [x] 15+ day simulation completed against `calm-market.json` after delivery-sync fixes
 - [ ] 25-day simulation completed against `holiday-rush.json`
 - [ ] UI verified: day banner, spinner, compact panels, KPI bar, global state table, run summary table
-- [x] Agent max-turn budgets verified/documented for long runs: retailer 4, manufacturer 6, provider 4
+- [x] Agent max-turn budgets verified/documented for long runs: retailer 6, manufacturer 8, provider 8
 - [x] Focused delivery-sync regression tests pass before full scenario reruns
-- [ ] `logs/run.csv` and `logs/{scenario}-summary.log` populated after a full run
-- [ ] `logs/{scenario}/day-NNN.log` written for each day (all three roles in one file)
+- [x] `logs/run.csv` and `logs/{scenario}-summary.log` populated after a full run
+- [x] `logs/{scenario}/day-NNN.log` written for each day (all three roles in one file) — verified for calm-market
 - [ ] Metrics tables non-empty in all three DBs, all include `sim_day` column
 - [ ] Event logs in all three databases are non-empty and coherent
 - [ ] 4 charts per scenario: inventory, prices, fulfillment, events overlay

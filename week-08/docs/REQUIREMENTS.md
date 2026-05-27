@@ -6,7 +6,7 @@ This is the consolidated checklist of all requirements derived from `week8.pdf`,
 - [x] **Autonomous Multi-Agent System**: Three independent services (Provider, Manufacturer, Retailer) driven by LLM agents.
 - [x] **Zero Direct Communication**: Agents only share state via their respective databases.
 - [x] **Turn Engine**: Orchestrates days, injects scenario signals, and advances time.
-- [x] **Long-Run Agent Budgets**: Turn engine keeps stable max-turn limits at retailer 4, manufacturer 6, provider 4; do not reduce these because lower values truncate valid decisions in longer runs.
+- [x] **Long-Run Agent Budgets**: Turn engine keeps stable max-turn limits at retailer 6, manufacturer 8, provider 8.
 - [x] **Token Controls for Long Runs**: Compact role prompts, capped prefetch output, short summaries, full-skill debug fallback, and `--start-day` chunking.
 - [x] **Skill Files**: Authoritative markdown files for Provider, Manufacturer, and Retailer.
     - [x] Provider: 15% price change cap, 50% restock threshold.
@@ -35,7 +35,7 @@ This is the consolidated checklist of all requirements derived from `week8.pdf`,
 - [x] **Daily KPI Timing**: Turn Day N customer demand is created before service day advance, so daily KPI filtering treats retailer `created_day == N-1` as current-turn demand.
 
 ## 4. Analysis Requirements
-- [ ] **Visualization**: Script (`visualize.py`) using `matplotlib` to generate 4 charts per scenario:
+- [x] **Visualization**: Script (`visualize.py`) using `matplotlib` to generate 4 charts per scenario:
     1. **Inventory**: Mfr Parts, Mfr Finished, Retailer Stock.
     2. **Prices**: Provider (1 part), Mfr Wholesale, Retailer Retail.
     3. **Order Fulfillment**: Bar chart of Placed vs Fulfilled vs Backordered.

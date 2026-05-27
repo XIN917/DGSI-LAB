@@ -151,6 +151,6 @@ pytest tests/test_services/test_purchase_order_sync.py
 - **LLM Latency**: Single parallel phase per day (approx. 20s-50s depending on agent complexity).
 - **Token Controls**: Normal runs use compact role contracts, capped prefetch output, and short final summaries. Use `--full-skill-prompt` only for debugging.
 - **Chunking**: Use `--start-day N` to resume a long scenario after session limits without rerunning earlier days.
-- **Max-Turn Budgets**: Current limits are retailer 4, manufacturer 6, provider 4. Do not reduce them again; lower limits caused provider/manufacturer `Reached max turns` truncation in longer 25-day runs.
+- **Max-Turn Budgets**: Current limits are retailer 6, manufacturer 8, provider 8. These were raised after day-9 calm-market truncation revealed that lower values cut off valid provider/manufacturer decisions in longer runs.
 - **Regression-first workflow**: Before spending tokens on 15/25-day runs, run the focused delivery-sync tests above. They verify the two integration points that caused provider stock, manufacturer stock, and retailer fulfillment to diverge.
 **Verdict:** Duration is acceptable for a 15-day run. Further gains should come from a faster model or smaller prompts, not tighter max_turns.
