@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.services.external_supplier_service import ExternalSupplierService
 from app.services.simulation_engine import SimulationEngine
 
 router = APIRouter(prefix="/api/day", tags=["simulation"])
@@ -18,6 +19,9 @@ def get_current_day(db: Session = Depends(get_db)):
 @router.post("/advance")
 def advance_day(db: Session = Depends(get_db)):
     """Advance the simulation by one day."""
+    ext_service = ExternalSupplierService(db)
+    ext_service.poll_orders()
+
     engine = SimulationEngine(db)
     result = engine.advance_day()
     return result

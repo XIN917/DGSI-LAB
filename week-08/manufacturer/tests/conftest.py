@@ -23,6 +23,7 @@ def engine():
     Base.metadata.create_all(bind=eng)
     yield eng
     Base.metadata.drop_all(bind=eng)
+    eng.dispose()
 
 
 @pytest.fixture(scope="function")

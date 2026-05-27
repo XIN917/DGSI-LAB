@@ -29,6 +29,10 @@ This is the consolidated checklist of all requirements derived from `week8.pdf`,
 - [x] **Multiplicative Modifiers**: Overlapping scenario events multiply their modifiers.
 - [x] **Lead Time Enforcement**: `lead_time_modifier` correctly scales Provider lead times.
 - [x] **Customer Demand**: Generated at Retailer using `random.gauss` influenced by price and demand modifiers.
+- [x] **HTTP Day Advance Parity**: Side effects required during simulation advance must exist in HTTP endpoints, because the turn engine does not call service CLIs. Manufacturer HTTP advance polls external suppliers before advancing.
+- [x] **Purchase-Order Delivery Sync**: Retailer keeps syncing all non-terminal manufacturer POs until delivered/cancelled, so `released` or `waiting_materials` orders cannot be stranded.
+- [x] **Focused Regression Tests**: Delivery-sync bugs are covered by `manufacturer/tests/test_api/test_day_advance.py` and `retailer/tests/test_services/test_purchase_order_sync.py`; manufacturer test passes with `-W error`.
+- [x] **Daily KPI Timing**: Turn Day N customer demand is created before service day advance, so daily KPI filtering treats retailer `created_day == N-1` as current-turn demand.
 
 ## 4. Analysis Requirements
 - [ ] **Visualization**: Script (`visualize.py`) using `matplotlib` to generate 4 charts per scenario:

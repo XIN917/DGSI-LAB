@@ -1,6 +1,7 @@
 import pytest
 from turn_engine import (
     compact_cli_output,
+    orders_created_during_turn,
     parse_manufacturer_stock_output,
     parse_retailer_inventory,
     role_contract,
@@ -110,6 +111,17 @@ raw        | frame_kit            |    20.50 |     0.00 |      20.50
         "P3D-Classic": 8,
         "frame_kit": 20.5,
     }
+
+def test_orders_created_during_turn_uses_pre_advance_retailer_day():
+    orders = [
+        {"id": 1, "created_day": 0, "status": "fulfilled"},
+        {"id": 2, "created_day": "1", "status": "backordered"},
+        {"id": 3, "created_day": 2, "status": "fulfilled"},
+        {"id": 4, "created_day": None, "status": "fulfilled"},
+    ]
+
+    assert [o["id"] for o in orders_created_during_turn(orders, 1)] == [1]
+    assert [o["id"] for o in orders_created_during_turn(orders, 2)] == [2]
 
 def test_compact_cli_output_keeps_active_rows_and_bounds_history():
     output = "\n".join(

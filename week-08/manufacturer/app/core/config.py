@@ -1,12 +1,14 @@
 """Application settings and configuration."""
 from functools import lru_cache
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     # App settings
     APP_NAME: str = "3D Printer Production Simulator"
@@ -29,10 +31,6 @@ class Settings(BaseSettings):
     SEED_SAMPLE_DATA: bool = True
 
     PROVIDERS_JSON_PATH: str = str(Path(__file__).parent.parent.parent / "providers.json")
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 
 @lru_cache

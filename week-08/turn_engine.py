@@ -455,6 +455,23 @@ def print_global_state(config, day, signal):
 
 # ── KPI summary & CSV ─────────────────────────────────────────────────────────
 
+def orders_created_during_turn(orders, day):
+    """Return customer orders generated during turn Day N.
+
+    Retailer orders are created before services advance, so Day N demand has a
+    retailer created_day of N-1.
+    """
+    demand_created_day = day - 1
+    filtered_orders = []
+    for order in orders:
+        created_day = order.get("created_day")
+        try:
+            if int(created_day) == demand_created_day:
+                filtered_orders.append(order)
+        except (TypeError, ValueError):
+            continue
+    return filtered_orders
+
 def print_kpi_and_log_csv(config, day, signal, scenario_name):
     """Print day-end KPI bar and append a row to logs/run.csv."""
     try:
@@ -463,6 +480,8 @@ def print_kpi_and_log_csv(config, day, signal, scenario_name):
         orders = resp.json() if resp.status_code == 200 else []
     except Exception:
         orders = []
+
+    orders = orders_created_during_turn(orders, day)
 
     placed = len(orders)
     fulfilled = sum(1 for o in orders if o.get("status", "").lower() == "fulfilled")

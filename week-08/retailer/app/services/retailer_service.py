@@ -419,9 +419,12 @@ class RetailerService:
         self.db.commit()
 
     def check_purchase_order_deliveries(self) -> None:
-        # Get all pending purchase orders
+        # Keep syncing every in-flight PO. Manufacturer orders can spend days in
+        # released/waiting_materials before finally becoming delivered.
         result = self.db.execute(
-            select(PurchaseOrderDB).where(PurchaseOrderDB.status == "pending")
+            select(PurchaseOrderDB).where(
+                PurchaseOrderDB.status.notin_(["delivered", "cancelled"])
+            )
         )
         pending_pos = result.scalars().all()
         current_day = self.get_current_day()

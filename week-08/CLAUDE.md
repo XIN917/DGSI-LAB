@@ -129,6 +129,8 @@ Agent turn limits: retailer 4, manufacturer 6, provider 4. **Do not reduce these
 
 **Known gotcha:** `manufacturer/providers.json` must exist and point to the provider service URL. It is tracked in git. All databases are named consistently as `<service>.db` (e.g., `manufacturer/data/manufacturer.db`).
 
+**Delivery sync invariant:** The turn engine advances services through HTTP, not the CLIs. Therefore all day-advance side effects required by a run must live in the HTTP advance paths too. Manufacturer `POST /api/day/advance` and authenticated `POST /api/simulation/advance` must poll external suppliers before advancing, and retailer purchase-order sync must keep checking every non-terminal PO until it is delivered or cancelled.
+
 ---
 
 ## Key Constraints
@@ -150,6 +152,9 @@ Agent turn limits: retailer 4, manufacturer 6, provider 4. **Do not reduce these
 - **Long-run max-turn truncation:** Provider/manufacturer later hit `Reached max turns` in 25-day runs after earlier turn limits were set too low. Current budgets are retailer 4, manufacturer 6, provider 4; keep them there unless a future change proves a higher budget is needed.
 - **Manufacturer never orders frame_kit:** Seed was 120 units — enough for 30+ days of calm demand, so the agent never triggered a reorder. Lowered to 20 (frame_kit) and 15 (frame_kit_pro) in `manufacturer/sample_data/default_production_plan.json` so the agent must order within the first few days.
 - **prices.png zigzag:** Manufacturer metrics table writes multiple rows per sim_day (one per price change). Fixed in `visualize.py` with `groupby(...).last()` deduplication.
+- **HTTP advance skipped external supplier receipts:** Manufacturer CLI `day advance` polled external suppliers, but the turn engine uses HTTP `POST /api/day/advance`, so provider deliveries reduced provider stock while manufacturer raw-material inventory stayed frozen. Fixed by polling `ExternalSupplierService` in both manufacturer HTTP advance endpoints.
+- **Retailer stranded in-flight manufacturer POs:** Retailer delivery sync only checked local POs with status `pending`; once a PO became `released` or `waiting_materials`, later manufacturer delivery was never received into retailer stock. Fixed by syncing all non-terminal POs (`not delivered/cancelled`).
+- **Python/Pydantic warnings in regression tests:** Updated manufacturer settings to Pydantic v2 `SettingsConfigDict`, replaced `datetime.utcnow()` with timezone-aware `datetime.now(UTC)`, and disposed the SQLite test engine.
 
 ---
 
@@ -182,5 +187,19 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 - Phase 1 (wiring + fixes) — **complete**
 - Phase 2 (metrics tables) — **complete**
 - Phase 3 (testing & visualization) — **complete** (visualize.py implemented; 15-day calm-market run verified: 100% fill rate all 15 days; **needs rerun** after reload=False fix)
-- Phase 4 (analysis) — **in progress** (both scenario runs pending; calm-market needs rerun for complete manufacturer DB)
+- Phase 4 (analysis) — **in progress** (scenario runs pending after delivery-sync fixes; use focused regression tests before spending tokens on full LLM runs)
 - Phase 5 (final deliverables) — not started
+
+## Cheap Verification Before Full Runs
+
+Full 15/25-day agent simulations are slow and token-expensive. Before rerunning scenarios, verify the delivery-sync path with focused tests:
+
+```bash
+cd manufacturer
+pytest tests/test_api/test_day_advance.py -W error
+
+cd ../retailer
+pytest tests/test_services/test_purchase_order_sync.py
+```
+
+Only after these pass should you spend tokens on a scenario run. For a low-cost end-to-end smoke check, reset and run 3-5 calm-market days, then inspect archived SQLite databases for manufacturer supplier POs moving to `delivered` with `quantity_delivered > 0`, and retailer POs moving to `delivered` with `received_day` populated.

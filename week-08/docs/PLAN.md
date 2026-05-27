@@ -7,8 +7,8 @@
 | Component | Status |
 |---|---|
 | Provider service (:8001) | Complete — CLI, metrics table, skill wired, seed fixed |
-| Manufacturer service (:8002) | Complete — CLI, metrics table, skill wired; `providers.json` bug fixed |
-| Retailer service (:8003) | Complete — CLI aligned to skill file, metrics table, skill wired |
+| Manufacturer service (:8002) | Complete — CLI, metrics table, skill wired; `providers.json` bug fixed; HTTP day advance polls external suppliers |
+| Retailer service (:8003) | Complete — CLI aligned to skill file, metrics table, skill wired; in-flight manufacturer POs sync until terminal |
 | Turn engine (`turn_engine.py`) | Complete — optimized with parallelization, command batching, model flexibility, scenario-based isolation, global inventory snapshots, and stable max-turn budgets. |
 | `skills/` | All three skill files present and wired in `config/sim.json` |
 | `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
@@ -52,12 +52,15 @@
 - [x] Verify `logs/run.csv` is written and populated after the run (needed for Phase 4 charts)
 - [x] Raise and document agent max-turn budgets after long-run truncation: retailer 4, manufacturer 6, provider 4. Do not reduce these again.
 - [x] Reduce long-run token usage: compact role contracts by default, `--full-skill-prompt` debug fallback, capped prefetch output, short final summaries, and `--start-day` run chunking.
+- [x] Fix delivery-sync regression: manufacturer HTTP advance polls external suppliers; retailer syncs all non-terminal purchase orders.
+- [x] Add cheap regression tests for delivery sync: `manufacturer/tests/test_api/test_day_advance.py` and `retailer/tests/test_services/test_purchase_order_sync.py`.
+- [x] Clean warning output for manufacturer regression test (`pytest ... -W error` passes).
 
 ### Phase 4 — Analysis & Results
 *Refer to `docs/REQUIREMENTS.md` and `docs/ANALYSIS.md` for full specs.*
 
 - [x] Implement `visualize.py` using matplotlib to generate required charts
-- [x] Run 15+ day simulation against `calm-market.json`
+- [ ] Run 15+ day simulation against `calm-market.json` after delivery-sync fixes
 - [ ] Run 25-day simulation against `holiday-rush.json`
 - [ ] Generate all 8 required charts (4 per scenario) using `visualize.py`
 - [ ] Draft written causal interpretation and scenario comparison
@@ -77,10 +80,11 @@
 - [x] Full turn with all three agents runs clean for at least one day
 - [x] Both scenario files exist (`calm-market.json`, `holiday-rush.json`)
 - [x] `.gitignore` excludes `.env`, `__pycache__/`, `.venv/`, `*.db`, `logs/`
-- [ ] 15+ day simulation completed against `calm-market.json` (needs rerun with reload=False + lower seed)
+- [ ] 15+ day simulation completed against `calm-market.json` after delivery-sync fixes
 - [ ] 25-day simulation completed against `holiday-rush.json`
 - [ ] UI verified: day banner, spinner, compact panels, KPI bar, global state table, run summary table
 - [x] Agent max-turn budgets verified/documented for long runs: retailer 4, manufacturer 6, provider 4
+- [x] Focused delivery-sync regression tests pass before full scenario reruns
 - [ ] `logs/run.csv` and `logs/{scenario}-summary.log` populated after a full run
 - [ ] `logs/{scenario}/day-NNN.log` written for each day (all three roles in one file)
 - [ ] Metrics tables non-empty in all three DBs, all include `sim_day` column

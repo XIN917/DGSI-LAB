@@ -109,6 +109,36 @@
 
 ---
 
+### calm-market — 15-day full run (delivery-sync bug found)
+
+**Result:** Completed, but stock flow was incoherent.
+
+**Issue found:**
+- Provider orders were delivered in the provider DB, but manufacturer external purchase orders stayed `pending` with `quantity_delivered = 0`.
+- Manufacturer raw-material inventory therefore stayed frozen while provider stock decreased.
+- Root cause: the turn engine advances services through HTTP `POST /api/day/advance`, but external supplier polling existed only in `manufacturer-cli day advance`.
+- Retailer POs could also get stranded: local POs moved from `pending` to statuses such as `released` or `waiting_materials`, but retailer delivery sync only queried `status == "pending"`, so later manufacturer delivery was skipped forever.
+
+**Fix applied:**
+- Manufacturer HTTP day advance now calls `ExternalSupplierService.poll_orders()` before `SimulationEngine.advance_day()` in both `/api/day/advance` and `/api/simulation/advance`.
+- Retailer purchase-order delivery sync now checks all non-terminal POs (`not delivered/cancelled`) instead of only `pending`.
+- Added focused regression tests so this can be verified without spending tokens on a full LLM simulation.
+
+**Fast verification:**
+```bash
+cd manufacturer
+pytest tests/test_api/test_day_advance.py -W error
+
+cd ../retailer
+pytest tests/test_services/test_purchase_order_sync.py
+```
+
+**Expected result:** manufacturer test reports `2 passed` with no warnings under `-W error`; retailer test reports `1 passed`.
+
+**Next:** Optional low-cost smoke test is a 3-5 day calm-market run, then inspect archived SQLite DBs for manufacturer POs becoming `delivered` and retailer POs receiving `received_day`.
+
+---
+
 ## Performance Analysis
 
 ### 15-day Run Duration (approx. 7m - 10m)
@@ -122,4 +152,5 @@
 - **Token Controls**: Normal runs use compact role contracts, capped prefetch output, and short final summaries. Use `--full-skill-prompt` only for debugging.
 - **Chunking**: Use `--start-day N` to resume a long scenario after session limits without rerunning earlier days.
 - **Max-Turn Budgets**: Current limits are retailer 4, manufacturer 6, provider 4. Do not reduce them again; lower limits caused provider/manufacturer `Reached max turns` truncation in longer 25-day runs.
+- **Regression-first workflow**: Before spending tokens on 15/25-day runs, run the focused delivery-sync tests above. They verify the two integration points that caused provider stock, manufacturer stock, and retailer fulfillment to diverge.
 **Verdict:** Duration is acceptable for a 15-day run. Further gains should come from a faster model or smaller prompts, not tighter max_turns.

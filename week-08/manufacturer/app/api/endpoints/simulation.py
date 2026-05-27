@@ -8,8 +8,9 @@ from app.core.database import get_db
 from app.api.dependencies import get_current_active_user
 from app.models.user import User
 from app.models.event import EventLog
+from app.services.external_supplier_service import ExternalSupplierService
 from app.services.simulation_engine import SimulationEngine
-from datetime import datetime
+from datetime import UTC, datetime
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -49,12 +50,15 @@ def advance_day(
     current_user: User = Depends(get_current_active_user),
 ):
     """Advance the simulation by one day and return all generated events."""
+    ext_service = ExternalSupplierService(db)
+    ext_service.poll_orders()
+
     engine = SimulationEngine(db)
     result = engine.advance_day()
 
     event = EventLog(
         event_type="day_advanced",
-        event_date=datetime.utcnow(),
+        event_date=datetime.now(UTC),
         details=str({
             "from_day": result["previous_day"],
             "to_day": result["new_day"],
