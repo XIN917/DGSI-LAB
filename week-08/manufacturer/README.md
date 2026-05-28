@@ -1,106 +1,67 @@
-# 3D Printer Production Simulator (DGSI)
+# Manufacturer Service — DGSI Week 8
 
-A day-by-day factory production planning simulator where you manage inventory, manufacturing orders, and supplier purchasing for a 3D printer factory.
+3D printer factory service for the DGSI supply chain simulation. Runs on `:8002`.
 
-## Overview
+## Setup
 
-DGSI (Data-Dense Global Simulation Interface) is a simulation system designed to model realistic production cycles. Users act as production planners, making strategic decisions to keep the factory running efficiently while managing material shortages, lead times, and capacity limits.
-
-### Key Features
-
-*   **Simulation Engine**: Advance time day-by-day, generating random demand and processing deliveries.
-*   **Inventory Management**: Track raw materials and finished goods with strict reservation logic.
-*   **Manufacturing Orders**: Release orders to production, ensuring BOM (Bill of Materials) requirements are met.
-*   **Purchase Orders**: Manage supplier relationships with automated bulk discounts and realistic lead times.
-*   **Interactive Dashboard**: A professional, dark industrial Streamlit UI for monitoring and decision-making.
-*   **REST API**: Fully functional FastAPI backend for programmatic control and integration.
-*   **Persistence**: Export and import complete game states via JSON.
-
-## Tech Stack
-
-*   **Backend**: Python 3.11, FastAPI, SQLAlchemy (SQLite), Pydantic
-*   **Frontend**: Streamlit 1.40 (Custom Dark Industrial Theme)
-*   **Security**: JWT Authentication with bcrypt password hashing
-*   **Infrastructure**: Docker & Docker Compose
-
-## Getting Started
-
-### Prerequisites
-
-*   Python 3.11+
-*   Docker & Docker Compose (optional, for containerized deployment)
-
-### Local Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository-url>
-    cd DGSI
-    ```
-
-2.  **Set up a virtual environment**:
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    ```
-
-3.  **Install dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    pip install -e .
-    ```
-
-4.  **Initialize the database**:
-    The database initializes automatically on the first run of the API or Dashboard.
-
-### Running the Application
-
-Once installed (via `pip install -e .` or `uv sync`), you can run the commands directly.
-
-1.  **Start the Backend (FastAPI)**:
-    ```bash
-    manufacturer-cli serve --port 8002
-    ```
-    Access the API documentation at [http://localhost:8002/docs](http://localhost:8002/docs).
-
-2.  **Start the Dashboard (Streamlit)**:
-    ```bash
-    streamlit run dashboard/pages.py
-    ```
-    Access the UI at [http://localhost:8501](http://localhost:8501).
-
-3.  **Use the CLI**:
-    ```bash
-    manufacturer-cli day current
-    manufacturer-cli day advance
-    ```
-
-### Default Credentials
-
-*   **Username**: `admin`
-*   **Password**: `admin123` (Note: Change this in production or via seed configuration)
-
-## Docker Deployment
-
-To run the entire stack using Docker:
+Run from the repo root — `scripts/setup_envs.sh` creates `manufacturer/venv/` automatically:
 
 ```bash
-docker compose -f docker/docker-compose.yml up --build
+./scripts/setup_envs.sh
+```
+
+Or manually:
+
+```bash
+cd manufacturer
+uv venv venv
+source venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install -e .
+```
+
+## Start
+
+```bash
+manufacturer/venv/bin/manufacturer-cli serve --port 8002
+# or via the root start script:
+./scripts/start_all.sh
+```
+
+API docs: `http://localhost:8002/docs`
+
+## CLI Commands
+
+```bash
+manufacturer-cli day current
+manufacturer-cli stock
+manufacturer-cli sales orders
+manufacturer-cli sales order <id>
+manufacturer-cli production status
+manufacturer-cli production release <order_id>
+manufacturer-cli capacity
+manufacturer-cli suppliers list
+manufacturer-cli suppliers catalog <name>
+manufacturer-cli purchase list
+manufacturer-cli purchase create --supplier <name> --product <id> --qty <n>
+manufacturer-cli price list
+manufacturer-cli price set <model> <price>
+manufacturer-cli seed
 ```
 
 ## Testing
 
-Run the test suite using pytest:
-
 ```bash
-pytest
+cd manufacturer
+venv/bin/pytest tests/ -v
+
+# Focused delivery-sync regression test (run before full scenario runs):
+venv/bin/pytest tests/test_api/test_day_advance.py -W error
 ```
 
-## Directory Structure
+## Notes
 
-*   `app/`: FastAPI backend (models, services, API endpoints)
-*   `dashboard/`: Streamlit frontend components and layout
-*   `docker/`: Containerization configuration
-*   `docs/`: Implementation plans and PRD
-*   `tests/`: Unit and integration tests
-*   `sample_data/`: Default production plans and seed data
+- **Never call `day advance` directly** — the turn engine does that via `POST /api/day/advance`.
+- `manufacturers/providers.json` must exist and point to `http://127.0.0.1:8001` — tracked in git.
+- Database: `manufacturer/data/manufacturer.db` (git-ignored).
+- Auth endpoints were removed in the Week 8 refactor — do not re-add them.

@@ -10,6 +10,7 @@ RED='\033[1;31m'
 NC='\033[0m' # No Color
 
 APPS=("provider" "manufacturer" "retailer")
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo -e "${BLUE}🚀 Starting Environment Setup for DGSI Supply Chain...${NC}"
 
@@ -56,7 +57,26 @@ for app in "${APPS[@]}"; do
     cd ..
 done
 
+echo -e "\n${BLUE}--- Setting up [root] ---${NC}"
+cd "$ROOT_DIR" || exit 1
+if [ "$INSTALLER" == "uv" ]; then
+    uv venv venv &> /dev/null
+    source venv/bin/activate
+    uv pip install -r requirements.txt &> /dev/null
+else
+    python3 -m venv venv &> /dev/null
+    source venv/bin/activate
+    pip install --quiet -r requirements.txt
+fi
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ [root] setup complete.${NC}"
+else
+    echo -e "${RED}❌ [root] setup failed.${NC}"
+fi
+deactivate 2>/dev/null
+
 echo -e "\n${GREEN}🎉 All environments are ready!${NC}"
 echo -e "Next steps:"
 echo -e "  1. Run ${BLUE}./scripts/start_all.sh${NC} to start servers."
 echo -e "  2. Run ${BLUE}./scripts/test_scenario.sh${NC} to initialize data."
+echo -e "  3. Run tests: ${BLUE}PYTHONPATH=. venv/bin/pytest tests/${NC}"

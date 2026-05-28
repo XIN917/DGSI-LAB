@@ -1,72 +1,57 @@
-# DGSI Provider App
+# Provider Service — DGSI Week 8
 
-A parts supplier simulator that communicates over REST.
+Parts supplier service for the DGSI supply chain simulation. Runs on `:8001`.
 
-## Features
-- REST API for catalog, stock, and orders.
-- Typer-based CLI for manual control and simulation.
-- Shared service layer for business logic.
-- Day-based simulation engine.
+## Setup
 
-## Installation
+Run from the repo root — `scripts/setup_envs.sh` creates `provider/venv/` automatically:
 
-### Prerequisites
-- Python 3.11+
+```bash
+./scripts/setup_envs.sh
+```
 
-### Setup
+Or manually:
 
-Choose your preferred environment manager:
-
-#### Option A: Using uv (Recommended)
 ```bash
 cd provider
-uv sync
-# Use 'uv run' for all subsequent commands
+uv venv venv
+source venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install -e .
 ```
 
-#### Option B: Using standard venv
+## Start
+
 ```bash
-cd provider
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-pip install -e .
+provider/venv/bin/provider-cli serve --port 8001
+# or via the root start script:
+./scripts/start_all.sh
 ```
 
-## Usage
+API docs: `http://localhost:8001/docs`
 
-### Start the API
-Using `uv`:
-```bash
-uv run python app/main.py serve --port 8001
-```
-Using `venv`:
-```bash
-python app/main.py serve --port 8001
-```
-API docs will be available at `http://localhost:8001/docs`.
-
-### CLI Commands
-You can use the `provider-cli` (after `pip install -e .`) or run the script directly:
+## CLI Commands
 
 ```bash
-# Using uv
-uv run python app/cli.py catalog
-uv run python app/cli.py stock
-
-# Using venv (direct script)
-python app/cli.py catalog
-python app/cli.py stock
-python app/cli.py orders list
-python app/cli.py day advance
+provider-cli day current
+provider-cli catalog
+provider-cli stock
+provider-cli orders list [--status pending]
+provider-cli orders show <id>
+provider-cli restock <product> <quantity>
+provider-cli price set <product> <tier> <price>
+provider-cli seed
 ```
 
 ## Testing
-Run the test suite using pytest:
-```bash
-# Using uv
-uv run pytest
 
-# Using venv
-pytest
+```bash
+cd provider
+venv/bin/pytest tests/ -v
 ```
+
+## Notes
+
+- **Never call `day advance` directly** — the turn engine does that via `POST /api/day/advance`.
+- Database: `provider/data/provider.db` (git-ignored).
+- Seed data initialised by `provider-cli seed` (called automatically by `scripts/reset_all.sh`).

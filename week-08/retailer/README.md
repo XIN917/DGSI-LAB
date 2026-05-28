@@ -1,77 +1,63 @@
-# DGSI Retailer App
+# Retailer Service — DGSI Week 8
 
-A downstream retailer simulator for the DGSI supply chain. The Retailer App purchases finished printers from the Manufacturer, manages finished goods inventory, fulfills customer demand, enforces retail pricing rules, and advances simulation days in sync with the central turn engine.
+Retail store service for the DGSI supply chain simulation. Runs on `:8003`.
 
-## Features
+## Setup
 
-- REST API and Typer CLI for all core operations
-- Customer order intake, fulfillment, and backorder handling
-- Purchase order placement to Manufacturer via REST
-- Retail pricing management with enforced minimum profit margins
-- Local SQLite persistence and event logging for auditability
-- Standard simulation endpoints: `/api/day/current` and `/api/day/advance`
+Run from the repo root — `scripts/setup_envs.sh` creates `retailer/venv/` automatically:
 
-## Getting Started
-
-### Prerequisites
-- Python 3.11+
-
-### Installation
-
-Choose your preferred environment manager:
-
-#### Option A: Using uv (Recommended)
 ```bash
-cd retailer
-uv sync
-# Use 'uv run' for all subsequent commands
+./scripts/setup_envs.sh
 ```
 
-#### Option B: Using standard venv
+Or manually:
+
 ```bash
 cd retailer
-python3 -m venv venv
+uv venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+uv pip install -r requirements.txt
+uv pip install -e .
 ```
 
-### Running the Application
-
-Once installed (via `pip install -e .` or `uv sync`), you can run the commands. 
-*Note: Prefix with `uv run` if using Option A without an active venv.*
-
-1. **Initialize the database**:
-   ```bash
-   retailer-cli init
-   ```
-
-2. **Start the API**:
-   ```bash
-   uvicorn app.main:app --reload --port 8003
-   ```
-
-API docs will be available at `http://localhost:8003/docs`.
-
-### CLI Commands
-
-Use the `retailer-cli` command to interact with the simulation:
+## Start
 
 ```bash
-# Show product catalog & current inventory
-retailer-cli catalog
-retailer-cli inventory
-
-# Manage Customer Orders
-retailer-cli customer-orders list
-retailer-cli customer-orders create --sku P3D-Classic --quantity 2
-
-# Manage Simulation Day
-retailer-cli day current
-retailer-cli day advance
-
-# Update Retail Pricing (Enforces 15% markup)
-retailer-cli pricing P3D-Classic 1600.0
+retailer/venv/bin/retailer-cli serve --port 8003
+# or via the root start script:
+./scripts/start_all.sh
 ```
 
-For more detailed testing scenarios, see [docs/TESTING.md](docs/TESTING.md).
+API docs: `http://localhost:8003/docs`
+
+## CLI Commands
+
+```bash
+retailer-cli day current
+retailer-cli stock
+retailer-cli customers orders
+retailer-cli customers order <id>
+retailer-cli fulfill <order_id>
+retailer-cli backorder <order_id>
+retailer-cli purchase list
+retailer-cli purchase create <model> <qty>
+retailer-cli price list
+retailer-cli price set <model> <price>
+retailer-cli init
+```
+
+## Testing
+
+```bash
+cd retailer
+venv/bin/pytest tests/ -v
+
+# Focused delivery-sync regression test (run before full scenario runs):
+venv/bin/pytest tests/test_services/test_purchase_order_sync.py
+```
+
+## Notes
+
+- **Never call `day advance` directly** — the turn engine does that via `POST /api/day/advance`.
+- Database: `retailer/data/retailer.db` (git-ignored).
+- `pytest` is included in `requirements.txt` — use `retailer/venv/bin/pytest`, not `.venv/bin/pytest`.
