@@ -72,18 +72,16 @@ Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are automa
 
 ### 5. Visualize Results
 
-After a simulation run, generate charts to analyze agent behavior and supply chain dynamics. You can visualize the "live" current state or an archived run:
+After a simulation run, generate multi-product charts with split-panel layouts to analyze supply chain dynamics. The visualizer works on archived folders even if `run.csv` is missing.
 
 ```bash
-# Visualize the most recent "live" run
-./manufacturer/venv/bin/python visualize.py
+# Visualize all models and parts from recent runs
+python visualize.py
 
-# Visualize a specific archived scenario
-./manufacturer/venv/bin/python visualize.py logs/calm-market
-./manufacturer/venv/bin/python visualize.py logs/holiday-rush
+# Visualize a specific archived folder (e.g. from demo/ or logs/)
+python visualize.py demo/calm-market
+python visualize.py logs/holiday-rush
 ```
-
-Charts are saved to `logs/charts/{scenario_name}/` (or a `charts/` subdirectory of the archive folder if provided).
 
 ### 6. Running Tests
 
