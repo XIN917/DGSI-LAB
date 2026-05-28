@@ -31,7 +31,7 @@ week-08/
     └── DELIVERY.md     # Final submission checklist
 ```
 
-Each service has its own virtualenv at `<service>/venv/`.
+Each service has its own virtualenv at `<service>/venv/`. A root-level `venv/` (created by `scripts/setup_envs.sh`) owns the orchestration layer: `turn_engine.py`, `api_server.py`, `visualize.py`, and `tests/`.
 
 ---
 
@@ -47,7 +47,7 @@ See **`README.md`** for detailed instructions on:
 
 ## Visualization (`visualize.py`)
 
-Generates 4 charts per scenario to analyze supply chain performance.
+Generates 6 charts per scenario to analyze supply chain performance.
 ```bash
 # Generate charts for all products/parts across all recent runs in logs/run.csv
 python3 visualize.py
@@ -55,10 +55,23 @@ python3 visualize.py
 # Generate charts for a specific archived folder (even if run.csv is missing)
 python3 visualize.py demo/calm-market_1
 ```
+
+**Output files (all in `logs/{scenario}/charts/`):**
+
+| File | Content |
+|---|---|
+| `inventory.png` | Finished goods inventory — Mfr & Retailer |
+| `parts_inventory.png` | Raw materials per-part grid (Provider) — small multiples |
+| `prices.png` | Finished goods pricing — Mfr wholesale & Retailer retail |
+| `parts_prices.png` | Part pricing per-part grid (Provider) — small multiples |
+| `fulfillment.png` | Daily orders: fulfilled / backordered / lost |
+| `events.png` | Scenario modifiers over time |
+
 **Features:**
-- **Split Subplots**: Inventory and Price charts are split into "Finished Goods" and "Raw Materials" panels to handle different scales.
-- **Multi-Product**: Automatically loops through all models (Classic, Pro) and all 11 raw parts.
-- **Resilience**: Generates Inventory/Price charts from SQLite databases even if the `run.csv` summary is missing.
+- **Event shading**: All charts show colored bands for scenario events (Black Friday = blue, Chip Shortage = orange, Christmas Rush = purple).
+- **Small multiples**: Raw materials inventory and part pricing each use a 3-column grid (one subplot per part) instead of overlapping lines.
+- **Seed-price filter**: Day-1 manufacturer price anomalies (> 3× median) are suppressed automatically.
+- **Resilience**: Inventory/Price charts generate from SQLite databases even if `run.csv` is missing.
 
 ---
 
@@ -130,15 +143,15 @@ Skill files live in `skills/`. They define each agent's role, available commands
 6. Calls `POST /api/day/advance` on each service
 7. Saves all three agents' output to `logs/{scenario}/day-NNN.log`
 8. Prints global inventory snapshot table (all three services)
-9. Appends KPI row to `logs/run.csv`
-10. At end of run: snapshots databases to `logs/{scenario}/` and prints summary table
+9. Appends KPI row to `logs/run.csv` (file is cleared at the start of each fresh run so it always reflects the latest run only)
+10. At end of run: snapshots databases to `logs/{scenario}/` and prints summary table including duration, model, and day range
 
 **Optimizations:**
 - **Full Parallelization**: All three agents run concurrently each day. Manufacturer operates on previous day's retailer orders (realistic 1-day lag).
 - **Compact Role Contracts**: Normal runs send compact per-role rules instead of the full markdown skill files every day. Use `--full-skill-prompt` when debugging agent behavior against the original skill text.
 - **Trimmed Prefetch**: Each agent receives decision-relevant state with long CLI outputs capped to preserve headers, active rows, and recent rows.
 - **Action Batching**: Agents are instructed to use the prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
-- **Model Flexibility**: Use `--model` to switch LLM brains. Claude models use the `claude` CLI subprocess; Gemini models (`gemini-*`) use the `google-genai` SDK directly with `GEMINI_API_KEY` from `.env`. Supported: `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`.
+- **Model Flexibility**: Use `--model` to switch LLM brains. Claude models use the `claude` CLI subprocess; Gemini and Gemma models (`gemini-*`, `gemma-*`) use the `google-genai` SDK directly with `GEMINI_API_KEY` from `.env`. Default: `gemini-3.1-flash-lite`. Supported: `gemini-3.1-flash-lite`, `gemma-4-26b`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `claude-opus-4-7`.
 - **Run Chunking**: Use `--start-day N` to resume long scenarios without rerunning previous days.
 - **Auto Chart Generation**: At the end of every run, databases are snapshotted and `generate_charts()` from `visualize.py` is called automatically. Charts land in `logs/{scenario}/charts/`. Requires `matplotlib` and `pandas` in the environment; degrades gracefully if unavailable.
 
@@ -174,6 +187,8 @@ Agent turn limits: retailer 6, manufacturer 8, provider 8. **Do not reduce these
 - **HTTP advance skipped external supplier receipts:** Manufacturer CLI `day advance` polled external suppliers, but the turn engine uses HTTP `POST /api/day/advance`, so provider deliveries reduced provider stock while manufacturer raw-material inventory stayed frozen. Fixed by polling `ExternalSupplierService` in both manufacturer HTTP advance endpoints.
 - **Retailer stranded in-flight manufacturer POs:** Retailer delivery sync only checked local POs with status `pending`; once a PO became `released` or `waiting_materials`, later manufacturer delivery was never received into retailer stock. Fixed by syncing all non-terminal POs (`not delivered/cancelled`).
 - **Python/Pydantic warnings in regression tests:** Updated manufacturer settings to Pydantic v2 `SettingsConfigDict`, replaced `datetime.utcnow()` with timezone-aware `datetime.now(UTC)`, and disposed the SQLite test engine.
+- **Retailer `manufacturer_client.py` stale auth:** The manufacturer's auth endpoints were removed in the service-layer refactor, but the retailer client still called `POST /api/auth/login` on every request. This caused all retailer purchase orders to fail with 404, keeping fulfillment at 0% for every day after day 1. Fixed by removing all auth logic from `retailer/app/services/manufacturer_client.py` and calling manufacturer endpoints directly.
+- **run.csv stale data across runs:** Re-running the same scenario without resetting caused the summary table and frontend KPI endpoint to show mixed data from all previous runs. Fixed by clearing `logs/run.csv` at the start of every fresh run (`start_day == 1`). Resumed chunk runs (`--start-day N`) preserve existing rows. `run.csv` always reflects the latest run only — this is intentional since runs are sequential and the frontend shows the most recent run's data.
 
 ---
 
@@ -221,7 +236,7 @@ python api_server.py          # listens on :8000
 
 Interactive docs at `http://localhost:8000/docs`.
 
-**16 endpoints across 5 groups:**
+**15 endpoints across 5 groups:**
 
 | Group | Endpoints |
 |---|---|
@@ -247,11 +262,8 @@ Interactive docs at `http://localhost:8000/docs`.
 Full 15/25-day agent simulations are slow and token-expensive. Before rerunning scenarios, verify the delivery-sync path with focused tests:
 
 ```bash
-cd manufacturer
-pytest tests/test_api/test_day_advance.py -W error
-
-cd ../retailer
-pytest tests/test_services/test_purchase_order_sync.py
+manufacturer/venv/bin/pytest manufacturer/tests/test_api/test_day_advance.py -W error
+retailer/venv/bin/pytest retailer/tests/test_services/test_purchase_order_sync.py
 ```
 
 Only after these pass should you spend tokens on a scenario run. For a low-cost end-to-end smoke check, reset and run 3-5 calm-market days, then inspect archived SQLite databases for manufacturer supplier POs moving to `delivered` with `quantity_delivered > 0`, and retailer POs moving to `delivered` with `received_day` populated.

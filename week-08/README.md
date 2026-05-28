@@ -15,7 +15,7 @@ Autonomous multi-agent supply chain for 3D printers. Three services (Provider, M
 
 ### 0. Set up API key
 
-The default agent model is `gemini-2.5-flash`. Create a `.env` file at the repo root with your Gemini API key:
+The default agent model is `gemini-3.1-flash-lite`. Create a `.env` file at the repo root with your Gemini API key:
 
 ```bash
 echo "GEMINI_API_KEY=your_key_here" > .env
@@ -23,7 +23,7 @@ echo "GEMINI_API_KEY=your_key_here" > .env
 
 Get a key at https://aistudio.google.com/apikey. The `.env` file is git-ignored.
 
-To use Claude models instead, pass `--model claude-haiku-4-5-20251001` (requires the `claude` CLI to be installed and authenticated).
+Supported models: `gemini-3.1-flash-lite` (default), `gemma-4-26b`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash` (all via `GEMINI_API_KEY`), and `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `claude-opus-4-7` (require the `claude` CLI).
 
 ### 1. Install dependencies
 
@@ -100,16 +100,23 @@ python visualize.py
 Run the focused delivery-sync regression tests before any full scenario run:
 
 ```bash
-cd manufacturer && pytest tests/test_api/test_day_advance.py -W error
-cd ../retailer && pytest tests/test_services/test_purchase_order_sync.py
+manufacturer/venv/bin/pytest manufacturer/tests/test_api/test_day_advance.py -W error
+retailer/venv/bin/pytest retailer/tests/test_services/test_purchase_order_sync.py
 ```
 
 Run all project-level integration and logic tests:
 
 ```bash
-# Uses manufacturer venv for dependencies
-export PYTHONPATH=$PYTHONPATH:.
-./manufacturer/venv/bin/pytest tests/
+# Uses root venv (set up by scripts/setup_envs.sh)
+PYTHONPATH=. venv/bin/pytest tests/
+```
+
+Each service also has its own tests runnable from the repo root:
+
+```bash
+manufacturer/venv/bin/pytest manufacturer/tests/ -v
+retailer/venv/bin/pytest retailer/tests/ -v
+provider/venv/bin/pytest provider/tests/ -v
 ```
 
 ### 7. Stop all services
