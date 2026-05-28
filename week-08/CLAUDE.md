@@ -16,6 +16,7 @@ week-08/
 ├── manufacturer/      # Printer factory service (:8002)
 ├── retailer/          # Retail store service (:8003)
 ├── turn_engine.py     # Orchestrates all three agents per simulated day
+├── api_server.py      # FastAPI wrapper for frontend integration (:8000)
 ├── config/sim.json    # Agent wiring (skill files, URLs, paths)
 ├── scenarios/         # Scenario JSON files (calm-market, holiday-rush)
 ├── skills/            # Agent skill files (one per role)
@@ -137,7 +138,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 - **Compact Role Contracts**: Normal runs send compact per-role rules instead of the full markdown skill files every day. Use `--full-skill-prompt` when debugging agent behavior against the original skill text.
 - **Trimmed Prefetch**: Each agent receives decision-relevant state with long CLI outputs capped to preserve headers, active rows, and recent rows.
 - **Action Batching**: Agents are instructed to use the prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
-- **Model Flexibility**: Use `--model` to switch LLM brains. Model availability depends on the active Claude account.
+- **Model Flexibility**: Use `--model` to switch LLM brains. Claude models use the `claude` CLI subprocess; Gemini models (`gemini-*`) use the `google-genai` SDK directly with `GEMINI_API_KEY` from `.env`. Supported: `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`.
 - **Run Chunking**: Use `--start-day N` to resume long scenarios without rerunning previous days.
 - **Auto Chart Generation**: At the end of every run, databases are snapshotted and `generate_charts()` from `visualize.py` is called automatically. Charts land in `logs/{scenario}/charts/`. Requires `matplotlib` and `pandas` in the environment; degrades gracefully if unavailable.
 
@@ -207,6 +208,39 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 - Phase 3 (testing & visualization) — **complete** (visualize.py implemented and integrated into turn_engine.py; charts auto-generated at end of each run to `logs/{scenario}/charts/`; 15-day calm-market verified)
 - Phase 4 (analysis) — **in progress** (holiday-rush 25-day run pending; calm-market charts done)
 - Phase 5 (final deliverables) — not started
+
+## Frontend API Server (`api_server.py`)
+
+A FastAPI wrapper around `turn_engine.py` that exposes all simulation functionality over HTTP for frontend integration. Start it with:
+
+```bash
+pip install fastapi uvicorn
+python api_server.py          # listens on :8000
+# or: uvicorn api_server:app --reload --port 8000
+```
+
+Interactive docs at `http://localhost:8000/docs`.
+
+**16 endpoints across 5 groups:**
+
+| Group | Endpoints |
+|---|---|
+| Simulation control | `POST /run`, `DELETE /run/{id}`, `GET /run/{id}/stream` (SSE), `GET /run/{id}/status`, `GET /runs` |
+| Scenario/config | `GET /scenarios`, `GET /scenarios/{name}`, `GET /models` |
+| Run data | `GET /run/{id}/logs` (paginated), `GET /run/{id}/kpis`, `GET /run/{id}/inventory`, `GET /run/{id}/prices` |
+| Charts | `GET /run/{id}/charts`, `GET /run/{id}/charts/{filename}` |
+| Services | `GET /services/status` |
+
+**Key design:**
+- `POST /run` returns a `run_id` immediately; simulation runs in a background thread
+- `GET /run/{id}/stream` is an SSE endpoint — connect with `EventSource` in the frontend
+- `GET /run/{id}/inventory` and `/prices` query archived SQLite snapshots (populated at end of run)
+- `DELETE /run/{id}` is best-effort cancel (stops after current day completes)
+- `turn_engine.run_simulation()` accepts a `progress_cb` callback so the API server and CLI both work without code duplication
+
+**Next step for frontend integration:**
+- The frontend teammate should connect to `POST /run` to start, then `GET /run/{id}/stream` for live log lines (SSE), and `GET /run/{id}/kpis` + `/charts` once the run finishes.
+- CORS is open (`allow_origins=["*"]`) — restrict in production.
 
 ## Cheap Verification Before Full Runs
 

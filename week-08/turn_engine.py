@@ -12,6 +12,20 @@ from pathlib import Path
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Load .env for GEMINI_API_KEY (optional dep — only needed for Gemini models)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass  # python-dotenv not installed; rely on env vars being set externally
+
+try:
+    from google import genai as google_genai
+    from google.genai import types as genai_types
+    _GEMINI_AVAILABLE = True
+except ImportError:
+    _GEMINI_AVAILABLE = False
+
 try:
     import httpx
 except ImportError:
@@ -224,6 +238,84 @@ def prefetch_state(role, cwd, compact=True):
 
 # ── Agent runner ──────────────────────────────────────────────────────────────
 
+def _run_agent_gemini(role, prompt, cwd, max_turns, model):
+    """Agent loop for Gemini models using the google-genai SDK with function calling."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY not set in .env or environment")
+    if not _GEMINI_AVAILABLE:
+        raise RuntimeError("google-genai not installed. Run: pip install google-genai")
+
+    client = google_genai.Client(api_key=api_key)
+
+    bash_fn = genai_types.FunctionDeclaration(
+        name="bash",
+        description="Run a shell command in the agent's working directory and return stdout+stderr.",
+        parameters={
+            "type": "object",
+            "properties": {"command": {"type": "string"}},
+            "required": ["command"],
+        },
+    )
+    tools = [genai_types.Tool(function_declarations=[bash_fn])]
+    config = genai_types.GenerateContentConfig(tools=tools)
+
+    history = []
+    output_lines = []
+
+    def _gemini_call(contents):
+        """Call Gemini with simple retry on 429 rate-limit errors."""
+        delay = 30
+        for attempt in range(4):
+            try:
+                return client.models.generate_content(
+                    model=model, contents=contents, config=config
+                )
+            except Exception as e:
+                if "429" in str(e) and attempt < 3:
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    raise
+
+    # Initial message
+    history.append(genai_types.Content(role="user", parts=[genai_types.Part(text=prompt)]))
+
+    for _ in range(max_turns):
+        response = _gemini_call(history)
+        candidate = response.candidates[0]
+        history.append(candidate.content)
+
+        tool_calls = [p for p in candidate.content.parts if p.function_call]
+        if not tool_calls:
+            for p in candidate.content.parts:
+                if p.text:
+                    output_lines.append(p.text)
+            break
+
+        fn_responses = []
+        for part in tool_calls:
+            fc = part.function_call
+            if fc.name == "bash":
+                cmd = fc.args.get("command", "")
+                result = subprocess.run(
+                    cmd, shell=True, capture_output=True, text=True, cwd=cwd
+                )
+                tool_output = result.stdout + result.stderr
+                output_lines.append(f"$ {cmd}\n{tool_output}")
+                fn_responses.append(
+                    genai_types.Part(
+                        function_response=genai_types.FunctionResponse(
+                            name="bash", response={"output": tool_output}
+                        )
+                    )
+                )
+
+        history.append(genai_types.Content(role="user", parts=fn_responses))
+
+    return "\n".join(output_lines)
+
+
 def run_agent(
     role,
     skill_path,
@@ -271,21 +363,13 @@ def run_agent(
         "5. After mutations and the short summary, exit."
     )
     start_time = time.time()
+    is_gemini = model.lower().startswith("gemini")
 
     try:
         env = os.environ.copy()
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + env.get("PATH", "")
 
         max_turns = {"retailer": 6, "manufacturer": 8, "provider": 8}.get(role, 4)
-        cmd = [
-            "claude", "--print", "--dangerously-skip-permissions",
-            "--allowedTools", "Bash",
-            "--model", model,
-            "--max-turns", str(max_turns),
-            prompt,
-        ]
-
-        stdout_lines = []
 
         if spinner:
             spin = Spinner("dots", text=f"[bold {color}]{role_label}[/bold {color}] [dim]thinking...[/dim]")
@@ -294,34 +378,46 @@ def run_agent(
             ctx = __import__("contextlib").nullcontext()
             console.print(f"  [dim]{role_label} thinking...[/dim]")
 
-        with ctx:
-            process = subprocess.Popen(
-                cmd,
-                shell=False,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                cwd=cwd,
-                env=env,
-                bufsize=1,
-            )
-            while True:
-                line = process.stdout.readline()
-                if not line and process.poll() is not None:
-                    break
-                if line:
-                    stdout_lines.append(line)
+        if is_gemini:
+            with ctx:
+                stdout_content = _run_agent_gemini(role, prompt, cwd, max_turns, model)
+            return_code = 0
+        else:
+            cmd = [
+                "claude", "--print", "--dangerously-skip-permissions",
+                "--allowedTools", "Bash",
+                "--model", model,
+                "--max-turns", str(max_turns),
+                prompt,
+            ]
+            stdout_lines = []
+            with ctx:
+                process = subprocess.Popen(
+                    cmd,
+                    shell=False,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=cwd,
+                    env=env,
+                    bufsize=1,
+                )
+                while True:
+                    line = process.stdout.readline()
+                    if not line and process.poll() is not None:
+                        break
+                    if line:
+                        stdout_lines.append(line)
+            return_code = process.wait()
+            stdout_content = "".join(stdout_lines)
 
-        return_code = process.wait()
-        stdout_content = "".join(stdout_lines)
         duration = time.time() - start_time
 
         # Compact vs verbose display
         if verbose:
             display_content = Markdown(stdout_content.strip())
         else:
-            # Show last 3 non-empty lines as a compact summary
             lines = [l.rstrip() for l in stdout_content.splitlines() if l.strip()]
             summary = "\n".join(lines[-3:]) if lines else "(no output)"
             display_content = Text(summary, style="dim")
@@ -341,7 +437,7 @@ def run_agent(
                 f.write(header + stdout_content + "\n\n")
 
         if return_code != 0:
-            console.print(f"  [red]✗ Claude exited with code {return_code}[/red]")
+            console.print(f"  [red]✗ Agent exited with code {return_code}[/red]")
         elif not verbose:
             console.print(f"  [dim]Full log → {day_log}[/dim]")
 
@@ -646,6 +742,84 @@ def run_day(
     print_global_state(config, day, signal)
     print_kpi_and_log_csv(config, day, signal, scenario_name)
 
+# ── Programmatic entry point ──────────────────────────────────────────────────
+
+def run_simulation(
+    config_json,
+    scenario_json,
+    days,
+    start_day=1,
+    model="claude-haiku-4-5-20251001",
+    verbose=False,
+    full_skill_prompt=False,
+    progress_cb=None,
+):
+    """Run a full simulation programmatically.
+
+    progress_cb(msg: str) is called for each log line so callers (e.g. the API
+    server) can stream output without capturing stdout.  Defaults to console.print.
+    """
+    _cb = progress_cb or (lambda msg: console.print(msg))
+
+    config = load_config(config_json)
+    scenario = load_scenario(scenario_json)
+    scenario_name = Path(scenario_json).stem
+
+    if start_day < 1 or start_day > days:
+        raise ValueError("start_day must be between 1 and days")
+
+    output_dir = Path("logs") / scenario_name
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    _cb(f"START scenario={scenario_name} days={start_day}-{days} model={model}")
+
+    run_start = time.time()
+    for day in range(start_day, days + 1):
+        _cb(f"DAY {day}/{days}")
+        run_day(
+            day, days, config, scenario, scenario_name,
+            verbose=verbose, output_dir=output_dir,
+            model=model, full_skill_prompt=full_skill_prompt,
+        )
+        _cb(f"DAY_DONE {day}/{days}")
+
+    run_duration = time.time() - run_start
+
+    # Backup databases
+    _cb("Backing up databases…")
+    for svc in ("provider", "manufacturer", "retailer"):
+        src = Path(f"{svc}/data/{svc}.db")
+        if src.exists():
+            shutil.copy(src, output_dir / f"{svc}.db")
+
+    # Generate charts
+    if _VISUALIZE_AVAILABLE:
+        _cb("Generating charts…")
+        try:
+            generate_charts(scenario_name, str(output_dir))
+            _cb(f"Charts saved to {output_dir}/charts/")
+        except Exception as e:
+            _cb(f"WARNING chart generation failed: {e}")
+
+    # Build KPI summary from run.csv
+    csv_path = Path("logs/run.csv")
+    kpi_rows = []
+    if csv_path.exists():
+        with csv_path.open() as f:
+            kpi_rows = [r for r in csv.DictReader(f) if r.get("scenario") == scenario_name]
+
+    mins, secs = divmod(int(run_duration), 60)
+    duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+    _cb(f"DONE duration={duration_str} scenario={scenario_name}")
+    return {
+        "scenario": scenario_name,
+        "days_run": days - start_day + 1,
+        "duration_seconds": round(run_duration, 1),
+        "kpi_rows": kpi_rows,
+        "output_dir": str(output_dir),
+    }
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def parse_args():
@@ -655,8 +829,9 @@ def parse_args():
     parser.add_argument("days", type=int, help="Number of days to simulate")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print full agent output (default: compact 3-line summary)")
-    parser.add_argument("--model", default="claude-haiku-4-5-20251001",
-                        help="LLM model to use for agents; availability depends on your Claude account")
+    parser.add_argument("--model", default="gemini-2.5-flash",
+                        help="LLM model for agents. Claude: 'claude-haiku-4-5-20251001', etc. "
+                             "Gemini: 'gemini-2.5-flash', 'gemini-2.5-pro' (requires GEMINI_API_KEY in .env)")
     parser.add_argument("--start-day", type=int, default=1,
                         help="First simulated day to run, for resuming/chunking long scenarios (default: 1)")
     parser.add_argument("--full-skill-prompt", action="store_true",
@@ -665,6 +840,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+
     config = load_config(args.config_json)
     scenario = load_scenario(args.scenario_json)
     scenario_name = Path(args.scenario_json).stem
@@ -680,44 +856,20 @@ if __name__ == "__main__":
         border_style="cyan",
     ))
 
-    run_start = time.time()
-    output_dir = Path("logs") / scenario_name
-    output_dir.mkdir(exist_ok=True, parents=True)
+    result = run_simulation(
+        args.config_json,
+        args.scenario_json,
+        args.days,
+        start_day=args.start_day,
+        model=args.model,
+        verbose=args.verbose,
+        full_skill_prompt=args.full_skill_prompt,
+    )
 
-    if args.start_day < 1 or args.start_day > args.days:
-        raise SystemExit("--start-day must be between 1 and days")
+    run_duration = result["duration_seconds"]
+    output_dir = Path(result["output_dir"])
+    scenario_name = result["scenario"]
 
-    for day in range(args.start_day, args.days + 1):
-        run_day(
-            day,
-            args.days,
-            config,
-            scenario,
-            scenario_name,
-            verbose=args.verbose,
-            output_dir=output_dir,
-            model=args.model,
-            full_skill_prompt=args.full_skill_prompt,
-        )
-    run_duration = time.time() - run_start
-
-    # Final logic: backup DBs and write summary to the scenario folder
-    console.print(f"\n[bold cyan]Backing up databases to {output_dir}...[/bold cyan]")
-    shutil.copy("provider/data/provider.db", output_dir / "provider.db")
-    shutil.copy("manufacturer/data/manufacturer.db", output_dir / "manufacturer.db")
-    shutil.copy("retailer/data/retailer.db", output_dir / "retailer.db")
-
-    if _VISUALIZE_AVAILABLE:
-        console.print(f"\n[bold cyan]Generating charts...[/bold cyan]")
-        try:
-            generate_charts(scenario_name, str(output_dir))
-            console.print(f"  [dim]Charts → {output_dir}/charts/[/dim]")
-        except Exception as e:
-            console.print(f"  [yellow]⚠ Chart generation failed: {e}[/yellow]")
-    else:
-        console.print("  [dim]Skipping charts (visualize.py not available or missing dependencies)[/dim]")
-
-    console.print()
     mins, secs = divmod(int(run_duration), 60)
     duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
     console.rule(f"[bold green] Simulation complete — {duration_str} [/bold green]", style="green")

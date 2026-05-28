@@ -13,6 +13,18 @@ Autonomous multi-agent supply chain for 3D printers. Three services (Provider, M
 
 ## Quickstart
 
+### 0. Set up API key
+
+The default agent model is `gemini-2.5-flash`. Create a `.env` file at the repo root with your Gemini API key:
+
+```bash
+echo "GEMINI_API_KEY=your_key_here" > .env
+```
+
+Get a key at https://aistudio.google.com/apikey. The `.env` file is git-ignored.
+
+To use Claude models instead, pass `--model claude-haiku-4-5-20251001` (requires the `claude` CLI to be installed and authenticated).
+
 ### 1. Install dependencies
 
 ```bash
