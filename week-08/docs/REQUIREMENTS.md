@@ -35,7 +35,7 @@ This is the consolidated checklist of all requirements derived from `week8.pdf`,
 - [x] **Daily KPI Timing**: Turn Day N customer demand is created before service day advance, so daily KPI filtering treats retailer `created_day == N-1` as current-turn demand.
 
 ## 4. Analysis Requirements
-- [x] **Visualization**: Script (`visualize.py`) using `matplotlib` to generate 4 charts per scenario:
+- [x] **Visualization**: Script (`visualize.py`) using `matplotlib` generates 4 charts per scenario; integrated into `turn_engine.py` — charts are auto-generated to `logs/{scenario}/charts/` at end of every run. Run `python visualize.py <dir>` to regenerate manually.
     1. **Inventory**: Mfr Parts, Mfr Finished, Retailer Stock.
     2. **Prices**: Provider (1 part), Mfr Wholesale, Retailer Retail.
     3. **Order Fulfillment**: Bar chart of Placed vs Fulfilled vs Backordered.

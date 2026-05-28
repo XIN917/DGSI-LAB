@@ -139,6 +139,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 - **Action Batching**: Agents are instructed to use the prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
 - **Model Flexibility**: Use `--model` to switch LLM brains. Model availability depends on the active Claude account.
 - **Run Chunking**: Use `--start-day N` to resume long scenarios without rerunning previous days.
+- **Auto Chart Generation**: At the end of every run, databases are snapshotted and `generate_charts()` from `visualize.py` is called automatically. Charts land in `logs/{scenario}/charts/`. Requires `matplotlib` and `pandas` in the environment; degrades gracefully if unavailable.
 
 All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers.
 
@@ -203,8 +204,8 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 
 - Phase 1 (wiring + fixes) — **complete**
 - Phase 2 (metrics tables) — **complete**
-- Phase 3 (testing & visualization) — **complete** (visualize.py implemented; 15-day calm-market run verified: 100% fill rate all 15 days; **needs rerun** after reload=False fix)
-- Phase 4 (analysis) — **in progress** (scenario runs pending after delivery-sync fixes; use focused regression tests before spending tokens on full LLM runs)
+- Phase 3 (testing & visualization) — **complete** (visualize.py implemented and integrated into turn_engine.py; charts auto-generated at end of each run to `logs/{scenario}/charts/`; 15-day calm-market verified)
+- Phase 4 (analysis) — **in progress** (holiday-rush 25-day run pending; calm-market charts done)
 - Phase 5 (final deliverables) — not started
 
 ## Cheap Verification Before Full Runs

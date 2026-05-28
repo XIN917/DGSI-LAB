@@ -9,7 +9,7 @@
 | Provider service (:8001) | Complete — CLI, metrics table, skill wired, seed fixed |
 | Manufacturer service (:8002) | Complete — CLI, metrics table, skill wired; `providers.json` bug fixed; HTTP day advance polls external suppliers |
 | Retailer service (:8003) | Complete — CLI aligned to skill file, metrics table, skill wired; in-flight manufacturer POs sync until terminal |
-| Turn engine (`turn_engine.py`) | Complete — optimized with parallelization, command batching, model flexibility, scenario-based isolation, global inventory snapshots, and stable max-turn budgets. |
+| Turn engine (`turn_engine.py`) | Complete — optimized with parallelization, command batching, model flexibility, scenario-based isolation, global inventory snapshots, stable max-turn budgets, and auto chart generation via `visualize.py` at run end. |
 | `skills/` | All three skill files present and wired in `config/sim.json` |
 | `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
 | `CLAUDE.md` / `README.md` / `.gitignore` | All present at repo root |
@@ -62,7 +62,8 @@
 - [x] Implement `visualize.py` using matplotlib to generate required charts
 - [x] Run 15+ day simulation against `calm-market.json` after delivery-sync fixes
 - [ ] Run 25-day simulation against `holiday-rush.json`
-- [ ] Generate all 8 required charts (4 per scenario) using `visualize.py` — calm-market charts done (`logs/charts/calm-market/`); holiday-rush pending run
+- [x] Integrate `visualize.py` into `turn_engine.py` — charts auto-generated to `logs/{scenario}/charts/` at end of every run
+- [ ] Generate holiday-rush charts (pending 25-day run)
 - [ ] Draft written causal interpretation and scenario comparison
 
 

@@ -62,7 +62,7 @@ python turn_engine.py config/sim.json scenarios/holiday-rush.json 25 --start-day
 python turn_engine.py config/sim.json scenarios/calm-market.json 15 --full-skill-prompt
 ```
 
-Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are automatically snapshotted to the same directory at the end of each run. KPI data is appended to `logs/run.csv`. Normal runs use compact role contracts and capped prefetch output to reduce token usage; pass `--full-skill-prompt` only when debugging agent behavior.
+Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are snapshotted and charts are automatically generated to `logs/{scenario_name}/` at the end of each run. KPI data is appended to `logs/run.csv`. Normal runs use compact role contracts and capped prefetch output to reduce token usage; pass `--full-skill-prompt` only when debugging agent behavior.
 
 > **Note:** `manufacturer/providers.json` must exist and point to the provider URL (`http://127.0.0.1:8001`). It is tracked in git — if missing, manufacturer procurement will silently fail every day.
 >
@@ -70,17 +70,17 @@ Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are automa
 >
 > **Note:** Manufacturer seed inventory for `frame_kit` is intentionally low (20 units) so the manufacturer agent is forced to order from the provider within the first few days. Do not raise it or the reorder behavior disappears in short runs.
 
-### 5. Visualize Results
+### 5. Visualize Results (manual / re-run)
 
-After a simulation run, generate multi-product charts with split-panel layouts to analyze supply chain dynamics. The visualizer works on archived folders even if `run.csv` is missing.
+Charts are generated automatically at the end of every simulation run. To regenerate them manually or for an archived folder:
 
 ```bash
-# Visualize all models and parts from recent runs
-python visualize.py
-
-# Visualize a specific archived folder (e.g. from demo/ or logs/)
-python visualize.py demo/calm-market
+# Regenerate charts from a specific archived folder
 python visualize.py logs/holiday-rush
+python visualize.py demo/calm-market
+
+# Regenerate charts for all scenarios found in logs/run.csv
+python visualize.py
 ```
 
 ### 6. Running Tests

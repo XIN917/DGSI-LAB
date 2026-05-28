@@ -19,6 +19,12 @@ except ImportError:
     sys.exit(1)
 
 try:
+    from visualize import generate_charts
+    _VISUALIZE_AVAILABLE = True
+except ImportError:
+    _VISUALIZE_AVAILABLE = False
+
+try:
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
@@ -700,6 +706,16 @@ if __name__ == "__main__":
     shutil.copy("provider/data/provider.db", output_dir / "provider.db")
     shutil.copy("manufacturer/data/manufacturer.db", output_dir / "manufacturer.db")
     shutil.copy("retailer/data/retailer.db", output_dir / "retailer.db")
+
+    if _VISUALIZE_AVAILABLE:
+        console.print(f"\n[bold cyan]Generating charts...[/bold cyan]")
+        try:
+            generate_charts(scenario_name, str(output_dir))
+            console.print(f"  [dim]Charts → {output_dir}/charts/[/dim]")
+        except Exception as e:
+            console.print(f"  [yellow]⚠ Chart generation failed: {e}[/yellow]")
+    else:
+        console.print("  [dim]Skipping charts (visualize.py not available or missing dependencies)[/dim]")
 
     console.print()
     mins, secs = divmod(int(run_duration), 60)
