@@ -15,8 +15,8 @@ This document tracks the tasks required for the final submission of the DGSI Wee
     - [ ] Technical decisions made during skill authoring.
     - [ ] Reflections on agent strengths and weaknesses.
 - [ ] **Section C: Simulation Results**
-    - [ ] Embed 4 charts for `calm-market`.
-    - [ ] Embed 4 charts for `holiday-rush`.
+    - [ ] Embed 6 charts for `calm-market` (`inventory.png`, `parts_inventory.png`, `prices.png`, `parts_prices.png`, `fulfillment.png`, `events.png`).
+    - [ ] Embed 6 charts for `holiday-rush`.
     - [ ] Written causal-chain interpretation (2–4 sentences per chart).
     - [ ] Answers to the 4 mandatory interpretation questions (Stock building, Stockout causes, Price oscillation, Bullwhip effect).
     - [ ] Scenario comparison paragraph.
@@ -33,5 +33,5 @@ This document tracks the tasks required for the final submission of the DGSI Wee
 - [ ] Run focused delivery-sync regressions before final scenario runs:
     - `cd manufacturer && pytest tests/test_api/test_day_advance.py -W error`
     - `cd retailer && pytest tests/test_services/test_purchase_order_sync.py`
-- [ ] Run turn-engine logic tests with repo root on `PYTHONPATH`: `PYTHONPATH=. pytest tests/test_simulation_logic.py`
+- [ ] Run turn-engine logic tests with repo root on `PYTHONPATH`: `PYTHONPATH=. venv/bin/pytest tests/`
 - [ ] After final scenario runs, inspect archived DBs to confirm supplier/manufacturer/retailer deliveries reached terminal states instead of staying stranded in `pending`, `released`, or `waiting_materials`.
