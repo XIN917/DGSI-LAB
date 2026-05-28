@@ -8,11 +8,14 @@
 |---|---|
 | Provider service (:8001) | Complete — CLI, metrics table, skill wired, seed fixed |
 | Manufacturer service (:8002) | Complete — CLI, metrics table, skill wired; `providers.json` bug fixed; HTTP day advance polls external suppliers |
-| Retailer service (:8003) | Complete — CLI aligned to skill file, metrics table, skill wired; in-flight manufacturer POs sync until terminal |
-| Turn engine (`turn_engine.py`) | Complete — optimized with parallelization, command batching, model flexibility, scenario-based isolation, global inventory snapshots, stable max-turn budgets, and auto chart generation via `visualize.py` at run end. |
+| Retailer service (:8003) | Complete — CLI aligned to skill file, metrics table, skill wired; in-flight manufacturer POs sync until terminal; stale auth removed |
+| Turn engine (`turn_engine.py`) | Complete — parallelization, compaction, model flexibility (Gemini/Gemma/Claude), auto chart generation, run.csv cleared on fresh run, duration in summary log |
+| `visualize.py` | Complete — 6 charts per scenario, event shading, small multiples for parts, seed-price filter |
+| `api_server.py` | Complete — 15 endpoints, SSE streaming, run persistence, model list |
 | `skills/` | All three skill files present and wired in `config/sim.json` |
 | `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
-| `CLAUDE.md` / `README.md` / `.gitignore` | All present at repo root |
+| `docs/ANALYSIS.md` | Complete — 12 chart interpretations, 4 mandatory questions answered, scenario comparison written |
+| `CLAUDE.md` / `README.md` / service READMEs | All up to date |
 
 ---
 
@@ -20,76 +23,58 @@
 
 ### Phase 1 — Wire and fix (blockers before any simulation)
 
-- [x] Update retailer CLI to match skill file commands (rename/add: `stock`, `customers orders`, `customers order <id>`, `purchase list`, `purchase create <model> <qty>`, `price list`, `price set <model> <price>`)
-- [x] Wire provider skill in `config/sim.json`: set `"skill": "skills/provider-manager.md"`
-- [x] Wire retailer skill in `config/sim.json`: set `"skill": "skills/retail-manager.md"`
-- [x] Fix `todays_signal()` in `turn_engine.py`: extract `supply_modifier`, `lead_time_modifier`, `price_sensitivity` (currently only `demand_modifier`)
-- [x] Fix overlapping event logic in `todays_signal()`: multiply modifiers instead of last-wins overwrite
-- [x] Apply `lead_time_modifier` during provider `day advance` logic
-- [x] Add day-end summary line to turn engine after all agents complete
-- [x] Create `scenarios/calm-market.json` (spec in `docs/PRD.md`)
-- [x] Create `scenarios/holiday-rush.json` (spec in `docs/PRD.md`)
+- [x] Update retailer CLI to match skill file commands
+- [x] Wire provider and retailer skills in `config/sim.json`
+- [x] Fix `todays_signal()`: extract all modifiers, multiply overlapping events
+- [x] Apply `lead_time_modifier` during provider `day advance`
+- [x] Create `scenarios/calm-market.json` and `scenarios/holiday-rush.json`
 
 ### Phase 2 — Metrics tables (required for analysis)
 
-- [x] Add `metrics` table with `sim_day` column to Provider DB
-- [x] Add `metrics` table with `sim_day` column to Manufacturer DB
-- [x] Add `metrics` table with `sim_day` column to Retailer DB
+- [x] Add `metrics` table with `sim_day` column to all three service DBs
 - [x] Snapshot metrics during `POST /api/day/advance` in each service
+
 ### Phase 3 — Test and run
 
-- [x] Test manufacturer skill in isolation — see `docs/TESTING.md`
-- [x] Test retailer skill in isolation — see `docs/TESTING.md`
-- [x] Test provider skill in isolation — see `docs/TESTING.md` (required fixes before passing)
 - [x] Create project-level integration and logic tests in `tests/`
-- [x] Implement `visualize.py` using matplotlib to generate required charts
-- [x] Run all three agents together for at least one full day
-- [x] Verify simulation health (partial run): metrics captured, `run.csv` populated, databases updated
-- [x] Run 15+ day simulation against `calm-market.json` (VERIFIED post-delivery-sync fix: all 15 day logs + archived DBs in `logs/calm-market/`)
-- [ ] Run 15+ day simulation against `holiday-rush.json`
-- [x] Confirm `logs/{scenario}/day-NNN.log` (one per day, all roles) and `logs/{scenario}-summary.log` written after run
-- [x] Verify UI: day banner, agent spinner, compact panels, KPI bar, global state table, run summary table all render correctly
-- [x] Verify `logs/run.csv` is written and populated after the run (needed for Phase 4 charts)
-- [x] Raise and document agent max-turn budgets after long-run truncation: retailer 6, manufacturer 8, provider 8. Do not reduce these again.
-- [x] Reduce long-run token usage: compact role contracts by default, `--full-skill-prompt` debug fallback, capped prefetch output, short final summaries, and `--start-day` run chunking.
-- [x] Fix delivery-sync regression: manufacturer HTTP advance polls external suppliers; retailer syncs all non-terminal purchase orders.
-- [x] Add cheap regression tests for delivery sync: `manufacturer/tests/test_api/test_day_advance.py` and `retailer/tests/test_services/test_purchase_order_sync.py`.
-- [x] Clean warning output for manufacturer regression test (`pytest ... -W error` passes).
+- [x] Add Gemini agent unit tests in `tests/test_gemini_agent.py`
+- [x] Run 15-day simulation against `calm-market.json` (verified, archived in `demo/calm-market_1/`)
+- [x] Run 25-day simulation against `holiday-rush.json` (verified, archived in `logs/holiday-rush/` and `demo/holiday-rush/`)
+- [x] Fix delivery-sync regression: manufacturer HTTP advance polls external suppliers; retailer syncs all non-terminal POs
+- [x] Add focused regression tests for delivery sync
+- [x] Fix retailer `manufacturer_client.py` stale auth (0% fulfillment bug)
+- [x] Add Gemma 4 26B support; default model → `gemini-3.1-flash-lite`
+- [x] Add `api_server.py` — FastAPI wrapper for frontend integration
 
 ### Phase 4 — Analysis & Results
-*Refer to `docs/REQUIREMENTS.md` and `docs/ANALYSIS.md` for full specs.*
 
-- [x] Implement `visualize.py` using matplotlib to generate required charts
-- [x] Run 15+ day simulation against `calm-market.json` after delivery-sync fixes
-- [ ] Run 25-day simulation against `holiday-rush.json`
-- [x] Integrate `visualize.py` into `turn_engine.py` — charts auto-generated to `logs/{scenario}/charts/` at end of every run
-- [ ] Generate holiday-rush charts (pending 25-day run)
-- [ ] Draft written causal interpretation and scenario comparison
-
+- [x] Implement `visualize.py` — 6 charts per scenario with event shading and small multiples
+- [x] Generate charts for both scenarios (in `logs/` and `demo/`)
+- [x] Draft written causal interpretation for all 12 charts (`docs/ANALYSIS.md`)
+- [x] Answer 4 mandatory questions (stock building, stockout, price dynamics, bullwhip)
+- [x] Write scenario comparison paragraph
 
 ### Phase 5 — Final Delivery
-*Refer to `docs/DELIVERY.md` for the full submission checklist.*
 
-- [ ] Draft 5-8 page Final Report (PDF)
-
+- [ ] Draft 5–8 page Final Report (PDF) — sections: architecture, agent design, results, vibe-coding reflection
 
 ---
 
 ## Verification Checklist
 
-- [x] All three skill files tested in isolation (one day each, other two as stubs)
-- [x] Full turn with all three agents runs clean for at least one day
-- [x] Both scenario files exist (`calm-market.json`, `holiday-rush.json`)
-- [x] `.gitignore` excludes `.env`, `__pycache__/`, `.venv/`, `*.db`, `logs/`
-- [x] 15+ day simulation completed against `calm-market.json` after delivery-sync fixes
-- [ ] 25-day simulation completed against `holiday-rush.json`
-- [ ] UI verified: day banner, spinner, compact panels, KPI bar, global state table, run summary table
-- [x] Agent max-turn budgets verified/documented for long runs: retailer 6, manufacturer 8, provider 8
-- [x] Focused delivery-sync regression tests pass before full scenario reruns
-- [x] `logs/run.csv` and `logs/{scenario}-summary.log` populated after a full run
-- [x] `logs/{scenario}/day-NNN.log` written for each day (all three roles in one file) — verified for calm-market
-- [ ] Metrics tables non-empty in all three DBs, all include `sim_day` column
-- [ ] Event logs in all three databases are non-empty and coherent
-- [ ] 4 charts per scenario: inventory, prices, fulfillment, events overlay
-- [ ] Scenario comparison paragraph written
-- [ ] Final report drafted
+- [x] All three skill files tested in isolation
+- [x] Both scenario files exist and produce clean runs
+- [x] `.gitignore` excludes `.env`, `__pycache__/`, `*.db`, `logs/`
+- [x] 15-day calm-market simulation complete — archived in `demo/calm-market_1/`
+- [x] 25-day holiday-rush simulation complete — archived in `logs/holiday-rush/` and `demo/holiday-rush/`
+- [x] Agent max-turn budgets: retailer 6, manufacturer 8, provider 8
+- [x] Delivery-sync regression tests pass: `manufacturer/venv/bin/pytest manufacturer/tests/test_api/test_day_advance.py -W error`
+- [x] `logs/run.csv` cleared on fresh run; summary log includes duration, model, day range
+- [x] 6 charts per scenario generated: `inventory.png`, `parts_inventory.png`, `prices.png`, `parts_prices.png`, `fulfillment.png`, `events.png`
+- [x] Metrics tables non-empty in all three archived DBs (`logs/holiday-rush/*.db`)
+- [x] Causal interpretation written for all charts (`docs/ANALYSIS.md`)
+- [x] Scenario comparison paragraph written
+- [x] `api_server.py` — 15 endpoints, run persistence, SSE streaming
+- [x] All venvs consistent: `pytest` in all service venvs, correct paths documented
+- [ ] Final report drafted (PDF)
+- [ ] Final `.gitignore` and repo polish check before submission
