@@ -9,27 +9,6 @@ class ManufacturerClient:
 
     def __init__(self) -> None:
         self.base_url = str(settings.manufacturer_url).rstrip("/")
-        self._access_token: Optional[str] = None
-
-    def _get_access_token(self, client: httpx.Client) -> str:
-        if self._access_token:
-            return self._access_token
-
-        response = client.post(
-            f"{self.base_url}/api/auth/login",
-            data={
-                "username": settings.manufacturer_username,
-                "password": settings.manufacturer_password,
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        self._access_token = response.json()["access_token"]
-        return self._access_token
-
-    def _auth_headers(self, client: httpx.Client) -> Dict[str, str]:
-        token = self._get_access_token(client)
-        return {"Authorization": f"Bearer {token}"}
 
     def place_order(self, sku: str, quantity: int, retailer_name: Optional[str] = None) -> Dict[str, Any]:
         """Place a purchase order with the manufacturer."""
@@ -40,9 +19,8 @@ class ManufacturerClient:
             try:
                 response = client.post(
                     f"{self.base_url}/api/orders",
-                    headers=self._auth_headers(client),
                     json={
-                        "product_model": sku, 
+                        "product_model": sku,
                         "quantity": quantity,
                         "retailer_name": retailer_name
                     },
@@ -67,7 +45,6 @@ class ManufacturerClient:
             try:
                 response = client.get(
                     f"{self.base_url}/api/orders/{order_id}",
-                    headers=self._auth_headers(client),
                     timeout=30.0,
                 )
                 response.raise_for_status()
@@ -81,7 +58,6 @@ class ManufacturerClient:
             try:
                 response = client.get(
                     f"{self.base_url}/api/catalog",
-                    headers=self._auth_headers(client),
                     timeout=30.0,
                 )
                 response.raise_for_status()
@@ -95,7 +71,6 @@ class ManufacturerClient:
             try:
                 response = client.get(
                     f"{self.base_url}/api/day/current",
-                    headers=self._auth_headers(client),
                     timeout=30.0,
                 )
                 response.raise_for_status()
@@ -110,7 +85,6 @@ class ManufacturerClient:
             try:
                 response = client.post(
                     f"{self.base_url}/api/day/advance",
-                    headers=self._auth_headers(client),
                     timeout=30.0,
                 )
                 response.raise_for_status()
