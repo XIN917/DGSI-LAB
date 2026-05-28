@@ -1,0 +1,10 @@
+google-genai
+requests
+matplotlib
+pandas
+pytest
+pytest-asyncio
+fastapi
+uvicorn
+httpx
+rich

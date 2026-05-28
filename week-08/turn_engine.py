@@ -258,27 +258,37 @@ def _run_agent_gemini(role, prompt, cwd, max_turns, model):
         },
     )
     tools = [genai_types.Tool(function_declarations=[bash_fn])]
-    config = genai_types.GenerateContentConfig(tools=tools)
+    thinking_cfg = None
+    if "2.5" in model:
+        try:
+            thinking_cfg = genai_types.ThinkingConfig(thinking_budget=0)
+        except Exception:
+            pass
+    config = genai_types.GenerateContentConfig(
+        tools=tools,
+        max_output_tokens=1024,
+        thinking_config=thinking_cfg,
+    )
 
     history = []
     output_lines = []
 
     def _gemini_call(contents):
-        """Call Gemini with simple retry on 429 rate-limit errors."""
-        delay = 30
+        delay = 15
         for attempt in range(4):
             try:
                 return client.models.generate_content(
                     model=model, contents=contents, config=config
                 )
             except Exception as e:
-                if "429" in str(e) and attempt < 3:
-                    time.sleep(delay)
+                if ("429" in str(e) or "503" in str(e)) and attempt < 3:
+                    import re as _re
+                    m = _re.search(r"retryDelay.*?(\d+)s", str(e))
+                    time.sleep(int(m.group(1)) if m else delay)
                     delay *= 2
                 else:
                     raise
 
-    # Initial message
     history.append(genai_types.Content(role="user", parts=[genai_types.Part(text=prompt)]))
 
     for _ in range(max_turns):
@@ -325,7 +335,7 @@ def run_agent(
     day_log=None,
     spinner=True,
     prefetched_state=None,
-    model="claude-haiku-4-5-20251001",
+    model="gemini-3.1-flash-lite",
     full_skill_prompt=False,
 ):
     role_label = role.upper()
@@ -363,7 +373,7 @@ def run_agent(
         "5. After mutations and the short summary, exit."
     )
     start_time = time.time()
-    is_gemini = model.lower().startswith("gemini")
+    is_gemini = model.lower().startswith("gemini") or model.lower().startswith("gemma")
 
     try:
         env = os.environ.copy()
@@ -414,7 +424,6 @@ def run_agent(
 
         duration = time.time() - start_time
 
-        # Compact vs verbose display
         if verbose:
             display_content = Markdown(stdout_content.strip())
         else:
@@ -430,7 +439,6 @@ def run_agent(
             padding=(0, 1),
         ))
 
-        # Append this agent's output to the shared day log
         if day_log:
             header = f"=== {role_label} | context: {context} ===\n\n"
             with day_log.open("a") as f:
@@ -444,7 +452,20 @@ def run_agent(
         return stdout_content
 
     except Exception as e:
-        console.print(f"  [red]✗ {role_label} error: {e}[/red]")
+        err_str = str(e)
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            import re as _re
+            retry = _re.search(r"retryDelay.*?(\d+)s", err_str)
+            limit = _re.search(r"limit.*?(\d+)", err_str)
+            retry_msg = f" Retry in {retry.group(1)}s." if retry else ""
+            limit_msg = f" (limit: {limit.group(1)} req/min)" if limit else ""
+            msg = f"✗ {role_label} rate-limited{limit_msg}.{retry_msg}"
+        else:
+            msg = f"✗ {role_label} error: {e}"
+        console.print(f"  [red]{msg}[/red]")
+        if day_log:
+            with day_log.open("a") as f:
+                f.write(f"=== {role_label} ===\n{msg}\n\n")
         return None
 
 # ── Day advance ───────────────────────────────────────────────────────────────
@@ -473,7 +494,6 @@ def fetch_global_state(config):
     """Fetch stock/inventory from all three services and return a summary dict."""
     state = {"retailer": {}, "manufacturer": {}, "provider": {}}
 
-    # Retailer inventory (public endpoint)
     try:
         retailer_url = config["retailers"][0]["url"]
         r = httpx.get(f"{retailer_url}/api/inventory", timeout=5)
@@ -493,10 +513,8 @@ def fetch_global_state(config):
     except Exception:
         pass
 
-    # Provider stock (public endpoint)
     try:
         provider_url = config["providers"][0]["url"]
-        # Build id→name map from catalog
         id_to_name = {}
         rc = httpx.get(f"{provider_url}/api/catalog/", timeout=5)
         if rc.status_code == 200:
@@ -591,7 +609,6 @@ def print_kpi_and_log_csv(config, day, signal, scenario_name):
     stockout = max(0, placed - fulfilled - backordered)
     fill_rate = (fulfilled / placed * 100) if placed else 0
 
-    # KPI bar
     bar_filled = int(fill_rate / 5)  # 20 chars = 100%
     bar = "█" * bar_filled + "░" * (20 - bar_filled)
     fill_color = "green" if fill_rate >= 80 else ("yellow" if fill_rate >= 50 else "red")
@@ -608,7 +625,6 @@ def print_kpi_and_log_csv(config, day, signal, scenario_name):
         f"[dim]│ demand x{demand_mod:.1f}  supply x{supply_mod:.1f}  events: {event_str}[/dim]"
     )
 
-    # Append to run.csv
     csv_path = Path("logs/run.csv")
     write_header = not csv_path.exists()
     with csv_path.open("a", newline="") as f:
@@ -675,8 +691,9 @@ def run_day(
     scenario_name,
     verbose=False,
     output_dir=None,
-    model="claude-haiku-4-5-20251001",
+    model="gemini-3.1-flash-lite",
     full_skill_prompt=False,
+
 ):
     signal = todays_signal(day, scenario)
     
@@ -707,7 +724,7 @@ def run_day(
 
     # 1. Prefetch state for all agents at once
     all_agent_roles = [
-        ("retailer", config["retailers"][0]["path"]), # Assuming 1 retailer for path lookup
+        ("retailer", config["retailers"][0]["path"]),
         ("manufacturer", config["manufacturer"]["path"]),
     ] + [
         ("provider", p["path"]) for p in config["providers"]
@@ -729,14 +746,20 @@ def run_day(
     mfr = config["manufacturer"]
     all_agents.append(("manufacturer", mfr.get("skill"), mfr["path"]))
 
-    with ThreadPoolExecutor(max_workers=len(all_agents)) as executor:
-        futures = {
-            executor.submit(run_agent, role, skill, json.dumps(signal), path,
-                            verbose, day_log, False, prefetched.get(role), model, full_skill_prompt): role
-            for role, skill, path in all_agents
-        }
+    executor = ThreadPoolExecutor(max_workers=len(all_agents))
+    futures = {
+        executor.submit(run_agent, role, skill, json.dumps(signal), path,
+                        verbose, day_log, False, prefetched.get(role), model, full_skill_prompt): role
+        for role, skill, path in all_agents
+    }
+    try:
         for future in as_completed(futures):
             future.result()
+    except KeyboardInterrupt:
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=False)
 
     advance_all(config, signal)
     print_global_state(config, day, signal)
@@ -749,7 +772,7 @@ def run_simulation(
     scenario_json,
     days,
     start_day=1,
-    model="claude-haiku-4-5-20251001",
+    model="gemini-3.1-flash-lite",
     verbose=False,
     full_skill_prompt=False,
     progress_cb=None,
@@ -773,6 +796,11 @@ def run_simulation(
 
     _cb(f"START scenario={scenario_name} days={start_day}-{days} model={model}")
 
+    if start_day == 1:
+        csv_path = Path("logs/run.csv")
+        if csv_path.exists():
+            csv_path.unlink()
+
     run_start = time.time()
     for day in range(start_day, days + 1):
         _cb(f"DAY {day}/{days}")
@@ -785,14 +813,12 @@ def run_simulation(
 
     run_duration = time.time() - run_start
 
-    # Backup databases
     _cb("Backing up databases…")
     for svc in ("provider", "manufacturer", "retailer"):
         src = Path(f"{svc}/data/{svc}.db")
         if src.exists():
             shutil.copy(src, output_dir / f"{svc}.db")
 
-    # Generate charts
     if _VISUALIZE_AVAILABLE:
         _cb("Generating charts…")
         try:
@@ -801,7 +827,6 @@ def run_simulation(
         except Exception as e:
             _cb(f"WARNING chart generation failed: {e}")
 
-    # Build KPI summary from run.csv
     csv_path = Path("logs/run.csv")
     kpi_rows = []
     if csv_path.exists():
@@ -829,9 +854,9 @@ def parse_args():
     parser.add_argument("days", type=int, help="Number of days to simulate")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print full agent output (default: compact 3-line summary)")
-    parser.add_argument("--model", default="gemini-2.5-flash",
-                        help="LLM model for agents. Claude: 'claude-haiku-4-5-20251001', etc. "
-                             "Gemini: 'gemini-2.5-flash', 'gemini-2.5-pro' (requires GEMINI_API_KEY in .env)")
+    parser.add_argument("--model", default="gemini-3.1-flash-lite",
+                        help="LLM model for agents. Claude: 'claude-haiku-4-5-20251001'. "
+                             "Gemini/Gemma (requires GEMINI_API_KEY): 'gemini-3.1-flash-lite', 'gemma-4-26b', etc.")
     parser.add_argument("--start-day", type=int, default=1,
                         help="First simulated day to run, for resuming/chunking long scenarios (default: 1)")
     parser.add_argument("--full-skill-prompt", action="store_true",
@@ -874,11 +899,10 @@ if __name__ == "__main__":
     duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
     console.rule(f"[bold green] Simulation complete — {duration_str} [/bold green]", style="green")
 
-    # Print run summary table
     csv_path = Path("logs/run.csv")
     if csv_path.exists():
         with csv_path.open() as f:
-            rows = list(csv.DictReader(f))
+            rows = [r for r in csv.DictReader(f) if r.get("scenario") == scenario_name]
         if rows:
             summary = Table(
                 title=f"[bold]Run Summary — {scenario_name}[/bold]",
@@ -937,13 +961,13 @@ if __name__ == "__main__":
             )
             console.print(summary)
 
-    # Write plain-text summary log
     if csv_path.exists():
         with csv_path.open() as f:
             rows = list(csv.DictReader(f))
         if rows:
             summary_log = Path(f"logs/{scenario_name}-summary.log")
-            lines = [f"Run Summary — {scenario_name}\n", "=" * 60 + "\n\n"]
+            lines = [f"Run Summary — {scenario_name}\n", "=" * 60 + "\n",
+                     f"Duration: {duration_str}  |  Model: {args.model}  |  Days: {args.start_day}–{args.days}\n\n"]
             lines.append(f"{'Day':>4}  {'Events':<20}  {'Orders':>6}  {'Fill':>5}  {'Back':>5}  {'Lost':>5}  {'Fill%':>6}\n")
             lines.append("-" * 60 + "\n")
             for r in rows:
