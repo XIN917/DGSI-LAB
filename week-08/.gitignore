@@ -22,3 +22,6 @@ venv/
 # Environment
 .env
 .env.local
+
+# Brainstorming companion
+.superpowers/
