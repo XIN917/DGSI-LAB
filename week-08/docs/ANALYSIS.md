@@ -17,16 +17,18 @@ For **each** scenario (`calm-market` and `holiday-rush`), generate the following
 
 | Chart | Lines/Bars | Source Data |
 |---|---|---|
-| **Inventory** | Parts stock (Mfr), Finished printers (Mfr), Printer stock (Retail) | `metrics` tables in Mfr & Retailer DBs |
-| **Prices** | Provider price (one part), Mfr Wholesale, Retailer Retail | `metrics` tables in all three DBs |
+| **Inventory** | **Top**: Mfr & Retailer stock for all models. **Bottom**: All 11 Provider parts. | `metrics` tables in Mfr & Retailer DBs |
+| **Prices** | **Top**: Mfr Wholesale & Retailer Retail prices. **Bottom**: All 11 Part prices. | `metrics` tables in all three DBs |
 | **Fulfillment** | Daily Bar Chart: Placed vs Fulfilled vs Backordered | `metrics` table (Retailer) or `logs/run.csv` |
-| **Events** | Strip chart marking start/end of scenario events | Scenario JSON & `logs/run.csv` |
+| **Events** | Modifiers (Demand/Supply/Lead Time) and Event highlight shading | Scenario JSON & `logs/run.csv` |
 
 ## 2. Interpretation (Causal Chain)
 
 For **every** chart generated, write 2–4 sentences explaining the causal chain. 
 *   **Don't just say:** "The line goes up on day 12."
 *   **Do explain:** *Why* the line goes up (e.g., "The Retailer raised prices on day 12 because stock levels dropped below the 3-day demand threshold, as seen in the inventory chart.")
+*   **Identify Bottlenecks**: Use the "Raw Materials Inventory" subplot to identify which specific part (e.g., `frame_kit`) caused a production halt at the Manufacturer.
+*   **Identify Scalping/Greed**: Use the "Finished Goods Pricing" subplot to see if the Retailer raised prices well above the Manufacturer's wholesale line.
 *   Identify which agent decision produced the result and whether the signal worked as expected.
 
 ## 3. Specific Volatile-Market Questions

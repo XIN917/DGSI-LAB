@@ -44,6 +44,23 @@ See **`README.md`** for detailed instructions on:
 
 ---
 
+## Visualization (`visualize.py`)
+
+Generates 4 charts per scenario to analyze supply chain performance.
+```bash
+# Generate charts for all products/parts across all recent runs in logs/run.csv
+python3 visualize.py
+
+# Generate charts for a specific archived folder (even if run.csv is missing)
+python3 visualize.py demo/calm-market_1
+```
+**Features:**
+- **Split Subplots**: Inventory and Price charts are split into "Finished Goods" and "Raw Materials" panels to handle different scales.
+- **Multi-Product**: Automatically loops through all models (Classic, Pro) and all 11 raw parts.
+- **Resilience**: Generates Inventory/Price charts from SQLite databases even if the `run.csv` summary is missing.
+
+---
+
 ## Services and CLIs
 ...
 ### Provider (:8001) — `provider/venv/bin/provider-cli`
