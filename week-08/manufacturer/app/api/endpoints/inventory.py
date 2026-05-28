@@ -7,11 +7,7 @@ from decimal import Decimal
 
 from app.core.database import get_db
 from app.core.config import get_settings
-from app.api.dependencies import get_current_active_user
-from app.models.user import User
-from app.models.event import EventLog
 from app.services.inventory_service import InventoryService
-from datetime import datetime
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 settings = get_settings()
@@ -40,15 +36,11 @@ class AdjustRequest(BaseModel):
 
 
 @router.get("", response_model=WarehouseUsageResponse)
-def get_inventory(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_inventory(db: Session = Depends(get_db)):
     """Get all inventory levels with warehouse capacity usage."""
     svc = InventoryService(db)
     items = svc.get_all()
     usage = svc.get_warehouse_usage(settings.DEFAULT_WAREHOUSE_CAPACITY)
-
     return {
         "items": [_serialize(i) for i in items],
         "total_units": usage["used"],
@@ -58,11 +50,7 @@ def get_inventory(
 
 
 @router.get("/{product_name}", response_model=InventoryItemResponse)
-def get_inventory_item(
-    product_name: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_inventory_item(product_name: str, db: Session = Depends(get_db)):
     """Get inventory level for a specific product."""
     svc = InventoryService(db)
     item = svc.get_by_product(product_name)
@@ -72,33 +60,14 @@ def get_inventory_item(
 
 
 @router.post("/adjust", response_model=InventoryItemResponse)
-def adjust_inventory(
-    body: AdjustRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def adjust_inventory(body: AdjustRequest, db: Session = Depends(get_db)):
     """Manually adjust inventory quantity and log the action."""
     svc = InventoryService(db)
-    old_item = svc.get_by_product(body.product_name)
-    old_qty = float(old_item.quantity) if old_item else 0.0
-
-    updated = svc.adjust(body.product_name, Decimal(str(body.new_quantity)))
-
-    # Log the adjustment event
-    event = EventLog(
-        event_type="inventory_adjustment",
-        event_date=datetime.utcnow(),
-        details=str({
-            "product": body.product_name,
-            "old_qty": old_qty,
-            "new_qty": body.new_quantity,
-            "reason": body.reason or "Manual adjustment",
-            "user": current_user.username,
-        }),
+    updated = svc.adjust_and_log(
+        body.product_name,
+        Decimal(str(body.new_quantity)),
+        body.reason or "Manual adjustment",
     )
-    db.add(event)
-    db.commit()
-
     return _serialize(updated)
 
 

@@ -2,7 +2,6 @@
 import sys
 import os
 
-# Add the project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
@@ -10,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import init_db
-from app.api.endpoints import auth, config, inventory, orders, purchase_orders, simulation, events, import_export, catalog, day
+from app.api.endpoints import config, inventory, orders, purchase_orders, simulation, events, import_export, catalog, day
 
 settings = get_settings()
 
@@ -20,7 +19,6 @@ app = FastAPI(
     description="3D Printer Production Simulator API — manage inventory, orders, and production cycles.",
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,8 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(auth.router)
 app.include_router(config.router)
 app.include_router(inventory.router)
 app.include_router(orders.router)
@@ -53,15 +49,9 @@ async def startup():
 
 @app.get("/")
 def root():
-    """Root endpoint."""
-    return {
-        "name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-    }
+    return {"name": settings.APP_NAME, "version": settings.APP_VERSION, "docs": "/docs"}
 
 
 @app.get("/health")
 def health():
-    """Health check endpoint."""
     return {"status": "ok"}

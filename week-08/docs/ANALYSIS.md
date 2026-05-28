@@ -13,7 +13,7 @@ For **each** scenario (`calm-market` and `holiday-rush`), generate the following
 ./manufacturer/venv/bin/python visualize.py logs/holiday-rush
 ```
 
-> **Note:** Charts are saved to `logs/charts/{scenario_name}/` or within a `charts/` subdirectory of the archive folder provided.
+> **Note:** Charts are auto-generated at the end of each `turn_engine.py` run and saved to `logs/{scenario}/charts/`. The commands above regenerate them from archived data.
 
 | Chart | Lines/Bars | Source Data |
 |---|---|---|

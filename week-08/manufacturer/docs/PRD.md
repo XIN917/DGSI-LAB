@@ -15,11 +15,10 @@
 4. [Architecture](#4-architecture)
 5. [API Specification](#5-api-specification)
 6. [UI/UX Design](#6-uiux-design)
-7. [Authentication & Security](#7-authentication--security)
-8. [Development Plan](#8-development-plan)
-9. [Testing Strategy](#9-testing-strategy)
-10. [Deployment Guide](#10-deployment-guide)
-11. [Appendices](#11-appendices)
+7. [Development Plan](#7-development-plan)
+8. [Testing Strategy](#8-testing-strategy)
+9. [Deployment Guide](#9-deployment-guide)
+10. [Appendices](#10-appendices)
 
 ---
 
@@ -43,7 +42,6 @@ A day-by-day production simulation system for factory planning, where users act 
 - Clean, documented code with >80% test coverage
 - Docker deployment working on Windows, macOS, Linux
 - Complete OpenAPI/Swagger documentation
-- Working authentication system
 
 ---
 
@@ -226,14 +224,6 @@ CREATE TABLE simulation_config (
     value JSON NOT NULL
 );
 
--- Users for authentication
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'planner',       -- planner, admin
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 ```
 
 ### 3.2 JSON Schema Examples
@@ -359,12 +349,13 @@ week-05/
 │   │   │   ├── purchase_orders.py
 │   │   │   ├── simulation.py
 │   │   │   ├── config.py
-│   │   │   └── auth.py
-│   │   └── dependencies.py     # DB sessions, auth
+│   │   │   ├── catalog.py
+│   │   │   ├── events.py
+│   │   │   ├── import_export.py
+│   │   │   └── day.py
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── config.py           # Environment variables
-│   │   ├── security.py         # Password hashing, JWT
 │   │   └── database.py         # DB connection
 │   ├── models/
 │   │   ├── __init__.py
@@ -373,16 +364,16 @@ week-05/
 │   │   ├── order.py
 │   │   ├── purchase_order.py
 │   │   ├── event.py
-│   │   └── user.py
-│   ├── schemas/
-│   │   ├── __init__.py
-│   │   # Pydantic request/response models
+│   │   └── simulation.py
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── simulation_engine.py
 │   │   ├── inventory_service.py
 │   │   ├── order_service.py
-│   │   └── purchase_order_service.py
+│   │   ├── purchase_order_service.py
+│   │   ├── config_service.py
+│   │   ├── event_service.py
+│   │   └── external_supplier_service.py
 │   └── utils/
 │       ├── __init__.py
 │       └── json_export.py
@@ -414,36 +405,7 @@ week-05/
 
 ## 5. API Specification
 
-### 5.1 Authentication Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | Login with username/password |
-| POST | `/api/auth/logout` | Invalidate session |
-| GET | `/api/auth/me` | Get current user info |
-
-**Request: POST /api/auth/login**
-```json
-{
-  "username": "planner",
-  "password": "secure_password"
-}
-```
-
-**Response: 200 OK**
-```json
-{
-  "access_token": "eyJ...",
-  "token_type": "bearer",
-  "user": {
-    "id": 1,
-    "username": "planner",
-    "role": "planner"
-  }
-}
-```
-
-### 5.2 Configuration Endpoints
+### 5.1 Configuration Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -454,7 +416,7 @@ week-05/
 | POST | `/api/config/suppliers` | Add supplier |
 | GET | `/api/config/suppliers` | List suppliers |
 
-### 5.3 Inventory Endpoints
+### 5.2 Inventory Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -482,7 +444,7 @@ week-05/
 }
 ```
 
-### 5.4 Manufacturing Order Endpoints
+### 5.3 Manufacturing Order Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -514,7 +476,7 @@ week-05/
 }
 ```
 
-### 5.5 Purchase Order Endpoints
+### 5.4 Purchase Order Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -549,7 +511,7 @@ week-05/
 }
 ```
 
-### 5.6 Simulation Endpoints
+### 5.5 Simulation Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -583,7 +545,7 @@ week-05/
 }
 ```
 
-### 5.7 Event Log Endpoints
+### 5.6 Event Log Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -598,7 +560,7 @@ week-05/
 - `from_date`: ISO date
 - `to_date`: ISO date
 
-### 5.8 Import/Export Endpoints
+### 5.7 Import/Export Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -705,36 +667,7 @@ week-05/
 
 ---
 
-## 7. Authentication & Security
-
-### 7.1 Authentication Approach
-
-Since this is a local/single-user simulator designed as a "real product," we'll implement:
-
-- **Session-based authentication** using secure cookies
-- **Single admin user** by default (extensible to multi-user)
-- **JWT tokens** for API requests (stored in memory, not localStorage since same-origin)
-- **Password hashing** with bcrypt
-
-### 7.2 Security Considerations
-
-- All passwords hashed with bcrypt (cost factor 12)
-- Session timeout after 24 hours of inactivity
-- CSRF protection on all state-changing endpoints
-- Rate limiting on login endpoint (5 attempts per minute)
-- SQL injection prevention via parameterized queries (SQLAlchemy)
-- Input validation via Pydantic models
-
-### 7.3 User Table Schema
-
-See Section 3.1 for full schema. Default seeded user:
-- Username: `admin`
-- Password: Generated randomly on first run (displayed in logs)
-- Role: `admin`
-
----
-
-## 8. Development Plan
+## 7. Development Plan
 
 ### Phase 1: Foundation (March 26-28)
 
@@ -744,13 +677,13 @@ See Section 3.1 for full schema. Default seeded user:
 |-------|------|-----------------|
 | #1 | Setup project structure (FastAPI + Streamlit + SQLite) | 4 |
 | #2 | Database schema implementation with SQLAlchemy | 4 |
-| #3 | Authentication system (login, session, JWT) | 6 |
+| #3 | ~~Authentication system~~ (removed) | — |
 | #4 | Docker configuration (multi-stage build, volumes) | 4 |
 | #5 | Sample data seeding (default production plan) | 3 |
 
 **Acceptance Criteria:**
 - Container builds and runs successfully
-- Can login via Streamlit interface
+- Database initialized and sample data seeded
 - Database initialized with schema
 - Sample production plan loadable
 
@@ -780,7 +713,7 @@ See Section 3.1 for full schema. Default seeded user:
 
 | Issue | Task | Estimated Hours |
 |-------|------|-----------------|
-| #12 | Auth endpoints (/api/auth/*) | 3 |
+| #12 | ~~Auth endpoints~~ (removed) | — |
 | #13 | Config endpoints (/api/config/*) | 4 |
 | #14 | Inventory endpoints (/api/inventory/*) | 4 |
 | #15 | Order endpoints (/api/orders/*) | 5 |
@@ -876,9 +809,9 @@ Phase 1: Foundation   Phase 2: Core         Phase 3+4: API+UI    Phase 5+6+7:
 
 ---
 
-## 9. Testing Strategy
+## 8. Testing Strategy
 
-### 9.1 Test Types
+### 8.1 Test Types
 
 | Type | Tool | Coverage Target |
 |------|------|-----------------|
@@ -886,27 +819,25 @@ Phase 1: Foundation   Phase 2: Core         Phase 3+4: API+UI    Phase 5+6+7:
 | Integration | pytest + TestClient | API endpoints |
 | E2E | pytest + Streamlit testing | Critical user flows |
 
-### 9.2 Test Structure
+### 8.2 Test Structure
 
 ```
 tests/
-├── conftest.py                 # Shared fixtures (DB, auth)
+├── conftest.py                 # Shared fixtures (DB session, sample data)
 ├── test_services/
 │   ├── test_inventory_service.py
 │   ├── test_order_service.py
 │   ├── test_purchase_order_service.py
 │   └── test_simulation_engine.py
 ├── test_api/
-│   ├── test_auth.py
-│   ├── test_inventory.py
-│   ├── test_orders.py
-│   └── test_simulation.py
+│   ├── test_day_advance.py
+│   └── test_integration.py
 └── test_integration/
     ├── test_full_order_flow.py
     └── test_import_export.py
 ```
 
-### 9.3 Key Test Scenarios
+### 8.3 Key Test Scenarios
 
 **Inventory Service:**
 - Reserve materials for order
@@ -935,9 +866,9 @@ tests/
 
 ---
 
-## 10. Deployment Guide
+## 9. Deployment Guide
 
-### 10.1 Docker Setup
+### 9.1 Docker Setup
 
 **Dockerfile:**
 ```dockerfile
@@ -972,7 +903,6 @@ services:
     volumes:
       - ./data:/app/data  # Persist SQLite database
     environment:
-      - SECRET_KEY=${SECRET_KEY:-$(openssl rand -hex 32)}
       - DATABASE_URL=sqlite:///data/manufacturer.db
 ```
 
@@ -995,7 +925,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8002
 wait
 ```
 
-### 10.2 Running Locally
+### 9.2 Running Locally
 
 ```bash
 # Clone repository
@@ -1011,22 +941,19 @@ docker compose up --build
 # - Swagger Docs: http://localhost:8002/docs
 ```
 
-### 10.3 Environment Variables
+### 9.3 Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SECRET_KEY` | Yes* | Random | Cryptographic secret |
-| `DATABASE_URL` | Yes* | sqlite:///data/manufacturer.db | Database connection |
+| `DATABASE_URL` | No | sqlite:///data/manufacturer.db | Database connection |
 | `SIMULATION_START_DATE` | No | 2026-04-01 | Initial simulation date |
 | `DEFAULT_CAPACITY_PER_DAY` | No | 250 | Production capacity |
 
-*Generated automatically on first run if not provided
-
 ---
 
-## 11. Appendices
+## 10. Appendices
 
-### Appendix A: Simulation Day Cycle
+### 10.1 Simulation Day Cycle
 
 The "Advance Day" button triggers this sequence:
 
@@ -1052,7 +979,7 @@ The "Advance Day" button triggers this sequence:
 5. **Daily Snapshot** (R6)
    - Take inventory snapshot for historical tracking
 
-### Appendix B: Event Log Schema
+### 10.2 Event Log Schema
 
 ```json
 {
@@ -1087,7 +1014,7 @@ Supported event types:
 - `inventory_adjusted`
 - `inventory_snapshot`
 
-### Appendix C: Future Enhancements
+### 10.3 Future Enhancements
 
 Not in MVP scope but noted for future iterations:
 

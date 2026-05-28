@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
+from app.models.event import EventLog
 from app.models.order import ManufacturingOrder
 from app.models.product import ProductModel, BOMItem
 from app.models.inventory import Inventory
@@ -61,9 +62,23 @@ class OrderService:
             delivery_day=delivery_day
         )
         self.db.add(order)
+        self.db.add(EventLog(
+            event_type="order_created",
+            event_date=datetime.utcnow(),
+            details=str({
+                "order_id": order.id if order.id else "pending",
+                "model": product_model,
+                "quantity": float(quantity),
+                "retailer": retailer_name,
+            }),
+        ))
         self.db.commit()
         self.db.refresh(order)
         return order
+
+    def get_product_price(self, model_id: str) -> float:
+        product = self.db.query(ProductModel).filter(ProductModel.id == model_id).first()
+        return float(product.wholesale_price) if product and product.wholesale_price else 0.0
 
     def calculate_bom_requirements(self, order: ManufacturingOrder) -> Dict:
         """Calculate materials required for an order based on BOM."""
@@ -136,6 +151,11 @@ class OrderService:
 
         order.status = "released"
         order.started_date = datetime.utcnow()
+        self.db.add(EventLog(
+            event_type="order_released",
+            event_date=datetime.utcnow(),
+            details=str({"order_id": order_id, "model": order.product_model, "quantity": float(order.quantity_needed)}),
+        ))
         self.db.commit()
         return True, None
 
@@ -188,5 +208,10 @@ class OrderService:
             inventory_svc.release_reservation(material, Decimal(str(req["required"])))
 
         order.status = "cancelled"
+        self.db.add(EventLog(
+            event_type="order_cancelled",
+            event_date=datetime.utcnow(),
+            details=str({"order_id": order_id}),
+        ))
         self.db.commit()
         return True

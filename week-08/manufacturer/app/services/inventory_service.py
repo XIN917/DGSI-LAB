@@ -89,6 +89,21 @@ class InventoryService:
         self.db.refresh(inv)
         return inv
 
+    def adjust_and_log(self, product_name: str, new_quantity: Decimal, reason: str = "Manual adjustment") -> Inventory:
+        """Adjust inventory and write an event log entry."""
+        from app.models.event import EventLog
+        from datetime import datetime
+        old_item = self.get_by_product(product_name)
+        old_qty = float(old_item.quantity) if old_item else 0.0
+        updated = self.adjust(product_name, new_quantity)
+        self.db.add(EventLog(
+            event_type="inventory_adjustment",
+            event_date=datetime.utcnow(),
+            details=str({"product": product_name, "old_qty": old_qty, "new_qty": float(new_quantity), "reason": reason}),
+        ))
+        self.db.commit()
+        return updated
+
     def get_warehouse_usage(self, capacity: int) -> Dict:
         """Get warehouse capacity usage."""
         total_used = sum(float(item.quantity) for item in self.get_all())

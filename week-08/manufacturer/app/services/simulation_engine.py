@@ -86,6 +86,13 @@ class SimulationEngine:
         # Persist state
         self._save_state()
 
+        self.db.add(EventLog(
+            event_type="day_advanced",
+            event_date=datetime.now(),
+            details=str({"from_day": previous_day, "to_day": self.current_day}),
+        ))
+        self.db.commit()
+
         return {
             "previous_day": previous_day,
             "new_day": self.current_day,

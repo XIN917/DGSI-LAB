@@ -14,11 +14,6 @@ class Settings(BaseSettings):
     APP_NAME: str = "3D Printer Production Simulator"
     APP_VERSION: str = "0.1.0"
 
-    # Security
-    SECRET_KEY: str = ""
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
-
     # Database
     DATABASE_URL: str = "sqlite:///./data/manufacturer.db"
 

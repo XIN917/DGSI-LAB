@@ -6,16 +6,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_active_user
-from app.models.user import User
-from app.models.product import ProductModel, BOMItem
-from app.models.purchase_order import Supplier, SupplierProduct
+from app.services.config_service import ConfigService
 from app.services.provider_client import ProviderClient
 
 router = APIRouter(prefix="/api/config", tags=["configuration"])
 
-
-# --- Pydantic schemas ---
 
 class BOMItemSchema(BaseModel):
     material_name: str
@@ -52,82 +47,54 @@ class ConfigResponse(BaseModel):
     suppliers: List[SupplierSchema]
 
 
-# --- Endpoints ---
+class NewSupplierRequest(BaseModel):
+    name: str
+    lead_time_days: int
+
 
 @router.get("", response_model=ConfigResponse)
-def get_config(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_config(db: Session = Depends(get_db)):
     """Get full production configuration (models, BOMs, suppliers)."""
-    models = db.query(ProductModel).all()
-    suppliers = db.query(Supplier).filter(Supplier.active == True).all()
-
+    svc = ConfigService(db)
     return {
-        "models": [_serialize_model(m) for m in models],
-        "suppliers": [_serialize_supplier(s) for s in suppliers],
+        "models": [_serialize_model(m) for m in svc.get_models()],
+        "suppliers": [_serialize_supplier(s) for s in svc.get_suppliers()],
     }
 
 
 @router.get("/models", response_model=List[ProductModelSchema])
-def list_models(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def list_models(db: Session = Depends(get_db)):
     """List all product models."""
-    models = db.query(ProductModel).all()
-    return [_serialize_model(m) for m in models]
+    svc = ConfigService(db)
+    return [_serialize_model(m) for m in svc.get_models()]
 
 
 @router.get("/models/{model_id}", response_model=ProductModelSchema)
-def get_model(
-    model_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_model(model_id: str, db: Session = Depends(get_db)):
     """Get a specific product model with its full BOM."""
-    model = db.query(ProductModel).filter(ProductModel.id == model_id).first()
+    svc = ConfigService(db)
+    model = svc.get_model(model_id)
     if not model:
         raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
     return _serialize_model(model)
 
 
 @router.get("/suppliers", response_model=List[SupplierSchema])
-def list_suppliers(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def list_suppliers(db: Session = Depends(get_db)):
     """List all active suppliers with their product catalogs."""
-    suppliers = db.query(Supplier).filter(Supplier.active == True).all()
-    return [_serialize_supplier(s) for s in suppliers]
-
-
-class NewSupplierRequest(BaseModel):
-    name: str
-    lead_time_days: int
+    svc = ConfigService(db)
+    return [_serialize_supplier(s) for s in svc.get_suppliers()]
 
 
 @router.post("/suppliers", response_model=SupplierSchema, status_code=status.HTTP_201_CREATED)
-def add_supplier(
-    body: NewSupplierRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def add_supplier(body: NewSupplierRequest, db: Session = Depends(get_db)):
     """Add a new supplier."""
-    supplier = Supplier(
-        name=body.name,
-        lead_time_days=body.lead_time_days,
-        active=True,
-    )
-    db.add(supplier)
-    db.commit()
-    db.refresh(supplier)
+    svc = ConfigService(db)
+    supplier = svc.add_supplier(body.name, body.lead_time_days)
     return _serialize_supplier(supplier)
 
 
-# --- Helpers ---
-
-def _serialize_model(model: ProductModel) -> dict:
+def _serialize_model(model) -> dict:
     return {
         "id": model.id,
         "name": model.name,
@@ -143,7 +110,7 @@ def _serialize_model(model: ProductModel) -> dict:
     }
 
 
-def _serialize_supplier(supplier: Supplier) -> dict:
+def _serialize_supplier(supplier) -> dict:
     products = []
     if supplier.is_external and supplier.api_url:
         try:
@@ -157,7 +124,7 @@ def _serialize_supplier(supplier: Supplier) -> dict:
                     "packaging_unit": "units",
                     "packaging_qty": 1,
                     "discount_tiers": [
-                        {"min_qty": t["min_quantity"], "discount_pct": 0.0} # Placeholder for tiers
+                        {"min_qty": t["min_quantity"], "discount_pct": 0.0}
                         for t in p["pricing_tiers"]
                     ],
                 })

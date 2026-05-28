@@ -386,7 +386,7 @@ def fetch_global_state(config):
     except Exception:
         pass
 
-    # Manufacturer inventory (auth-protected — use CLI)
+    # Manufacturer inventory — use CLI (stock endpoint requires warehouse capacity config not on the public API)
     try:
         mfr_path = config["manufacturer"]["path"]
         result = subprocess.run(

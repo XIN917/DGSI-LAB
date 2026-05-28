@@ -6,11 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db, SessionLocal
-from app.api.dependencies import get_current_active_user
-from app.models.user import User
-from app.models.event import EventLog
-from app.models.product import ProductModel
+from app.core.database import get_db
 from app.services.order_service import OrderService
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -44,105 +40,54 @@ class CreateOrderRequest(BaseModel):
 
 
 @router.get("", response_model=List[OrderResponse])
-def list_orders(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def list_orders(db: Session = Depends(get_db)):
     """List all manufacturing orders (newest first)."""
     svc = OrderService(db)
-    orders = svc.get_all()
-    return [_serialize(o) for o in orders]
+    return [_serialize(o, svc) for o in svc.get_all()]
 
 
 @router.get("/pending", response_model=List[OrderResponse])
-def list_pending_orders(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def list_pending_orders(db: Session = Depends(get_db)):
     """List pending manufacturing orders with BOM requirements."""
     svc = OrderService(db)
-    orders = svc.get_pending()
-    return [_serialize(o, include_bom=True, svc=svc) for o in orders]
+    return [_serialize(o, svc, include_bom=True) for o in svc.get_pending()]
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-def get_order(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_order(order_id: int, db: Session = Depends(get_db)):
     """Get order details including BOM breakdown."""
     svc = OrderService(db)
     order = svc.get_by_id(order_id)
     if not order:
         raise HTTPException(status_code=404, detail=f"Order #{order_id} not found")
-    return _serialize(order, include_bom=True, svc=svc)
+    return _serialize(order, svc, include_bom=True)
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-def create_order(
-    body: CreateOrderRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def create_order(body: CreateOrderRequest, db: Session = Depends(get_db)):
     """Create a new manufacturing order (retailer sale or manual)."""
     svc = OrderService(db)
     order = svc.create(
         product_model=body.product_model,
         quantity=Decimal(str(body.quantity)),
         created_date=datetime.utcnow(),
-        retailer_name=body.retailer_name
+        retailer_name=body.retailer_name,
     )
-    event = EventLog(
-        event_type="order_created",
-        event_date=datetime.utcnow(),
-        details=str({
-            "order_id": order.id,
-            "model": body.product_model,
-            "quantity": body.quantity,
-            "retailer": body.retailer_name,
-            "user": current_user.username,
-        }),
-    )
-    db.add(event)
-    db.commit()
-    return _serialize(order, include_bom=True, svc=svc)
+    return _serialize(order, svc, include_bom=True)
 
 
 @router.post("/{order_id}/release")
-def release_order(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def release_order(order_id: int, db: Session = Depends(get_db)):
     """Release an order to production (reserves required materials)."""
     svc = OrderService(db)
     success, error = svc.release(order_id)
     if not success:
         raise HTTPException(status_code=400, detail=error)
-
-    order = svc.get_by_id(order_id)
-    event = EventLog(
-        event_type="order_released",
-        event_date=datetime.utcnow(),
-        details=str({
-            "order_id": order_id,
-            "model": order.product_model,
-            "quantity": float(order.quantity_needed),
-            "user": current_user.username,
-        }),
-    )
-    db.add(event)
-    db.commit()
-    return _serialize(order)
+    return _serialize(svc.get_by_id(order_id), svc)
 
 
 @router.post("/{order_id}/cancel")
-def cancel_order(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def cancel_order(order_id: int, db: Session = Depends(get_db)):
     """Cancel an order and release any reserved materials."""
     svc = OrderService(db)
     order = svc.get_by_id(order_id)
@@ -150,51 +95,26 @@ def cancel_order(
         raise HTTPException(status_code=404, detail=f"Order #{order_id} not found")
     if order.status == "completed":
         raise HTTPException(status_code=400, detail="Cannot cancel a completed order")
-
-    success = svc.cancel(order_id)
-    if not success:
+    if not svc.cancel(order_id):
         raise HTTPException(status_code=400, detail="Failed to cancel order")
-
-    event = EventLog(
-        event_type="order_cancelled",
-        event_date=datetime.utcnow(),
-        details=str({"order_id": order_id, "user": current_user.username}),
-    )
-    db.add(event)
-    db.commit()
     return {"message": f"Order #{order_id} cancelled"}
 
 
-def _serialize(order, include_bom: bool = False, svc: OrderService = None) -> dict:
-    # Use existing session or create a temporary one
-    temp_db = None
-    if svc is not None:
-        db = svc.db
-    else:
-        temp_db = SessionLocal()
-        db = temp_db
-    
-    try:
-        product = db.query(ProductModel).filter(ProductModel.id == order.product_model).first()
-        unit_price = float(product.wholesale_price) if product else 0.0
-
-        result = {
-            "id": order.id,
-            "product_model": order.product_model,
-            "retailer_name": order.retailer_name,
-            "quantity_needed": float(order.quantity_needed),
-            "quantity_produced": float(order.quantity_produced),
-            "status": order.status,
-            "unit_price": unit_price,
-            "created_date": order.created_date.isoformat() if order.created_date else None,
-            "started_date": order.started_date.isoformat() if order.started_date else None,
-            "completed_date": order.completed_date.isoformat() if order.completed_date else None,
-            "delivery_day": order.delivery_day,
-            "failure_reason": order.failure_reason,
-        }
-        if include_bom and svc:
-            result["bom_requirements"] = svc.calculate_bom_requirements(order)
-        return result
-    finally:
-        if temp_db:
-            temp_db.close()
+def _serialize(order, svc: OrderService, include_bom: bool = False) -> dict:
+    result = {
+        "id": order.id,
+        "product_model": order.product_model,
+        "retailer_name": order.retailer_name,
+        "quantity_needed": float(order.quantity_needed),
+        "quantity_produced": float(order.quantity_produced),
+        "status": order.status,
+        "unit_price": svc.get_product_price(order.product_model),
+        "created_date": order.created_date.isoformat() if order.created_date else None,
+        "started_date": order.started_date.isoformat() if order.started_date else None,
+        "completed_date": order.completed_date.isoformat() if order.completed_date else None,
+        "delivery_day": order.delivery_day,
+        "failure_reason": order.failure_reason,
+    }
+    if include_bom:
+        result["bom_requirements"] = svc.calculate_bom_requirements(order)
+    return result

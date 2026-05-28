@@ -1,6 +1,4 @@
 """Tests for simulation day API behavior."""
-from types import SimpleNamespace
-
 from app.api.endpoints.day import advance_day
 from app.api.endpoints import simulation as simulation_endpoint
 from app.services.external_supplier_service import ExternalSupplierService
@@ -49,10 +47,7 @@ def test_simulation_advance_polls_external_suppliers_before_advancing(monkeypatc
     monkeypatch.setattr(ExternalSupplierService, "poll_orders", fake_poll_orders)
     monkeypatch.setattr(SimulationEngine, "advance_day", fake_advance_day)
 
-    result = simulation_endpoint.advance_day(
-        db=db_session,
-        current_user=SimpleNamespace(username="admin"),
-    )
+    result = simulation_endpoint.advance_day(db=db_session)
 
     assert calls == ["poll", "advance"]
     assert result["new_day"] == 2

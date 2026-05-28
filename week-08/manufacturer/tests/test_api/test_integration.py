@@ -1,20 +1,19 @@
-"""Full flow integration test via API (Simplified)."""
+"""Full flow integration test via API."""
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from decimal import Decimal
 
 from app.main import app
 from app.core.database import get_db, Base
 from app.services.seed import initialize_seed_data
 from sqlalchemy import create_engine
 
-# Use a separate test engine to avoid wiping production data
 from pathlib import Path
 TEST_DB_PATH = Path(__file__).parent.parent.parent / "data" / "test_integration.db"
 TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 TEST_DB_URL = f"sqlite:///{TEST_DB_PATH}"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+
 
 @pytest.fixture
 def client(db_session: Session):
@@ -41,49 +40,32 @@ def db_session():
     Base.metadata.drop_all(bind=test_engine)
 
 
-@pytest.fixture
-def token(client):
-    """Get a valid authentication token."""
-    response = client.post(
-        "/api/auth/login",
-        data={"username": "admin", "password": "admin123"}
-    )
-    return response.json()["access_token"]
-
-
-def test_fast_production_cycle_api(client, token):
-    headers = {"Authorization": f"Bearer {token}"}
-
-    # 1. Create a Manufacturing Order for P3D-Classic (10 units - fits in stock)
-    response = client.post(
-        "/api/orders",
-        json={"product_model": "P3D-Classic", "quantity": 10},
-        headers=headers
-    )
+def test_fast_production_cycle_api(client):
+    # 1. Create a Manufacturing Order for P3D-Classic (10 units)
+    response = client.post("/api/orders", json={"product_model": "P3D-Classic", "quantity": 10})
     assert response.status_code == 201
     order_id = response.json()["id"]
 
-    # 2. Release the order (should succeed immediately)
-    response = client.post(f"/api/orders/{order_id}/release", headers=headers)
+    # 2. Release the order
+    response = client.post(f"/api/orders/{order_id}/release")
     assert response.status_code == 200
     assert response.json()["status"] == "released"
 
-    # 3. Advance Day (should produce all 10 units)
-    response = client.post("/api/simulation/advance", headers=headers)
+    # 3. Advance Day
+    response = client.post("/api/simulation/advance")
     assert response.status_code == 200
-    
+
     # 4. Verify completion
-    response = client.get(f"/api/orders/{order_id}", headers=headers)
+    response = client.get(f"/api/orders/{order_id}")
     assert response.json()["status"] == "completed"
     assert response.json()["quantity_produced"] == 10.0
 
     # 5. Verify Export/Import logic
-    response = client.get("/api/export/full-state", headers=headers)
+    response = client.get("/api/export/full-state")
     assert response.status_code == 200
     state = response.json()
     assert state["simulation_state"]["current_day"] == 2
-    
-    # Try importing it back
-    response = client.post("/api/import/full-state", json=state, headers=headers)
+
+    response = client.post("/api/import/full-state", json=state)
     assert response.status_code == 200
     assert response.json()["status"] == "imported"

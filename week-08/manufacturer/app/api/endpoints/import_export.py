@@ -4,8 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_active_user
-from app.models.user import User
 from app.utils.json_export import export_full_state, import_full_state
 from app.services.seed import load_production_plan, initialize_seed_data
 
@@ -13,24 +11,14 @@ router = APIRouter(prefix="/api", tags=["import-export"])
 
 
 @router.get("/export/full-state")
-def export_state(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def export_state(db: Session = Depends(get_db)):
     """Export complete game state as JSON (inventory, config, orders, events)."""
     return export_full_state(db)
 
 
 @router.post("/import/full-state")
-def import_state(
-    data: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
-    """
-    Import a complete game state.
-    WARNING: Replaces all simulation data (users are preserved).
-    """
+def import_state(data: dict, db: Session = Depends(get_db)):
+    """Import a complete game state. Replaces all simulation data."""
     try:
         result = import_full_state(db, data)
     except ValueError as e:
@@ -41,15 +29,8 @@ def import_state(
 
 
 @router.post("/import/production-plan")
-def import_production_plan(
-    data: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
-    """
-    Import a production plan (models, suppliers, initial inventory).
-    Does NOT clear orders or events — only replaces configuration.
-    """
+def import_production_plan(data: dict, db: Session = Depends(get_db)):
+    """Import a production plan (models, suppliers, initial inventory). Does NOT clear orders or events."""
     required_keys = {"models", "suppliers", "initial_inventory"}
     missing = required_keys - set(data.keys())
     if missing:
@@ -61,7 +42,6 @@ def import_production_plan(
         from app.models.inventory import Inventory
         from decimal import Decimal
 
-        # Merge models (upsert)
         for model_id, model_data in data["models"].items():
             existing = db.query(ProductModel).filter(ProductModel.id == model_id).first()
             if not existing:
@@ -83,7 +63,6 @@ def import_production_plan(
                         pcb_ref=bom_info.get("pcb_ref"),
                     ))
 
-        # Merge suppliers
         for sup_data in data["suppliers"]:
             existing = db.query(Supplier).filter(Supplier.id == sup_data["id"]).first()
             if not existing:
@@ -103,7 +82,6 @@ def import_production_plan(
                         discount_tiers=json.dumps(prod.get("tiers", [])),
                     ))
 
-        # Merge inventory
         for product_name, inv_data in data["initial_inventory"].items():
             existing = db.query(Inventory).filter(Inventory.product_name == product_name).first()
             if not existing:

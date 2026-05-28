@@ -4,8 +4,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.core.database import Base, get_db
-from app.core.security import get_password_hash
-from app.models.user import User
 from app.models.product import ProductModel, BOMItem
 from app.models.inventory import Inventory
 from app.models.purchase_order import Supplier, SupplierProduct
@@ -19,7 +17,7 @@ TEST_DB_URL = "sqlite:///:memory:"
 def engine():
     """Create in-memory SQLite engine for each test."""
     eng = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
-    from app.models import user, product, inventory, order, purchase_order, event, simulation  # noqa
+    from app.models import product, inventory, order, purchase_order, event, simulation, metrics  # noqa
     Base.metadata.create_all(bind=eng)
     yield eng
     Base.metadata.drop_all(bind=eng)
@@ -33,19 +31,6 @@ def db_session(engine):
     yield session
     session.rollback()
     session.close()
-
-
-@pytest.fixture
-def admin_user(db_session):
-    """Create an admin test user."""
-    user = User(
-        username="testadmin",
-        password_hash=get_password_hash("password123"),
-        role="admin",
-    )
-    db_session.add(user)
-    db_session.commit()
-    return user
 
 
 @pytest.fixture

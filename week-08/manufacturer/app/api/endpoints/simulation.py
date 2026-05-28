@@ -5,12 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_active_user
-from app.models.user import User
-from app.models.event import EventLog
 from app.services.external_supplier_service import ExternalSupplierService
 from app.services.simulation_engine import SimulationEngine
-from datetime import UTC, datetime
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -35,59 +31,26 @@ class SimulationStatus(BaseModel):
 
 
 @router.get("/status", response_model=SimulationStatus)
-def get_status(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_status(db: Session = Depends(get_db)):
     """Get current simulation state (day, date, pending orders, capacity)."""
-    engine = SimulationEngine(db)
-    return engine.get_status()
+    return SimulationEngine(db).get_status()
 
 
 @router.post("/advance", response_model=AdvanceDayResponse)
-def advance_day(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def advance_day(db: Session = Depends(get_db)):
     """Advance the simulation by one day and return all generated events."""
-    ext_service = ExternalSupplierService(db)
-    ext_service.poll_orders()
-
-    engine = SimulationEngine(db)
-    result = engine.advance_day()
-
-    event = EventLog(
-        event_type="day_advanced",
-        event_date=datetime.now(UTC),
-        details=str({
-            "from_day": result["previous_day"],
-            "to_day": result["new_day"],
-            "user": current_user.username,
-        }),
-    )
-    db.add(event)
-    db.commit()
-
-    return result
+    ExternalSupplierService(db).poll_orders()
+    return SimulationEngine(db).advance_day()
 
 
 @router.get("/demand-params")
-def get_demand_params(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def get_demand_params(db: Session = Depends(get_db)):
     """Get current demand parameters per product model."""
-    engine = SimulationEngine(db)
-    return engine.get_demand_params()
+    return SimulationEngine(db).get_demand_params()
 
 
 @router.post("/demand-params")
-def update_demand_params(
-    body: DemandParams,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
+def update_demand_params(body: DemandParams, db: Session = Depends(get_db)):
     """Update demand parameters (mean and variance per model)."""
-    engine = SimulationEngine(db)
-    engine.update_demand_params(body.params)
+    SimulationEngine(db).update_demand_params(body.params)
     return {"message": "Demand parameters updated", "params": body.params}

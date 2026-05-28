@@ -40,6 +40,6 @@ def get_db():
 
 def init_db():
     """Initialize the database, creating all tables."""
-    from app.models import user, product, inventory, order, purchase_order, event, simulation  # noqa: F401
+    from app.models import product, inventory, order, purchase_order, event, simulation  # noqa: F401
     from app.models.metrics import ManufacturerMetrics  # noqa: F401
     Base.metadata.create_all(bind=engine)
