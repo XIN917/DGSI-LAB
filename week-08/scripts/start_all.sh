@@ -7,38 +7,31 @@ PROVIDER_PORT=8001
 MANUFACTURER_PORT=8002
 RETAILER_PORT=8003
 
-check_port() {
-    lsof -i :$1 > /dev/null
-    return $?
+kill_port() {
+    local pid
+    pid=$(lsof -ti :$1 2>/dev/null)
+    if [ -n "$pid" ]; then
+        echo "  Killing stale process on port $1 (pid $pid)..."
+        kill "$pid" 2>/dev/null
+        sleep 1
+    fi
 }
 
-echo "🚀 Starting Supply Chain Servers..."
+echo "Starting Supply Chain Servers..."
 mkdir -p "$ROOT/logs"
 
-# Start Provider
-if check_port $PROVIDER_PORT; then
-    echo "⚠️  Port $PROVIDER_PORT (Provider) is already in use."
-else
-    echo "📦 Starting Provider on port $PROVIDER_PORT..."
-    "$ROOT/provider/venv/bin/provider-cli" serve --port $PROVIDER_PORT > "$ROOT/logs/provider.log" 2>&1 &
-fi
+kill_port $PROVIDER_PORT
+kill_port $MANUFACTURER_PORT
+kill_port $RETAILER_PORT
 
-# Start Manufacturer
-if check_port $MANUFACTURER_PORT; then
-    echo "⚠️  Port $MANUFACTURER_PORT (Manufacturer) is already in use."
-else
-    echo "🏭 Starting Manufacturer on port $MANUFACTURER_PORT..."
-    "$ROOT/manufacturer/venv/bin/manufacturer-cli" serve --port $MANUFACTURER_PORT > "$ROOT/logs/manufacturer.log" 2>&1 &
-fi
+echo "  Starting Provider on port $PROVIDER_PORT..."
+python3 -c "import subprocess,os; subprocess.Popen(['$ROOT/provider/venv/bin/provider-cli','serve','--port','$PROVIDER_PORT'], stdout=open('$ROOT/logs/provider.log','a'), stderr=subprocess.STDOUT, start_new_session=True)"
 
-# Start Retailer
-if check_port $RETAILER_PORT; then
-    echo "⚠️  Port $RETAILER_PORT (Retailer) is already in use."
-else
-    echo "🏪 Starting Retailer on port $RETAILER_PORT..."
-    "$ROOT/retailer/venv/bin/retailer-cli" serve --port $RETAILER_PORT > "$ROOT/logs/retailer.log" 2>&1 &
-fi
+echo "  Starting Manufacturer on port $MANUFACTURER_PORT..."
+python3 -c "import subprocess,os; subprocess.Popen(['$ROOT/manufacturer/venv/bin/manufacturer-cli','serve','--port','$MANUFACTURER_PORT'], stdout=open('$ROOT/logs/manufacturer.log','a'), stderr=subprocess.STDOUT, start_new_session=True)"
 
-echo "✅ Servers are starting in the background."
-echo "📝 Logs: logs/provider.log, logs/manufacturer.log, logs/retailer.log"
-echo "🛑 To stop all servers, run: pkill -f 'cli serve'"
+echo "  Starting Retailer on port $RETAILER_PORT..."
+python3 -c "import subprocess,os; subprocess.Popen(['$ROOT/retailer/venv/bin/retailer-cli','serve','--port','$RETAILER_PORT'], stdout=open('$ROOT/logs/retailer.log','a'), stderr=subprocess.STDOUT, start_new_session=True)"
+
+echo "Servers starting. Logs: logs/provider.log, logs/manufacturer.log, logs/retailer.log"
+echo "To stop: pkill -f 'cli serve'"
