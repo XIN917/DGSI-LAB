@@ -119,7 +119,26 @@ retailer/venv/bin/pytest retailer/tests/ -v
 provider/venv/bin/pytest provider/tests/ -v
 ```
 
-### 7. Stop all services
+### 7. Live Dashboard
+
+A browser-based monitoring dashboard shows real-time inventory, prices, fulfillment, and service health — and lets you start/reset simulations from the UI.
+
+```bash
+# Start api_server first (if not already running)
+venv/bin/python api_server.py          # :8000
+
+# Then start the dashboard
+venv/bin/python dashboard.py           # :8080
+```
+
+Open http://localhost:8080. The dashboard has five pages:
+- **Overview** — supply chain status KPIs + per-service SVG charts
+- **Provider / Manufacturer / Retailer** — per-service inventory, prices, and orders
+- **Simulation** — start/stop runs, choose scenario and model, stream live terminal output, reset to Day 0
+
+> **Note:** Services launched via `scripts/start_all.sh` use `start_new_session=True` so they stay up when `api_server.py` restarts.
+
+### 8. Stop all services
 
 ```bash
 pkill -f 'cli serve'
@@ -135,11 +154,15 @@ week-08/
 ├── manufacturer/      # Printer factory service (:8002)
 ├── retailer/          # Retail store service (:8003)
 ├── turn_engine.py     # Orchestrates agents through simulated time
+├── api_server.py      # FastAPI wrapper for frontend integration (:8000)
 ├── visualize.py       # Generates analysis charts from metrics DBs
 ├── config/sim.json    # Agent wiring (skill files, service URLs)
 ├── scenarios/         # Scenario JSON files
 ├── skills/            # LLM agent skill files (one per role)
 ├── scripts/           # Setup, start, reset helpers
+├── dashboard.py       # Dashboard entry point (:8080)
+├── dashboard/         # Dashboard app package
+├── frontend/          # Dashboard HTML/JS/CSS
 ├── logs/              # Per-turn agent logs, run.csv, and charts/ (git-ignored)
 └── docs/
     ├── PRD.md         # Full product spec

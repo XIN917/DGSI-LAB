@@ -17,6 +17,9 @@ week-08/
 ├── retailer/          # Retail store service (:8003)
 ├── turn_engine.py     # Orchestrates all three agents per simulated day
 ├── api_server.py      # FastAPI wrapper for frontend integration (:8000)
+├── dashboard.py       # Dashboard entry point (venv/bin/python dashboard.py → :8080)
+├── dashboard/         # Dashboard app package
+├── frontend/          # Dashboard static files (HTML/JS/CSS)
 ├── config/sim.json    # Agent wiring (skill files, URLs, paths)
 ├── scenarios/         # Scenario JSON files (calm-market, holiday-rush)
 ├── skills/            # Agent skill files (one per role)
@@ -85,7 +88,7 @@ provider-cli stock
 provider-cli orders list [--status pending]
 provider-cli orders show <id>
 provider-cli restock <product> <quantity>
-provider-cli price set <product> <tier> <price>
+provider-cli price set <product_id> <min_quantity> <unit_price>
 provider-cli seed          # initialise DB
 provider-cli serve --port 8001
 ```
@@ -94,7 +97,7 @@ provider-cli serve --port 8001
 ```
 manufacturer-cli day current
 manufacturer-cli stock
-manufacturer-cli sales orders / sales order <id>
+manufacturer-cli sales orders
 manufacturer-cli production status / production release <order_id>
 manufacturer-cli capacity
 manufacturer-cli suppliers list / suppliers catalog <name>
@@ -189,6 +192,10 @@ Agent turn limits: retailer 6, manufacturer 8, provider 8. **Do not reduce these
 - **Python/Pydantic warnings in regression tests:** Updated manufacturer settings to Pydantic v2 `SettingsConfigDict`, replaced `datetime.utcnow()` with timezone-aware `datetime.now(UTC)`, and disposed the SQLite test engine.
 - **Retailer `manufacturer_client.py` stale auth:** The manufacturer's auth endpoints were removed in the service-layer refactor, but the retailer client still called `POST /api/auth/login` on every request. This caused all retailer purchase orders to fail with 404, keeping fulfillment at 0% for every day after day 1. Fixed by removing all auth logic from `retailer/app/services/manufacturer_client.py` and calling manufacturer endpoints directly.
 - **run.csv stale data across runs:** Re-running the same scenario without resetting caused the summary table and frontend KPI endpoint to show mixed data from all previous runs. Fixed by clearing `logs/run.csv` at the start of every fresh run (`start_day == 1`). Resumed chunk runs (`--start-day N`) preserve existing rows. `run.csv` always reflects the latest run only — this is intentional since runs are sequential and the frontend shows the most recent run's data.
+- **Rich markup tags showing literally in dashboard terminal:** `markup=False` on the callback `Console` in `turn_engine.py` caused `[bold]`, `[cyan]`, `[dim]` etc. to pass through as raw text instead of ANSI codes. Fixed by removing `markup=False` from the Console constructor; xterm.js renders the ANSI codes natively.
+- **Chart generation crash on macOS worker thread:** `matplotlib` defaulted to the macOS GUI backend, which cannot create figures outside the main thread. Fixed by adding `matplotlib.use("Agg")` at the top of `visualize.py` before any pyplot imports.
+- **Services dying when api_server.py restarts:** `nohup` and `setsid` only protect against SIGHUP, not SIGINT or process-group signals. Fixed by launching services via Python `subprocess.Popen(..., start_new_session=True)` in `scripts/start_all.sh`, which creates a fully detached new session so services survive api_server restarts.
+- **Reset cancelled when navigating away from simulation page:** The browser aborted the `POST /reset` fetch on navigation, killing the blocking subprocess. Fixed by making `POST /reset` fire a background thread immediately and return — frontend polls `GET /reset/status` every 2 s. On page re-init, the simulation page resumes polling if status is `"running"`.
 
 ---
 
@@ -220,9 +227,9 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 
 - Phase 1 (wiring + fixes) — **complete**
 - Phase 2 (metrics tables) — **complete**
-- Phase 3 (testing & visualization) — **complete** (visualize.py implemented and integrated into turn_engine.py; charts auto-generated at end of each run to `logs/{scenario}/charts/`; 15-day calm-market verified)
-- Phase 4 (analysis) — **in progress** (holiday-rush 25-day run pending; calm-market charts done)
-- Phase 5 (final deliverables) — not started
+- Phase 3 (testing & visualization) — **complete**
+- Phase 4 (analysis) — **complete** (both scenarios run and archived; all charts generated; ANALYSIS.md complete)
+- Phase 5 (final deliverables) — not started (Final Report PDF pending)
 
 ## Frontend API Server (`api_server.py`)
 
@@ -256,6 +263,26 @@ Interactive docs at `http://localhost:8000/docs`.
 **Next step for frontend integration:**
 - The frontend teammate should connect to `POST /run` to start, then `GET /run/{id}/stream` for live log lines (SSE), and `GET /run/{id}/kpis` + `/charts` once the run finishes.
 - CORS is open (`allow_origins=["*"]`) — restrict in production.
+
+Also exposes two reset endpoints:
+- `POST /reset` — fires `scripts/reset_all.sh` in a background thread; returns immediately
+- `GET /reset/status` — returns `{status: "idle"|"running"|"done"|"error", output: "..."}`
+
+## Live Dashboard (`dashboard/`)
+
+A browser-based monitoring dashboard that proxies data from `api_server.py` and the three services.
+
+See **`README.md`** for startup instructions. Open http://localhost:8080. Five pages:
+- **Overview** — supply chain KPIs + per-service live SVG charts (inventory, prices, fulfillment, events)
+- **Provider / Manufacturer / Retailer** — per-service detail with inventory, prices, and orders
+- **Simulation** — start/stop runs, pick scenario and model, stream live ANSI terminal output, reset to Day 0
+
+**Design notes:**
+- `dashboard/app.py` proxies all `/api/sim/*` calls to `api_server.py` (:8000) and exposes `/api/state` from the service DBs directly
+- SVG charts are drawn client-side in `frontend/dashboard.js` using `d3`-style scaling; no PNG charts are fetched for the live view
+- Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`
+- Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`
+- Services launched by `scripts/start_all.sh` use `start_new_session=True` so they stay running when `api_server.py` restarts
 
 ## Cheap Verification Before Full Runs
 
