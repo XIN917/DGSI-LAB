@@ -83,6 +83,42 @@ python visualize.py demo/calm-market
 python visualize.py logs/holiday-rush
 ```
 
+### 5b. Live Dashboard (real-time)
+
+Watch the chain react live in your browser while a simulation runs. Read-only —
+it never mutates state or advances days.
+
+```bash
+# In a separate terminal, with the three services already running.
+# Use a venv that has fastapi/uvicorn/httpx (the manufacturer venv does):
+PYTHONPATH=. ./manufacturer/venv/bin/python dashboard.py
+# then open http://127.0.0.1:8000
+
+# Options:
+#   --port 8000        port to serve on
+#   --refresh 2        browser refresh interval in seconds
+#   --config config/sim.json   where to read service URLs from
+```
+
+Pages: **Overview** (pipeline with KPI strip, in-transit arrows, alert feed) and a
+deep-dive per tier (**Provider / Manufacturer / Retailer**) with stock-vs-capacity
+bars, order lists, and trend charts. The page auto-refreshes and degrades
+gracefully when a service or the simulation isn't running yet.
+
+> The dashboard uses **no authentication**. The provider and retailer are read
+> from their public endpoints; the manufacturer's inventory/orders endpoints
+> require a login, so the manufacturer tile is instead populated from its
+> (no-auth) per-day `metrics` table — finished stock, raw parts, production
+> utilisation, and sales-order counts. That data appears once a run starts
+> writing metrics (it is empty at day 0).
+
+Frontend assets (HTML/CSS/JS) live in `frontend/`; the FastAPI app and data
+collectors live in the `dashboard/` package. Run its tests with:
+
+```bash
+PYTHONPATH=. ./manufacturer/venv/bin/pytest dashboard/tests/ -v
+```
+
 ### 6. Running Tests
 
 Run the focused delivery-sync regression tests before any full scenario run:

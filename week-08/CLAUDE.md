@@ -16,6 +16,9 @@ week-08/
 ├── manufacturer/      # Printer factory service (:8002)
 ├── retailer/          # Retail store service (:8003)
 ├── turn_engine.py     # Orchestrates all three agents per simulated day
+├── dashboard.py       # Live read-only browser dashboard entrypoint (polls all 3 services)
+├── dashboard/         # Dashboard backend package (FastAPI app, collector, history, alerts; tests/)
+├── frontend/          # Dashboard frontend assets (index.html shell, dashboard.css, dashboard.js)
 ├── config/sim.json    # Agent wiring (skill files, URLs, paths)
 ├── scenarios/         # Scenario JSON files (calm-market, holiday-rush)
 ├── skills/            # Agent skill files (one per role)

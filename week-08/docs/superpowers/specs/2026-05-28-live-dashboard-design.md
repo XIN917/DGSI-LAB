@@ -87,8 +87,14 @@ The dashboard combines three read-only sources, each updating live during a run:
    time). Service URLs come from `config/sim.json`. Read-only GET endpoints
    already exist:
    - Provider: `GET /api/day/current`, `/api/stock/`, `/api/catalog/`, `/api/orders/`
-   - Manufacturer: `GET /api/day/current`, `/api/inventory`, `/api/catalog`,
-     `/api/orders`, `/api/orders/pending`
+   - Manufacturer: `GET /api/day/current`, `/api/catalog` (both public).
+     **Note:** `/api/inventory` and `/api/orders` require auth, and the dashboard
+     uses no credentials — so the manufacturer's finished stock, raw parts,
+     production utilisation, and sales-order counts are read from its no-auth
+     per-day `metrics` table instead (see `latest_manufacturer_state` in
+     `history.py`). Consequences: no per-order list and no warehouse
+     capacity/usage for the manufacturer tile, and its data is empty until a run
+     writes metrics.
    - Retailer: `GET /api/day/current`, `/api/inventory`, `/api/catalog`,
      `/api/customer-orders`
 2. **The `metrics` table in each service DB** (per-day history for the trend
@@ -113,19 +119,19 @@ crashes because the sim isn't running yet.
 
 ```
 dashboard.py                  # entrypoint: `python dashboard.py [--port 8000] [--refresh 2] [--config config/sim.json]`
-dashboard/
+dashboard/                    # backend package
 ├── __init__.py
-├── app.py            # FastAPI app + routes (/, /provider, /manufacturer, /retailer, /api/state)
+├── app.py            # FastAPI app + routes (/, /provider, /manufacturer, /retailer, /api/state); serves frontend/
 ├── config.py         # load config/sim.json → service URLs + db paths
-├── collector.py      # async httpx polls of the 3 services → live snapshot (per tier, with offline flags)
+├── collector.py      # async httpx polls of the 3 services → live snapshot (per tier, with offline flags); manufacturer auth
 ├── history.py        # read metrics tables from the 3 DBs → per-day series + per-item peaks
 ├── context.py        # read logs/run.csv latest row (+ optional scenario file) → scenario/day-total/events
 ├── alerts.py         # pure function: snapshot → list[alert] via thresholds
-├── static/
-│   ├── dashboard.css # dark theme
-│   └── dashboard.js  # fetch /api/state every N s; render overview or a detail page; draw SVG charts
-└── templates/
-    └── shell.html    # minimal nav shell + mount point + bootstrap (page type + refresh interval)
+└── tests/            # pytest suite for the above
+frontend/                     # frontend assets (top-level folder, served at /static + as the shell)
+├── index.html        # nav shell + mount point + bootstrap (page type + refresh interval)
+├── dashboard.css     # dark theme
+└── dashboard.js      # fetch /api/state every N s; render overview or a detail page; draw SVG charts
 ```
 
 ### 4.1 Request flow
