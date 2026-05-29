@@ -53,6 +53,25 @@ except ImportError:
 
 console = Console()
 
+
+class _CallbackWriter:
+    """File-like writer that feeds lines (with ANSI codes intact) to a callback."""
+    def __init__(self, cb):
+        self._cb = cb
+        self._buf = ""
+
+    def write(self, text):
+        self._buf += text
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            if line.rstrip():
+                self._cb(line.rstrip())
+
+    def flush(self):
+        if self._buf.strip():
+            self._cb(self._buf.rstrip())
+            self._buf = ""
+
 COMPACT_ROLE_CONTRACTS = {
     "provider": """Role: Provider parts supplier.
 Hard rules: never call day advance; never change any tier price by more than 15% in one day; do not let a product hit zero when orders are pending.
@@ -440,6 +459,7 @@ def run_agent(
         ))
 
         if day_log:
+            day_log.parent.mkdir(parents=True, exist_ok=True)
             header = f"=== {role_label} | context: {context} ===\n\n"
             with day_log.open("a") as f:
                 f.write(header + stdout_content + "\n\n")
@@ -464,6 +484,7 @@ def run_agent(
             msg = f"✗ {role_label} error: {e}"
         console.print(f"  [red]{msg}[/red]")
         if day_log:
+            day_log.parent.mkdir(parents=True, exist_ok=True)
             with day_log.open("a") as f:
                 f.write(f"=== {role_label} ===\n{msg}\n\n")
         return None
@@ -782,7 +803,11 @@ def run_simulation(
     progress_cb(msg: str) is called for each log line so callers (e.g. the API
     server) can stream output without capturing stdout.  Defaults to console.print.
     """
+    global console
     _cb = progress_cb or (lambda msg: console.print(msg))
+
+    if progress_cb:
+        console = Console(file=_CallbackWriter(progress_cb), force_terminal=True, width=160, highlight=False)
 
     config = load_config(config_json)
     scenario = load_scenario(scenario_json)
@@ -836,6 +861,10 @@ def run_simulation(
     mins, secs = divmod(int(run_duration), 60)
     duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
     _cb(f"DONE duration={duration_str} scenario={scenario_name}")
+
+    if progress_cb:
+        console = Console()
+
     return {
         "scenario": scenario_name,
         "days_run": days - start_day + 1,
@@ -965,7 +994,7 @@ if __name__ == "__main__":
         with csv_path.open() as f:
             rows = list(csv.DictReader(f))
         if rows:
-            summary_log = Path(f"logs/{scenario_name}-summary.log")
+            summary_log = Path(f"logs/{scenario_name}/summary.log")
             lines = [f"Run Summary — {scenario_name}\n", "=" * 60 + "\n",
                      f"Duration: {duration_str}  |  Model: {args.model}  |  Days: {args.start_day}–{args.days}\n\n"]
             lines.append(f"{'Day':>4}  {'Events':<20}  {'Orders':>6}  {'Fill':>5}  {'Back':>5}  {'Lost':>5}  {'Fill%':>6}\n")
