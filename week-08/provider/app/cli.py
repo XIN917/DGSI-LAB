@@ -50,14 +50,17 @@ def catalog():
 def stock():
     """
     Show current provider inventory levels.
-    
+
     Lists the quantity available for every product in the catalog.
     """
+    from app.models.product import Product
     db = SessionLocal()
     service = ProviderService(db)
     stocks = service.get_stock()
     for s in stocks:
-        typer.echo(f"Product ID: {s.product_id} | Quantity: {s.quantity}")
+        name = db.query(Product).filter(Product.id == s.product_id).first()
+        label = name.name if name else str(s.product_id)
+        typer.echo(f"Product: {label} | Quantity: {s.quantity}")
     db.close()
 
 @orders_app.command("list")
@@ -70,8 +73,11 @@ def list_orders(status: str = None):
     db = SessionLocal()
     service = ProviderService(db)
     orders = service.get_orders(status=status)
+    from app.models.product import Product
     for o in orders:
-        typer.echo(f"ID: {o.id} | Buyer: {o.buyer} | Product ID: {o.product_id} | Qty: {o.quantity} | Status: {o.status}")
+        name = db.query(Product).filter(Product.id == o.product_id).first()
+        label = name.name if name else str(o.product_id)
+        typer.echo(f"ID: {o.id} | Buyer: {o.buyer} | Product: {label} | Qty: {o.quantity} | Status: {o.status}")
     db.close()
 
 @orders_app.command("show")
@@ -99,16 +105,23 @@ def show_order(order_id: int):
     db.close()
 
 @app.command()
-def restock(product_id: int, quantity: int):
+def restock(product: str, quantity: int):
     """
     Manually add stock to a product.
-    
-    Increments the current inventory level for the specified product ID.
+
+    PRODUCT is the product name (e.g. pcb, motor, extruder).
+    Increments the current inventory level for the named product.
     """
+    from app.models.product import Product
     db = SessionLocal()
     service = ProviderService(db)
-    service.restock(product_id, quantity)
-    typer.echo(f"Added {quantity} to product {product_id}")
+    p = db.query(Product).filter(Product.name.ilike(product)).first()
+    if not p:
+        typer.echo(f"Error: product '{product}' not found")
+        db.close()
+        raise typer.Exit(1)
+    service.restock(p.id, quantity)
+    typer.echo(f"Added {quantity} to {p.name}")
     db.close()
 
 @day_app.command("advance")
@@ -137,18 +150,26 @@ def day_current():
     db.close()
 
 @price_app.command("set")
-def set_price(product_id: int, min_quantity: int, unit_price: float):
+def set_price(product: str, tier: int, price: float):
     """
     Update or create a pricing tier for a product.
-    
-    Defines the unit price for a given minimum order quantity.
+
+    PRODUCT is the product name (e.g. pcb, motor, extruder).
+    TIER is the minimum order quantity that activates this price.
+    PRICE is the unit price in euros.
     """
     from decimal import Decimal
+    from app.models.product import Product
     db = SessionLocal()
     service = ProviderService(db)
+    p = db.query(Product).filter(Product.name.ilike(product)).first()
+    if not p:
+        typer.echo(f"Error: product '{product}' not found")
+        db.close()
+        raise typer.Exit(1)
     try:
-        service.set_price(product_id, min_quantity, Decimal(str(unit_price)))
-        typer.echo(f"Updated product {product_id} tier {min_quantity} to {unit_price}€")
+        service.set_price(p.id, tier, Decimal(str(price)))
+        typer.echo(f"Updated {p.name} tier {tier} to {price}€")
     except Exception as e:
         typer.echo(f"Error: {e}")
     finally:
