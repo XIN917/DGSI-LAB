@@ -19,6 +19,7 @@ function pct(stock, cap, peak) {
   return Math.max(2, Math.min(100, (stock / max) * 100));
 }
 function fmt(n) { return n == null ? "–" : (Number.isInteger(n) ? n : Number(n).toFixed(1)); }
+function fmtDuration(s) { return s >= 60 ? Math.round(s / 60) + "m" : Math.round(s) + "s"; }
 function statusClass(s) { return "status-" + String(s || "").toLowerCase(); }
 
 async function tick() {
@@ -145,12 +146,12 @@ function orderPanel(name, tier) {
       <p class="muted">counts from daily metrics</p></div>`;
   }
   const title = {provider: "ORDERS (from Manufacturer)", retailer: "CUSTOMER ORDERS"}[name];
-  const rows = (tier.orders || []).slice(0, 25).map(o => {
-    const eta = o.eta != null ? ` · ${name === "retailer" ? "fulfilled d" : "ETA d"}${o.eta}` : "";
+  const rows = (tier.orders || []).slice(0, 100).map(o => {
+    const eta = o.eta ? ` · ${name === "retailer" ? "fulfilled d" : "ETA d"}${o.eta}` : "";
     return `<div class="o"><span><b>#${o.id}</b> &nbsp; ${o.label} ×${fmt(o.qty)}</span>
       <span class="${statusClass(o.status)}">${(o.status || "").toUpperCase()}${eta}</span></div>`;
   }).join("");
-  return `<div class="panel orderlist"><h3>${title}</h3>${rows || '<p class="muted">no orders</p>'}</div>`;
+  return `<div class="panel orderlist"><h3>${title}</h3><div class="orders-scroll">${rows || '<p class="muted">no orders</p>'}</div></div>`;
 }
 function renderDetail(name, data) {
   const tier = data.tiers[name];
@@ -454,6 +455,7 @@ async function initSimPage() {
       li.addEventListener("click", async () => {
         elLogList.querySelectorAll("li").forEach(x => x.classList.remove("active"));
         li.classList.add("active");
+        elLogContent.style.display = "block";
         elLogContent.textContent = "Loading…";
         const res = await fetch(`/api/sim/log?path=${encodeURIComponent(li.dataset.path)}`).then(r => r.json());
         elLogContent.textContent = res.content || res.error;
@@ -468,10 +470,14 @@ async function initSimPage() {
       const scenariosWithLogs = [...new Set(_allLogs.map(l => l.path.split("/")[0]))].filter(Boolean);
       const elFilter = document.getElementById("sc-log-filter");
       if (elFilter) {
-        const current = elFilter.value;
-        elFilter.innerHTML = `<option value="">— pick a scenario —</option>` +
-          scenariosWithLogs.map(s => `<option value="${s}"${s===current?" selected":""}>${s}</option>`).join("");
-        renderLogList(elFilter.value);
+        if (!scenariosWithLogs.length) {
+          elFilter.innerHTML = `<option value="">— no logs yet —</option>`;
+          renderLogList("");
+          return;
+        }
+        const current = elFilter.value || scenariosWithLogs[0] || "";
+        elFilter.innerHTML = scenariosWithLogs.map(s => `<option value="${s}"${s===current?" selected":""}>${s}</option>`).join("");
+        renderLogList(current);
       }
     } catch(e) {}
   }
@@ -489,6 +495,7 @@ async function initSimPage() {
         el.addEventListener("click", async () => {
           elSummaries.querySelectorAll("[data-path]").forEach(x => x.style.borderColor = "");
           el.style.borderColor = "var(--accent)";
+          elSummaryContent.style.display = "block";
           elSummaryContent.textContent = "Loading…";
           const res = await fetch(`/api/sim/log?path=${encodeURIComponent(el.dataset.path)}`).then(r => r.json());
           elSummaryContent.textContent = res.content || res.error;
@@ -508,7 +515,7 @@ async function initSimPage() {
         const canDelete = r.status !== "running";
         return `<label class="run-chip ${cls}" title="${r.run_id}" style="display:flex;align-items:center;gap:6px;cursor:${canDelete ? "pointer" : "default"}">
           <input type="checkbox" class="run-check" data-id="${r.run_id}" ${canDelete ? "" : "disabled"} style="accent-color:#60a5fa">
-          <span>${r.scenario} · ${r.days}d · ${model} · ${r.status}</span>
+          <span>${r.scenario} · ${r.days}d · ${model} · ${r.status}${r.elapsed_seconds != null ? " · " + fmtDuration(r.elapsed_seconds) : ""}</span>
         </label>`;
       }).join("");
       elRuns.addEventListener("change", updateDelSelected);
@@ -538,7 +545,7 @@ async function initSimPage() {
     if (confirm("Remove all finished runs from the list?")) deleteRuns(null);
   });
 
-  // Disable Start if any run is already active
+  // Sync button state with actual run state on page load
   async function checkActiveRun() {
     try {
       const runs = await fetch("/api/sim/runs").then(r => r.json());
@@ -549,6 +556,8 @@ async function initSimPage() {
           currentRunId = active.run_id;
           sessionStorage.setItem(_SS_RUN, currentRunId);
         }
+      } else {
+        setRunning(false);
       }
     } catch(e) {}
   }
@@ -590,6 +599,7 @@ async function initSimPage() {
   function setRunning(running) {
     elStart.disabled = running;
     elStop.disabled = !running;
+    elReset.disabled = running;
   }
 
   function showStatus(msg, cls) {
@@ -624,6 +634,7 @@ async function initSimPage() {
       try {
         const s = await fetch(`/api/sim/run/${runId}/status`).then(r => r.json());
         if (s.status === "done") { showStatus("Done ✓", "done"); setRunning(false); loadRuns(); loadLogs(); loadSummaries(); return; }
+        if (s.status === "cancelled") { showStatus("Cancelled", "done"); setRunning(false); loadRuns(); return; }
         if (s.status === "error") { showStatus("Error: " + (s.error || ""), "error"); setRunning(false); loadRuns(); return; }
       } catch(e) { break; }
     }
@@ -722,6 +733,8 @@ async function initSimPage() {
     if (_runsPoller) return;
     _runsPoller = setInterval(async () => {
       await loadRuns();
+      await loadLogs();
+      await loadSummaries();
       const chips = document.querySelectorAll("#sc-runs .run-chip.running");
       if (!chips.length) { clearInterval(_runsPoller); _runsPoller = null; }
     }, 5000);

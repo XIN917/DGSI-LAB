@@ -477,9 +477,24 @@ def run_agent(
             import re as _re
             retry = _re.search(r"retryDelay.*?(\d+)s", err_str)
             limit = _re.search(r"limit.*?(\d+)", err_str)
-            retry_msg = f" Retry in {retry.group(1)}s." if retry else ""
-            limit_msg = f" (limit: {limit.group(1)} req/min)" if limit else ""
-            msg = f"✗ {role_label} rate-limited{limit_msg}.{retry_msg}"
+            wait = int(retry.group(1)) if retry else 60
+            for attempt in range(3):
+                wait = max(wait, 5)
+                limit_msg = f" (limit: {limit.group(1)} req/min)" if limit else ""
+                console.print(f"  [yellow]✗ {role_label} rate-limited{limit_msg}. Retrying in {wait}s… (attempt {attempt+1}/3)[/yellow]")
+                time.sleep(wait)
+                try:
+                    return run_agent(role, skill_path, context, cwd, verbose, day_log, False, prefetched_state, model, full_skill_prompt)
+                except Exception as e2:
+                    err_str = str(e2)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        retry = _re.search(r"retryDelay.*?(\d+)s", err_str)
+                        wait = int(retry.group(1)) if retry else 60
+                        continue
+                    msg = f"✗ {role_label} error after retry: {e2}"
+                    break
+            else:
+                msg = f"✗ {role_label} gave up after 3 rate-limit retries"
         else:
             msg = f"✗ {role_label} error: {e}"
         console.print(f"  [red]{msg}[/red]")
@@ -797,6 +812,7 @@ def run_simulation(
     verbose=False,
     full_skill_prompt=False,
     progress_cb=None,
+    cancel_check=None,
 ):
     """Run a full simulation programmatically.
 
@@ -804,10 +820,45 @@ def run_simulation(
     server) can stream output without capturing stdout.  Defaults to console.print.
     """
     global console
-    _cb = progress_cb or (lambda msg: console.print(msg))
+    import re as _re
+
+    output_dir = Path("logs") / Path(scenario_json).stem
+    output_dir.mkdir(exist_ok=True, parents=True)
+    _run_log_path = output_dir / "run.log"
+    _run_log = _run_log_path.open("w" if start_day == 1 else "a")
+
+    def _strip_ansi(s: str) -> str:
+        return _re.sub(r"\x1b\[[0-9;]*m", "", s)
+
+    class _TeeWriter:
+        """Writes to both a log file (ANSI-stripped) and an optional callback."""
+        def __init__(self, cb=None):
+            self._cb = cb
+            self._buf = ""
+
+        def write(self, text):
+            self._buf += text
+            while "\n" in self._buf:
+                line, self._buf = self._buf.split("\n", 1)
+                _run_log.write(_strip_ansi(line) + "\n")
+                _run_log.flush()
+                if self._cb:
+                    self._cb(line)
+
+        def flush(self):
+            if self._buf.strip():
+                _run_log.write(_strip_ansi(self._buf) + "\n")
+                _run_log.flush()
+                if self._cb:
+                    self._cb(self._buf)
+                self._buf = ""
 
     if progress_cb:
-        console = Console(file=_CallbackWriter(progress_cb), force_terminal=True, width=160, highlight=False)
+        console = Console(file=_TeeWriter(progress_cb), force_terminal=True, width=160, highlight=False)
+    else:
+        console = Console(file=_TeeWriter(), force_terminal=True, width=160, highlight=False)
+
+    _cb = progress_cb or (lambda msg: None)  # explicit _cb calls now redundant — console handles all
 
     config = load_config(config_json)
     scenario = load_scenario(scenario_json)
@@ -816,41 +867,48 @@ def run_simulation(
     if start_day < 1 or start_day > days:
         raise ValueError("start_day must be between 1 and days")
 
-    output_dir = Path("logs") / scenario_name
-    output_dir.mkdir(exist_ok=True, parents=True)
-
-    _cb(f"START scenario={scenario_name} days={start_day}-{days} model={model}")
+    console.print(f"START scenario={scenario_name} days={start_day}-{days} model={model}")
 
     if start_day == 1:
         csv_path = Path("logs/run.csv")
         if csv_path.exists():
             csv_path.unlink()
+        # Clear stale day logs and run/summary logs for this scenario so only the latest run is shown
+        for f in output_dir.glob("day-*.log"):
+            f.unlink()
+        for fname in ("run.log", "summary.log"):
+            p = output_dir / fname
+            if p.exists():
+                p.unlink()
 
     run_start = time.time()
     for day in range(start_day, days + 1):
-        _cb(f"DAY {day}/{days}")
+        if cancel_check and cancel_check():
+            console.print(f"CANCELLED after day {day - 1}")
+            break
+        console.print(f"DAY {day}/{days}")
         run_day(
             day, days, config, scenario, scenario_name,
             verbose=verbose, output_dir=output_dir,
             model=model, full_skill_prompt=full_skill_prompt,
         )
-        _cb(f"DAY_DONE {day}/{days}")
+        console.print(f"DAY_DONE {day}/{days}")
 
     run_duration = time.time() - run_start
 
-    _cb("Backing up databases…")
+    console.print("Backing up databases…")
     for svc in ("provider", "manufacturer", "retailer"):
         src = Path(f"{svc}/data/{svc}.db")
         if src.exists():
             shutil.copy(src, output_dir / f"{svc}.db")
 
     if _VISUALIZE_AVAILABLE:
-        _cb("Generating charts…")
+        console.print("Generating charts…")
         try:
             generate_charts(scenario_name, str(output_dir))
-            _cb(f"Charts saved to {output_dir}/charts/")
+            console.print(f"Charts saved to {output_dir}/charts/")
         except Exception as e:
-            _cb(f"WARNING chart generation failed: {e}")
+            console.print(f"WARNING chart generation failed: {e}")
 
     csv_path = Path("logs/run.csv")
     kpi_rows = []
@@ -860,10 +918,41 @@ def run_simulation(
 
     mins, secs = divmod(int(run_duration), 60)
     duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
-    _cb(f"DONE duration={duration_str} scenario={scenario_name}")
+    console.print(f"DONE duration={duration_str} scenario={scenario_name}")
+
+    # Write summary.log
+    if kpi_rows:
+        summary_log = output_dir / "summary.log"
+        lines = [
+            f"Run Summary — {scenario_name}\n",
+            "=" * 60 + "\n",
+            f"Duration: {duration_str}  |  Model: {model}  |  Days: {start_day}–{days}\n\n",
+            f"{'Day':>4}  {'Events':<28}  {'Orders':>6}  {'Fill':>5}  {'Back':>5}  {'Lost':>5}  {'Fill%':>6}\n",
+            "-" * 60 + "\n",
+        ]
+        for r in kpi_rows:
+            lines.append(
+                f"{r['day']:>4}  {r['events']:<28}  {r['orders_placed']:>6}  "
+                f"{r['fulfilled']:>5}  {r['backordered']:>5}  {r['stockout']:>5}  "
+                f"{float(r['fill_rate_pct']):>5.1f}%\n"
+            )
+        total_orders = sum(int(r["orders_placed"]) for r in kpi_rows)
+        total_fill   = sum(int(r["fulfilled"])     for r in kpi_rows)
+        total_back   = sum(int(r["backordered"])   for r in kpi_rows)
+        total_lost   = sum(int(r["stockout"])      for r in kpi_rows)
+        avg_fill = (total_fill / total_orders * 100) if total_orders else 0
+        lines += [
+            "-" * 60 + "\n",
+            f"{'TOTAL':>4}  {'':28}  {total_orders:>6}  {total_fill:>5}  "
+            f"{total_back:>5}  {total_lost:>5}  {avg_fill:>5.1f}%\n",
+        ]
+        summary_log.write_text("".join(lines))
+        console.print(f"  Summary log → {summary_log}")
 
     if progress_cb:
         console = Console()
+
+    _run_log.close()
 
     return {
         "scenario": scenario_name,
@@ -885,7 +974,7 @@ def parse_args():
                         help="Print full agent output (default: compact 3-line summary)")
     parser.add_argument("--model", default="gemini-3.1-flash-lite",
                         help="LLM model for agents. Claude: 'claude-haiku-4-5-20251001'. "
-                             "Gemini/Gemma (requires GEMINI_API_KEY): 'gemini-3.1-flash-lite', 'gemma-4-26b', etc.")
+                             "Gemini/Gemma (requires GEMINI_API_KEY): 'gemini-3.1-flash-lite', 'gemma-4-26b-a4b-it', etc.")
     parser.add_argument("--start-day", type=int, default=1,
                         help="First simulated day to run, for resuming/chunking long scenarios (default: 1)")
     parser.add_argument("--full-skill-prompt", action="store_true",
@@ -990,33 +1079,5 @@ if __name__ == "__main__":
             )
             console.print(summary)
 
-    if csv_path.exists():
-        with csv_path.open() as f:
-            rows = list(csv.DictReader(f))
-        if rows:
-            summary_log = Path(f"logs/{scenario_name}/summary.log")
-            lines = [f"Run Summary — {scenario_name}\n", "=" * 60 + "\n",
-                     f"Duration: {duration_str}  |  Model: {args.model}  |  Days: {args.start_day}–{args.days}\n\n"]
-            lines.append(f"{'Day':>4}  {'Events':<20}  {'Orders':>6}  {'Fill':>5}  {'Back':>5}  {'Lost':>5}  {'Fill%':>6}\n")
-            lines.append("-" * 60 + "\n")
-            for r in rows:
-                lines.append(
-                    f"{r['day']:>4}  {r['events']:<20}  {r['orders_placed']:>6}  "
-                    f"{r['fulfilled']:>5}  {r['backordered']:>5}  {r['stockout']:>5}  "
-                    f"{float(r['fill_rate_pct']):>5.1f}%\n"
-                )
-            total_orders = sum(int(r["orders_placed"]) for r in rows)
-            total_fill = sum(int(r["fulfilled"]) for r in rows)
-            total_back = sum(int(r["backordered"]) for r in rows)
-            total_lost = sum(int(r["stockout"]) for r in rows)
-            avg_fill = (total_fill / total_orders * 100) if total_orders else 0
-            lines.append("-" * 60 + "\n")
-            lines.append(
-                f"{'TOTAL':>4}  {'':20}  {total_orders:>6}  {total_fill:>5}  "
-                f"{total_back:>5}  {total_lost:>5}  {avg_fill:>5.1f}%\n"
-            )
-            summary_log.write_text("".join(lines))
-            console.print(f"  [dim]Summary log → {summary_log}[/dim]")
-
-    console.print(f"  [dim]KPI log → logs/run.csv[/dim]")
+    console.print(f"  KPI log → logs/run.csv")
     console.print()

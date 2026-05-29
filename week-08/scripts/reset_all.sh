@@ -23,7 +23,7 @@ rm -f "$ROOT/provider/data/provider.db"
 echo "  Clearing agent and service logs..."
 rm -f "$ROOT/logs/run.csv"
 rm -f "$ROOT/logs/manufacturer.log" "$ROOT/logs/provider.log" "$ROOT/logs/retailer.log"
-rm -rf "$ROOT/logs/calm-market" "$ROOT/logs/holiday-rush"
+# Keep logs/{scenario}/ archives — day logs are cleared per-scenario when a new run starts
 
 echo "  Seeding fresh state..."
 "$ROOT/provider/venv/bin/provider-cli" seed

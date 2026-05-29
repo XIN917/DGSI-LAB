@@ -5,6 +5,7 @@ logs/
 # Databases
 *.db
 **/data/*.db
+state.json
 
 # OS files
 .DS_Store

@@ -33,6 +33,7 @@ main{padding:16px;max-width:1200px;margin:0 auto}
 .bar .lbl{position:absolute;left:6px;top:0;line-height:16px;font-size:11px}
 .fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.err{background:var(--err)}
 .num{width:60px;text-align:right}
+.orderlist .orders-scroll{max-height:280px;overflow-y:auto;padding-right:4px}
 .orderlist .o{display:flex;justify-content:space-between;padding:6px 8px;border-radius:5px;background:var(--panel);margin-bottom:4px}
 .status-shipped,.status-released,.status-pending{color:var(--warn)}
 .status-delivered,.status-fulfilled,.status-completed{color:var(--ok)}

@@ -2,7 +2,6 @@
 """FastAPI service that wraps turn_engine for frontend integration."""
 import csv
 import json
-import os
 import queue
 import threading
 import time
@@ -34,45 +33,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Run registry (in-memory + persisted to logs/runs.json) ───────────────────
+# ── Run registry ──────────────────────────────────────────────────────────────
+# In-memory for the current session; completed runs are persisted to logs/runs.json
+# so elapsed time is visible after restarts. Only completed/cancelled/error runs
+# are restored — no ghost "running" entries with missing live data.
 
 _runs: dict[str, dict] = {}
 _runs_lock = threading.Lock()
 _RUNS_FILE = ROOT / "logs" / "runs.json"
-
-_PERSIST_KEYS = ("id", "status", "scenario", "days", "start_day", "model", "started_at", "error")
+_PERSIST_KEYS = ("id", "status", "scenario", "days", "start_day", "model", "started_at", "elapsed_seconds", "error")
 
 
 def _persist_runs():
-    """Write serialisable run metadata to logs/runs.json."""
+    """Persist only finished runs (done/cancelled/error) with their elapsed time."""
     _RUNS_FILE.parent.mkdir(parents=True, exist_ok=True)
     snapshot = {
         run_id: {k: run[k] for k in _PERSIST_KEYS if k in run}
         for run_id, run in _runs.items()
+        if run.get("status") in ("done", "cancelled", "error")
     }
     _RUNS_FILE.write_text(json.dumps(snapshot, indent=2))
 
 
 def _load_runs():
-    """Restore run metadata from logs/runs.json on server start."""
+    """Restore completed run history from logs/runs.json on server start."""
     if not _RUNS_FILE.exists():
         return
     try:
         data = json.loads(_RUNS_FILE.read_text())
         for run_id, meta in data.items():
-            # Mark any run that was 'running' at last shutdown as interrupted
-            if meta.get("status") == "running":
-                meta["status"] = "interrupted"
+            if meta.get("status") not in ("done", "cancelled", "error"):
+                continue  # skip any stale running entries
             _runs[run_id] = {**meta, "queue": queue.Queue(), "thread": None, "result": None}
     except Exception:
-        pass  # corrupt file — start fresh
+        pass
 
 
 _load_runs()
 
 SUPPORTED_MODELS = [
     {"id": "gemini-3.1-flash-lite", "label": "Gemini 3.1 Flash Lite", "provider": "google", "default": True},
-    {"id": "gemma-4-26b",           "label": "Gemma 4 26B",           "provider": "google", "default": False},
+    {"id": "gemma-4-26b-a4b-it",    "label": "Gemma 4 26B",           "provider": "google", "default": False},
     {"id": "gemini-2.5-flash",      "label": "Gemini 2.5 Flash",      "provider": "google", "default": False},
     {"id": "gemini-2.5-pro",        "label": "Gemini 2.5 Pro",        "provider": "google", "default": False},
     {"id": "gemini-2.0-flash",      "label": "Gemini 2.0 Flash",      "provider": "google", "default": False},
@@ -100,16 +101,22 @@ def _simulation_worker(run_id: str, kwargs: dict):
         q.put(msg)
         print(f"[{run_id[:8]}] {msg}")
 
+    def is_cancelled():
+        return _runs.get(run_id, {}).get("status") == "cancelled"
+
     try:
-        result = turn_engine.run_simulation(progress_cb=progress, **kwargs)
+        result = turn_engine.run_simulation(progress_cb=progress, cancel_check=is_cancelled, **kwargs)
         with _runs_lock:
-            run["status"] = "done"
+            if run["status"] != "cancelled":
+                run["status"] = "done"
             run["result"] = result
+            run["elapsed_seconds"] = round(time.time() - run["started_at"], 1)
             _persist_runs()
     except Exception as exc:
         with _runs_lock:
             run["status"] = "error"
             run["error"] = str(exc)
+            run["elapsed_seconds"] = round(time.time() - run["started_at"], 1)
             _persist_runs()
         q.put(f"ERROR {exc}")
     finally:

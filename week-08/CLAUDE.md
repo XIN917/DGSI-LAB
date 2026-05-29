@@ -63,18 +63,22 @@ python3 visualize.py demo/calm-market_1
 
 | File | Content |
 |---|---|
-| `inventory.png` | Finished goods inventory — Mfr & Retailer |
-| `parts_inventory.png` | Raw materials per-part grid (Provider) — small multiples |
-| `prices.png` | Finished goods pricing — Mfr wholesale & Retailer retail |
-| `parts_prices.png` | Part pricing per-part grid (Provider) — small multiples |
-| `fulfillment.png` | Daily orders: fulfilled / backordered / lost |
-| `events.png` | Scenario modifiers over time |
+| `provider_stock.png` | Raw materials stock — small multiples per part |
+| `provider_prices.png` | Part prices (tier-1) — small multiples per part |
+| `manufacturer_stock.png` | Finished goods inventory per model |
+| `manufacturer_prices.png` | Wholesale prices per model |
+| `manufacturer_utilisation.png` | Production utilisation % per model |
+| `retailer_stock.png` | Retail inventory per SKU |
+| `retailer_prices.png` | Retail prices per SKU |
+| `retailer_fulfillment.png` | Daily orders: fulfilled / backordered / lost |
+| `scenario_events.png` | Demand / supply / lead-time multipliers over time |
 
 **Features:**
+- **Per-service grouping**: Charts are separated by service (Provider / Manufacturer / Retailer) matching the dashboard layout.
 - **Event shading**: All charts show colored bands for scenario events (Black Friday = blue, Chip Shortage = orange, Christmas Rush = purple).
-- **Small multiples**: Raw materials inventory and part pricing each use a 3-column grid (one subplot per part) instead of overlapping lines.
+- **Small multiples**: Provider stock and prices use a per-part grid.
 - **Seed-price filter**: Day-1 manufacturer price anomalies (> 3× median) are suppressed automatically.
-- **Resilience**: Inventory/Price charts generate from SQLite databases even if `run.csv` is missing.
+- **Resilience**: Stock/Price charts generate from SQLite databases even if `run.csv` is missing.
 
 ---
 
@@ -154,7 +158,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 - **Compact Role Contracts**: Normal runs send compact per-role rules instead of the full markdown skill files every day. Use `--full-skill-prompt` when debugging agent behavior against the original skill text.
 - **Trimmed Prefetch**: Each agent receives decision-relevant state with long CLI outputs capped to preserve headers, active rows, and recent rows.
 - **Action Batching**: Agents are instructed to use the prefetched state as their assessment step, avoid duplicate read-only commands, batch related mutations into as few Bash turns as practical, and keep final summaries under 120 words.
-- **Model Flexibility**: Use `--model` to switch LLM brains. Claude models use the `claude` CLI subprocess; Gemini and Gemma models (`gemini-*`, `gemma-*`) use the `google-genai` SDK directly with `GEMINI_API_KEY` from `.env`. Default: `gemini-3.1-flash-lite`. Supported: `gemini-3.1-flash-lite`, `gemma-4-26b`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `claude-opus-4-7`.
+- **Model Flexibility**: Use `--model` to switch LLM brains. Claude models use the `claude` CLI subprocess; Gemini and Gemma models (`gemini-*`, `gemma-*`) use the `google-genai` SDK directly with `GEMINI_API_KEY` from `.env`. Default: `gemini-3.1-flash-lite`. Supported: `gemini-3.1-flash-lite`, `gemma-4-26b-a4b-it`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `claude-opus-4-7`.
 - **Run Chunking**: Use `--start-day N` to resume long scenarios without rerunning previous days.
 - **Auto Chart Generation**: At the end of every run, databases are snapshotted and `generate_charts()` from `visualize.py` is called automatically. Charts land in `logs/{scenario}/charts/`. Requires `matplotlib` and `pandas` in the environment; degrades gracefully if unavailable.
 
@@ -196,6 +200,11 @@ Agent turn limits: retailer 6, manufacturer 8, provider 8. **Do not reduce these
 - **Chart generation crash on macOS worker thread:** `matplotlib` defaulted to the macOS GUI backend, which cannot create figures outside the main thread. Fixed by adding `matplotlib.use("Agg")` at the top of `visualize.py` before any pyplot imports.
 - **Services dying when api_server.py restarts:** `nohup` and `setsid` only protect against SIGHUP, not SIGINT or process-group signals. Fixed by launching services via Python `subprocess.Popen(..., start_new_session=True)` in `scripts/start_all.sh`, which creates a fully detached new session so services survive api_server restarts.
 - **Reset cancelled when navigating away from simulation page:** The browser aborted the `POST /reset` fetch on navigation, killing the blocking subprocess. Fixed by making `POST /reset` fire a background thread immediately and return — frontend polls `GET /reset/status` every 2 s. On page re-init, the simulation page resumes polling if status is `"running"`.
+- **Both scenario archives lost on reset:** `reset_all.sh` deleted `logs/calm-market/` and `logs/holiday-rush/` so charts and DBs from both scenarios were gone after any reset. Fixed by removing those `rm -rf` lines from reset. Stale day logs are now cleared per-scenario at the start of each fresh run (`start_day == 1`) in `turn_engine.py` instead.
+- **Ghost run chips after server restart:** `api_server.py` persisted all run IDs to `logs/runs.json` and restored them on startup, showing stale entries with no live data. Fixed by persisting only completed runs (done/cancelled/error) with their `elapsed_seconds`, and skipping any `running` entries on restore.
+- **Log content hidden after Start/Reset:** The log content div was set to `display:none` on Start and Reset but never shown again when selecting a log file. Fixed by adding `elLogContent.style.display = "block"` in the click handler.
+- **"fulfilled d0" on seed orders:** Customer orders placed before day 1 starts get `fulfilled_day = 0` (service day counter not yet advanced). The JS showed "fulfilled d0" because `0 != null`. Fixed by using `o.eta` (falsy for 0) instead of `o.eta != null`.
+- **Log dropdown blank placeholder:** The scenario filter showed "— pick a scenario —" as the first option. Fixed to auto-select the first scenario with logs; shows "— no logs yet —" when none exist.
 
 ---
 
@@ -259,6 +268,7 @@ Interactive docs at `http://localhost:8000/docs`.
 - `GET /run/{id}/inventory` and `/prices` query archived SQLite snapshots (populated at end of run)
 - `DELETE /run/{id}` is best-effort cancel (stops after current day completes)
 - `turn_engine.run_simulation()` accepts a `progress_cb` callback so the API server and CLI both work without code duplication
+- Run registry is **session-scoped** — only completed runs (done/cancelled/error) are persisted to `logs/runs.json` with their `elapsed_seconds`. No stale "running" entries survive a server restart.
 
 **Next step for frontend integration:**
 - The frontend teammate should connect to `POST /run` to start, then `GET /run/{id}/stream` for live log lines (SSE), and `GET /run/{id}/kpis` + `/charts` once the run finishes.
@@ -283,6 +293,9 @@ See **`README.md`** for startup instructions. Open http://localhost:8080. Five p
 - Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`
 - Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`
 - Services launched by `scripts/start_all.sh` use `start_new_session=True` so they stay running when `api_server.py` restarts
+- Customer orders panel has a scrollable list (max 280px); shows up to 100 orders
+- Simulation page log dropdown auto-selects the first scenario that has logs; log/summary content panels restore `display:block` on click
+- Scenario log archives (`logs/{scenario}/`) survive reset — only the live DBs and `run.csv` are cleared. Day logs for a scenario are cleared at the start of each new run of that scenario.
 
 ## Cheap Verification Before Full Runs
 
