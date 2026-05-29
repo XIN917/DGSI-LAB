@@ -97,12 +97,8 @@ def _simulation_worker(run_id: str, kwargs: dict):
     q: queue.Queue = run["queue"]
 
     def progress(msg: str):
-        clean = msg  # strip Rich markup for the event stream
-        import re
-        clean = re.sub(r"\[/?[a-zA-Z_ ]+\]", "", clean)
-        q.put(clean.strip())
-        # Mirror to console so the server terminal is still readable
-        print(f"[{run_id[:8]}] {clean.strip()}")
+        q.put(msg)
+        print(f"[{run_id[:8]}] {msg}")
 
     try:
         result = turn_engine.run_simulation(progress_cb=progress, **kwargs)
@@ -147,6 +143,14 @@ def start_run(body: StartRunRequest):
 
     if body.days < 1 or body.start_day < 1 or body.start_day > body.days:
         raise HTTPException(status_code=422, detail="Invalid days / start_day combination")
+
+    with _runs_lock:
+        active = next((r for r in _runs.values() if r["status"] == "running"), None)
+    if active:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run {active['id'][:8]} is already running ({active['scenario']}). Stop it before starting a new one."
+        )
 
     run_id = str(uuid.uuid4())
     q: queue.Queue = queue.Queue()
@@ -234,6 +238,23 @@ def run_status(run_id: str):
     if run.get("result"):
         resp["result"] = run["result"]
     return resp
+
+
+@app.delete("/runs")
+def delete_runs(ids: str = ""):
+    """Remove finished/errored runs from registry. Pass ?ids=id1,id2 for specific runs, or omit for all non-running."""
+    target_ids = [i.strip() for i in ids.split(",") if i.strip()] if ids else None
+    removed = []
+    with _runs_lock:
+        to_remove = [
+            rid for rid, r in _runs.items()
+            if r["status"] != "running" and (target_ids is None or rid in target_ids)
+        ]
+        for rid in to_remove:
+            del _runs[rid]
+            removed.append(rid)
+        _persist_runs()
+    return {"removed": removed}
 
 
 @app.get("/runs")
@@ -388,6 +409,35 @@ def get_chart(run_id: str, filename: str):
     if not chart_path.exists():
         raise HTTPException(status_code=404, detail="Chart not found")
     return FileResponse(str(chart_path), media_type="image/png")
+
+
+# ── Reset ─────────────────────────────────────────────────────────────────────
+
+_reset_state: dict = {"status": "idle", "output": ""}
+
+@app.post("/reset")
+def reset_services():
+    """Start reset_all.sh in background. Returns immediately; poll GET /reset/status."""
+    import subprocess
+    if _reset_state.get("status") == "running":
+        return {"ok": False, "status": "running", "output": "Reset already in progress."}
+    script = ROOT / "scripts" / "reset_all.sh"
+
+    def _run():
+        _reset_state["status"] = "running"
+        _reset_state["output"] = ""
+        result = subprocess.run([str(script)], capture_output=True, text=True)
+        _reset_state["output"] = result.stdout + result.stderr
+        _reset_state["status"] = "done" if result.returncode == 0 else "error"
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"ok": True, "status": "running"}
+
+
+@app.get("/reset/status")
+def reset_status():
+    """Poll reset progress."""
+    return _reset_state
 
 
 # ── Service health ────────────────────────────────────────────────────────────
