@@ -61,7 +61,7 @@ def init_db(reset_day: bool = False) -> None:
         ).first()
         
         if not result:
-            session.add(InventoryItemDB(sku="P3D-Classic", quantity_on_hand=5, retail_price=1500.0))
-            session.add(InventoryItemDB(sku="P3D-Pro", quantity_on_hand=3, retail_price=2500.0))
+            session.add(InventoryItemDB(sku="P3D-Classic", quantity_on_hand=5, retail_price=295.0))
+            session.add(InventoryItemDB(sku="P3D-Pro", quantity_on_hand=3, retail_price=435.0))
             session.add(SimStateDB(key="inventory_initialized", value="1"))
             session.commit()

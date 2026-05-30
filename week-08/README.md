@@ -74,7 +74,7 @@ python turn_engine.py config/sim.json scenarios/holiday-rush.json 25 --start-day
 python turn_engine.py config/sim.json scenarios/calm-market.json 15 --full-skill-prompt
 ```
 
-Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are snapshotted and charts are automatically generated to `logs/{scenario_name}/` at the end of each run. KPI data is appended to `logs/run.csv`. Normal runs use compact role contracts and capped prefetch output to reduce token usage; pass `--full-skill-prompt` only when debugging agent behavior.
+Agent logs are saved to `logs/{scenario_name}/day-NNN.log`. Databases are snapshotted and charts are automatically generated to `logs/{scenario_name}/` at the end of each run. KPI data is written to `logs/{scenario_name}/run.csv` (one file per scenario, cleared at the start of each fresh run of that scenario). Normal runs use compact role contracts and capped prefetch output to reduce token usage; pass `--full-skill-prompt` only when debugging agent behavior.
 
 > **Note:** `manufacturer/providers.json` must exist and point to the provider URL (`http://127.0.0.1:8001`). It is tracked in git — if missing, manufacturer procurement will silently fail every day.
 >
@@ -89,9 +89,9 @@ Charts are generated automatically at the end of every simulation run. To regene
 ```bash
 # Regenerate charts from a specific archived folder
 python visualize.py logs/holiday-rush
-python visualize.py demo/calm-market
+python visualize.py logs/calm-market
 
-# Regenerate charts for all scenarios found in logs/run.csv
+# Regenerate for the most recent run
 python visualize.py
 ```
 
@@ -136,6 +136,8 @@ Open http://localhost:8080. The dashboard has five pages:
 - **Provider / Manufacturer / Retailer** — per-service inventory, prices, and orders
 - **Simulation** — start/stop runs, choose scenario and model, stream live terminal output, reset to Day 0
 
+A **VIEW** dropdown in the nav bar lets you switch between the live service state and any completed scenario archive (`logs/{scenario}/`). Archives persist across resets so you can compare calm-market and holiday-rush side by side.
+
 > **Note:** Services launched via `scripts/start_all.sh` use `start_new_session=True` so they stay up when `api_server.py` restarts.
 
 ### 8. Stop all services
@@ -163,7 +165,8 @@ week-08/
 ├── dashboard.py       # Dashboard entry point (:8080)
 ├── dashboard/         # Dashboard app package
 ├── frontend/          # Dashboard HTML/JS/CSS
-├── logs/              # Per-turn agent logs, run.csv, and charts/ (git-ignored)
+├── logs/              # Per-turn agent logs and charts/ (git-ignored)
+│   └── {scenario}/    # Per-scenario archive: day logs, run.csv, *.db snapshots, charts/
 └── docs/
     ├── PRD.md         # Full product spec
     ├── PLAN.md        # Implementation task list

@@ -4,9 +4,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from dashboard.config import load_services
+from dashboard.config import load_services, ServiceConfig
 from dashboard.collector import collect_all
-from dashboard.history import (read_provider_history, read_manufacturer_history, read_retailer_history)
+from dashboard.history import (read_provider_history, read_manufacturer_history, read_retailer_history,
+                                latest_manufacturer_state, latest_provider_state, latest_retailer_state,
+                                latest_retailer_orders)
 from dashboard.context import load_context
 from dashboard.alerts import compute_alerts
 
@@ -34,10 +36,63 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
     app = FastAPI(title="Supply Chain Live Dashboard")
     app.mount("/static", StaticFiles(directory=_FRONTEND), name="static")
 
+    @app.get("/api/archive/scenarios")
+    async def archive_scenarios():
+        logs_dir = Path("logs")
+        result = []
+        for d in sorted(logs_dir.iterdir()):
+            if d.is_dir() and (d / "run.csv").exists():
+                result.append(d.name)
+        return JSONResponse(result)
+
+    @app.get("/api/archive/{scenario}/state")
+    async def archive_state(scenario: str):
+        logs_dir = Path("logs") / scenario
+        arc_services = {
+            tier: ServiceConfig(tier, "", logs_dir / f"{tier}.db")
+            for tier in ("provider", "manufacturer", "retailer")
+        }
+        history = {
+            "provider": read_provider_history(arc_services["provider"].db_path),
+            "manufacturer": read_manufacturer_history(arc_services["manufacturer"].db_path),
+            "retailer": read_retailer_history(arc_services["retailer"].db_path),
+        }
+        ctx = load_context(run_csv=logs_dir / "run.csv", scenarios_dir=Path("scenarios"))
+        mfr_state = latest_manufacturer_state(arc_services["manufacturer"].db_path)
+        util = round(mfr_state["util"] * 100, 1) if mfr_state and mfr_state["util"] is not None else None
+        prov_items, prov_orders = latest_provider_state(arc_services["provider"].db_path)
+        ret_items = latest_retailer_state(arc_services["retailer"].db_path)
+        ret_orders = latest_retailer_orders(arc_services["retailer"].db_path)
+        prov_in_transit = sum(i.get("in_transit", 0) for i in prov_items)
+        mfr_items = []
+        if mfr_state:
+            mfr_items = [{"name": f["name"], "stock": f["stock"], "price": f["price"], "kind": "finished"}
+                         for f in mfr_state["finished"]]
+            mfr_items += [{"name": k, "stock": v, "price": None, "kind": "part"}
+                          for k, v in mfr_state["parts"].items()]
+        latest = ctx.get("latest") or {}
+        return JSONResponse({
+            "day": latest.get("day"), "day_total": ctx.get("day_total"), "scenario": scenario,
+            "events": {"label": latest.get("events"), "demand_mod": latest.get("demand_mod"),
+                       "supply_mod": latest.get("supply_mod"), "lead_mod": latest.get("lead_mod")},
+            "kpis": {"fill_rate": latest.get("fill_rate"), "backlog": latest.get("backordered"), "production_util": util},
+            "alerts": [],
+            "tiers": {
+                "provider": {"online": True, "items": prov_items, "orders": prov_orders, "in_transit_out": prov_in_transit, "extra": {}},
+                "manufacturer": {"online": True, "items": mfr_items, "orders": [], "in_transit_out": mfr_state["pending"] if mfr_state else 0, "extra": {"utilisation_pct": util, "sales_pending": mfr_state["pending"] if mfr_state else 0, "sales_completed": mfr_state["completed"] if mfr_state else 0}},
+                "retailer": {"online": True, "items": ret_items, "orders": ret_orders, "in_transit_out": 0, "extra": {}},
+            },
+            "history": history,
+            "fill_rate_series": ctx.get("fill_rate_series", []),
+        })
+
     @app.get("/api/state")
     async def api_state():
         tiers = await collect_all(services)
-        ctx = load_context(run_csv=Path("logs/run.csv"), scenarios_dir=Path("scenarios"))
+        # find the most recently modified per-scenario run.csv as live context
+        logs_dir = Path("logs")
+        csv_candidates = sorted(logs_dir.glob("*/run.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
+        ctx = load_context(run_csv=csv_candidates[0], scenarios_dir=Path("scenarios")) if csv_candidates else {"scenario": None, "day_total": None, "latest": None, "fill_rate_series": []}
         backlog = sum(1 for o in tiers["retailer"]["orders"] if o.get("status") == "backordered")
         day = max((t["current_day"] for t in tiers.values() if t.get("current_day") is not None), default=None)
         latest = ctx.get("latest") or {}

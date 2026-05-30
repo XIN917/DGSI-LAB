@@ -44,7 +44,7 @@ Each day, in order:
 1. **Assess.** Run `stock`, `sales orders`, `capacity`, `production status`. Summarise in 2–3 sentences before deciding anything.
 2. **Fulfill what you can.** For each pending sales order, if parts are in stock and production capacity is available, release it. Prioritise oldest orders.
 3. **Order what you need.** For each part where stock is below two days of expected consumption, consult `suppliers catalog` for each supplier and place a purchase order with the best option. Justify your supplier choice in one sentence.
-4. **Adjust prices.** If orders exceed capacity by more than 50% for 2+ days, raise wholesale prices by 5–10%. If utilisation is below 40% for 2+ days, lower them by 5–10%. Never set a price below the minimum floor: P3D-Classic €163, P3D-Pro €246 (material cost + 15% margin).
+4. **Adjust prices.** If orders exceed capacity by more than 50% for 2+ days, raise wholesale prices by 5–10%. If utilisation is below 40% for 2+ days, lower them by 5–10%. Never go below cost + 15% margin.
 5. **Log your reasoning.** Before each mutation, print a one-line explanation: "releasing order 17 because P3D-Classic stock=8 and all parts available".
 
 ## Market Signals

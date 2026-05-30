@@ -16,7 +16,11 @@ async def _get_json(client: httpx.AsyncClient, url: str):
 def _tier1_price(pricing_tiers: list) -> float | None:
     if not pricing_tiers:
         return None
-    return min(pricing_tiers, key=lambda t: t["min_quantity"])["unit_price"]
+    raw = min(pricing_tiers, key=lambda t: t["min_quantity"])["unit_price"]
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return raw
 
 
 BUSY = {"online": True, "current_day": None, "items": [], "orders": [], "in_transit_out": 0, "extra": {}, "busy": True}
@@ -90,8 +94,7 @@ async def _collect_retailer(svc, client):
         _get_json(client, f"{base}/api/inventory"),
         _get_json(client, f"{base}/api/catalog"),
         _get_json(client, f"{base}/api/customer-orders"))
-    name_by_sku = {c["sku"]: c["name"] for c in catalog}
-    items = [{"name": name_by_sku.get(i["sku"], i["sku"]), "sku": i["sku"], "stock": i["quantity_on_hand"],
+    items = [{"name": i["sku"], "sku": i["sku"], "stock": i["quantity_on_hand"],
               "capacity": None, "price": i.get("retail_price"), "lead": None, "kind": "sku"} for i in inv]
     out_orders = [{"id": o["id"], "label": o["sku"], "qty": o["quantity"],
                    "status": o.get("status", ""), "eta": o.get("fulfilled_day")} for o in orders]

@@ -56,7 +56,7 @@ Generates 6 charts per scenario to analyze supply chain performance.
 python3 visualize.py
 
 # Generate charts for a specific archived folder (even if run.csv is missing)
-python3 visualize.py demo/calm-market_1
+python3 visualize.py logs/calm-market
 ```
 
 **Output files (all in `logs/{scenario}/charts/`):**
@@ -150,7 +150,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 6. Calls `POST /api/day/advance` on each service
 7. Saves all three agents' output to `logs/{scenario}/day-NNN.log`
 8. Prints global inventory snapshot table (all three services)
-9. Appends KPI row to `logs/run.csv` (file is cleared at the start of each fresh run so it always reflects the latest run only)
+9. Appends KPI row to `logs/{scenario}/run.csv` (file is cleared at the start of each fresh run of that scenario; resumed chunk runs preserve existing rows)
 10. At end of run: snapshots databases to `logs/{scenario}/` and prints summary table including duration, model, and day range
 
 **Optimizations:**
@@ -179,32 +179,21 @@ Agent turn limits: retailer 6, manufacturer 8, provider 8. **Do not reduce these
 - **Do not reduce agent max-turn budgets below retailer 6, manufacturer 8, provider 8.** These are intentionally higher than the first optimized values to keep long scenario runs from truncating valid decisions.
 - **Keep compact prompts as the default for long runs.** Full skill prompts are for debugging; they increase token usage substantially over 25-day scenarios.
 - **Overlapping scenario events multiply modifiers** (not last-wins). This is intentional — it produces the bullwhip effect.
-- Price floors: P3D-Classic €163, P3D-Pro €246 (manufacturer minimum).
+- Price floors: P3D-Classic €163, P3D-Pro €246 (manufacturer minimum). Wholesale seed: €195 / €290. Retail seed: €295 / €435.
 - One simulation run should complete in ≤ 30 minutes wall clock.
 
 ---
 
-## Known Bugs Fixed
+## Active "Do Not Revert" Constraints
 
-- **`reload=True` uvicorn bug:** All three services had `reload=True` which caused WatchFiles to restart the server mid-run when any file was edited. Fixed to `reload=False` in all three `cli.py` serve commands. Do not revert this.
-- **Agent max-turns bug:** Prompts previously asked agents to `Read <skill_file>` which consumed a turn before any action. Fixed by embedding skill content directly in the prompt string in `turn_engine.py`.
-- **Long-run max-turn truncation:** Provider/manufacturer later hit `Reached max turns` in 25-day runs after earlier turn limits were set too low. Current budgets are retailer 6, manufacturer 8, provider 8; keep them there unless a future change proves a higher budget is needed.
-- **Manufacturer never orders frame_kit:** Seed was 120 units — enough for 30+ days of calm demand, so the agent never triggered a reorder. Lowered to 20 (frame_kit) and 15 (frame_kit_pro) in `manufacturer/sample_data/default_production_plan.json` so the agent must order within the first few days.
-- **prices.png zigzag:** Manufacturer metrics table writes multiple rows per sim_day (one per price change). Fixed in `visualize.py` with `groupby(...).last()` deduplication.
-- **HTTP advance skipped external supplier receipts:** Manufacturer CLI `day advance` polled external suppliers, but the turn engine uses HTTP `POST /api/day/advance`, so provider deliveries reduced provider stock while manufacturer raw-material inventory stayed frozen. Fixed by polling `ExternalSupplierService` in both manufacturer HTTP advance endpoints.
-- **Retailer stranded in-flight manufacturer POs:** Retailer delivery sync only checked local POs with status `pending`; once a PO became `released` or `waiting_materials`, later manufacturer delivery was never received into retailer stock. Fixed by syncing all non-terminal POs (`not delivered/cancelled`).
-- **Python/Pydantic warnings in regression tests:** Updated manufacturer settings to Pydantic v2 `SettingsConfigDict`, replaced `datetime.utcnow()` with timezone-aware `datetime.now(UTC)`, and disposed the SQLite test engine.
-- **Retailer `manufacturer_client.py` stale auth:** The manufacturer's auth endpoints were removed in the service-layer refactor, but the retailer client still called `POST /api/auth/login` on every request. This caused all retailer purchase orders to fail with 404, keeping fulfillment at 0% for every day after day 1. Fixed by removing all auth logic from `retailer/app/services/manufacturer_client.py` and calling manufacturer endpoints directly.
-- **run.csv stale data across runs:** Re-running the same scenario without resetting caused the summary table and frontend KPI endpoint to show mixed data from all previous runs. Fixed by clearing `logs/run.csv` at the start of every fresh run (`start_day == 1`). Resumed chunk runs (`--start-day N`) preserve existing rows. `run.csv` always reflects the latest run only — this is intentional since runs are sequential and the frontend shows the most recent run's data.
-- **Rich markup tags showing literally in dashboard terminal:** `markup=False` on the callback `Console` in `turn_engine.py` caused `[bold]`, `[cyan]`, `[dim]` etc. to pass through as raw text instead of ANSI codes. Fixed by removing `markup=False` from the Console constructor; xterm.js renders the ANSI codes natively.
-- **Chart generation crash on macOS worker thread:** `matplotlib` defaulted to the macOS GUI backend, which cannot create figures outside the main thread. Fixed by adding `matplotlib.use("Agg")` at the top of `visualize.py` before any pyplot imports.
-- **Services dying when api_server.py restarts:** `nohup` and `setsid` only protect against SIGHUP, not SIGINT or process-group signals. Fixed by launching services via Python `subprocess.Popen(..., start_new_session=True)` in `scripts/start_all.sh`, which creates a fully detached new session so services survive api_server restarts.
-- **Reset cancelled when navigating away from simulation page:** The browser aborted the `POST /reset` fetch on navigation, killing the blocking subprocess. Fixed by making `POST /reset` fire a background thread immediately and return — frontend polls `GET /reset/status` every 2 s. On page re-init, the simulation page resumes polling if status is `"running"`.
-- **Both scenario archives lost on reset:** `reset_all.sh` deleted `logs/calm-market/` and `logs/holiday-rush/` so charts and DBs from both scenarios were gone after any reset. Fixed by removing those `rm -rf` lines from reset. Stale day logs are now cleared per-scenario at the start of each fresh run (`start_day == 1`) in `turn_engine.py` instead.
-- **Ghost run chips after server restart:** `api_server.py` persisted all run IDs to `logs/runs.json` and restored them on startup, showing stale entries with no live data. Fixed by persisting only completed runs (done/cancelled/error) with their `elapsed_seconds`, and skipping any `running` entries on restore.
-- **Log content hidden after Start/Reset:** The log content div was set to `display:none` on Start and Reset but never shown again when selecting a log file. Fixed by adding `elLogContent.style.display = "block"` in the click handler.
-- **"fulfilled d0" on seed orders:** Customer orders placed before day 1 starts get `fulfilled_day = 0` (service day counter not yet advanced). The JS showed "fulfilled d0" because `0 != null`. Fixed by using `o.eta` (falsy for 0) instead of `o.eta != null`.
-- **Log dropdown blank placeholder:** The scenario filter showed "— pick a scenario —" as the first option. Fixed to auto-select the first scenario with logs; shows "— no logs yet —" when none exist.
+These were fixed bugs with non-obvious resolutions — do not undo them:
+
+- **`reload=False` in all services** — `reload=True` caused WatchFiles to restart the server mid-run on any file edit. Do not revert.
+- **`markup=False` must NOT be set on the callback Console in `turn_engine.py`** — it causes `[bold]`, `[cyan]` etc. to render as raw text instead of ANSI codes. xterm.js needs the codes.
+- **Agent max-turn budgets: retailer 6, manufacturer 8, provider 8** — lower budgets caused `Reached max turns` truncation in 25-day runs. Do not reduce.
+- **`frame_kit` seed is 20, `frame_kit_pro` is 15** in `manufacturer/sample_data/default_production_plan.json` — intentionally low so the agent is forced to reorder within the first few days. Do not raise.
+- **`start_new_session=True` in `scripts/start_all.sh`** — services must survive api_server restarts. `nohup`/`setsid` are insufficient.
+- **Scenario log archives (`logs/{scenario}/`) are NOT deleted on reset** — only live DBs are cleared. Stale day logs are cleared per-scenario at run start in `turn_engine.py`.
 
 ---
 
@@ -238,7 +227,7 @@ See `docs/PLAN.md` for the full ordered task list. Current status:
 - Phase 2 (metrics tables) — **complete**
 - Phase 3 (testing & visualization) — **complete**
 - Phase 4 (analysis) — **complete** (both scenarios run and archived; all charts generated; ANALYSIS.md complete)
-- Phase 5 (final deliverables) — not started (Final Report PDF pending)
+- Phase 5 (final deliverables) — not started (full end-to-end test run pending; Final Report PDF pending)
 
 ## Frontend API Server (`api_server.py`)
 
@@ -290,12 +279,14 @@ See **`README.md`** for startup instructions. Open http://localhost:8080. Five p
 **Design notes:**
 - `dashboard/app.py` proxies all `/api/sim/*` calls to `api_server.py` (:8000) and exposes `/api/state` from the service DBs directly
 - SVG charts are drawn client-side in `frontend/dashboard.js` using `d3`-style scaling; no PNG charts are fetched for the live view
+- **Archive view**: a VIEW dropdown in the nav switches between live service data and any completed scenario archive. Selecting a scenario loads `logs/{scenario}/*.db` and `logs/{scenario}/run.csv` via `GET /api/archive/{scenario}/state`. Selection persists across pages via `sessionStorage`. Archives survive resets.
 - Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`
-- Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`
+- Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`. Rich console width is set to 150 to fit the terminal area.
 - Services launched by `scripts/start_all.sh` use `start_new_session=True` so they stay running when `api_server.py` restarts
-- Customer orders panel has a scrollable list (max 280px); shows up to 100 orders
+- Customer orders panel has a scrollable list (max 280px); shows up to 100 orders; scroll position is preserved across 2 s refreshes
 - Simulation page log dropdown auto-selects the first scenario that has logs; log/summary content panels restore `display:block` on click
-- Scenario log archives (`logs/{scenario}/`) survive reset — only the live DBs and `run.csv` are cleared. Day logs for a scenario are cleared at the start of each new run of that scenario.
+- Run chips show day range (`d1–10`) and elapsed time in seconds (`4m 42s`); duration is frozen at completion and does not grow after the run ends
+- Scenario log archives (`logs/{scenario}/`) survive reset — only the live DBs are cleared. Per-scenario `run.csv` files are cleared at the start of each new run of that scenario.
 
 ## Cheap Verification Before Full Runs
 

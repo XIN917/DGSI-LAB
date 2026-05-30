@@ -661,7 +661,7 @@ def print_kpi_and_log_csv(config, day, signal, scenario_name):
         f"[dim]│ demand x{demand_mod:.1f}  supply x{supply_mod:.1f}  events: {event_str}[/dim]"
     )
 
-    csv_path = Path("logs/run.csv")
+    csv_path = Path("logs") / scenario_name / "run.csv"
     write_header = not csv_path.exists()
     with csv_path.open("a", newline="") as f:
         writer = csv.writer(f)
@@ -854,9 +854,9 @@ def run_simulation(
                 self._buf = ""
 
     if progress_cb:
-        console = Console(file=_TeeWriter(progress_cb), force_terminal=True, width=160, highlight=False)
+        console = Console(file=_TeeWriter(progress_cb), force_terminal=True, width=150, highlight=False)
     else:
-        console = Console(file=_TeeWriter(), force_terminal=True, width=160, highlight=False)
+        console = Console(file=_TeeWriter(), force_terminal=True, width=150, highlight=False)
 
     _cb = progress_cb or (lambda msg: None)  # explicit _cb calls now redundant — console handles all
 
@@ -870,7 +870,7 @@ def run_simulation(
     console.print(f"START scenario={scenario_name} days={start_day}-{days} model={model}")
 
     if start_day == 1:
-        csv_path = Path("logs/run.csv")
+        csv_path = Path("logs") / scenario_name / "run.csv"
         if csv_path.exists():
             csv_path.unlink()
         # Clear stale day logs and run/summary logs for this scenario so only the latest run is shown
@@ -910,11 +910,11 @@ def run_simulation(
         except Exception as e:
             console.print(f"WARNING chart generation failed: {e}")
 
-    csv_path = Path("logs/run.csv")
+    csv_path = Path("logs") / scenario_name / "run.csv"
     kpi_rows = []
     if csv_path.exists():
         with csv_path.open() as f:
-            kpi_rows = [r for r in csv.DictReader(f) if r.get("scenario") == scenario_name]
+            kpi_rows = list(csv.DictReader(f))
 
     mins, secs = divmod(int(run_duration), 60)
     duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
@@ -1017,10 +1017,10 @@ if __name__ == "__main__":
     duration_str = f"{mins}m {secs}s" if mins else f"{secs}s"
     console.rule(f"[bold green] Simulation complete — {duration_str} [/bold green]", style="green")
 
-    csv_path = Path("logs/run.csv")
+    csv_path = Path("logs") / scenario_name / "run.csv"
     if csv_path.exists():
         with csv_path.open() as f:
-            rows = [r for r in csv.DictReader(f) if r.get("scenario") == scenario_name]
+            rows = list(csv.DictReader(f))
         if rows:
             summary = Table(
                 title=f"[bold]Run Summary — {scenario_name}[/bold]",
@@ -1079,5 +1079,5 @@ if __name__ == "__main__":
             )
             console.print(summary)
 
-    console.print(f"  KPI log → logs/run.csv")
+    console.print(f"  KPI log → logs/{scenario_name}/run.csv")
     console.print()

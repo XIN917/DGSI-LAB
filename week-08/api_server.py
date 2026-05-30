@@ -274,8 +274,9 @@ def list_runs():
                 "status": r["status"],
                 "scenario": r["scenario"],
                 "days": r["days"],
+                "start_day": r.get("start_day", 1),
                 "model": r["model"],
-                "elapsed_seconds": round(time.time() - r["started_at"], 1),
+                "elapsed_seconds": r["elapsed_seconds"] if r["status"] in ("done", "cancelled", "error") else round(time.time() - r["started_at"], 1),
             }
             for r in _runs.values()
         ]
@@ -333,13 +334,13 @@ def get_logs(run_id: str, page: int = 1, page_size: int = 100):
 
 @app.get("/run/{run_id}/kpis")
 def get_kpis(run_id: str):
-    """Return daily KPI rows for this run from logs/run.csv."""
+    """Return daily KPI rows for this run from logs/{scenario}/run.csv."""
     run = _get_run(run_id)
-    csv_path = ROOT / "logs" / "run.csv"
+    csv_path = ROOT / "logs" / run["scenario"] / "run.csv"
     if not csv_path.exists():
         return []
     with csv_path.open() as f:
-        rows = [r for r in csv.DictReader(f) if r.get("scenario") == run["scenario"]]
+        rows = list(csv.DictReader(f))
     return rows
 
 

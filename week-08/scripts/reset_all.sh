@@ -21,8 +21,8 @@ rm -f "$ROOT/retailer/data/retailer.db"
 rm -f "$ROOT/provider/data/provider.db"
 
 echo "  Clearing agent and service logs..."
-rm -f "$ROOT/logs/run.csv"
 rm -f "$ROOT/logs/manufacturer.log" "$ROOT/logs/provider.log" "$ROOT/logs/retailer.log"
+# Per-scenario run.csv files live in logs/{scenario}/run.csv and are cleared when a new run starts
 # Keep logs/{scenario}/ archives — day logs are cleared per-scenario when a new run starts
 
 echo "  Seeding fresh state..."

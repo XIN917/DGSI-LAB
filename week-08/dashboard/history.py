@@ -90,3 +90,38 @@ def read_retailer_history(db_path: Path) -> dict:
             series["retail_price"].setdefault(sku, []).append([day, price])
         peak[sku] = max(peak.get(sku, 0), stock or 0)
     return {"series": series, "peak": peak} if rows else {"series": {}, "peak": {}}
+
+
+def latest_provider_state(db_path: Path) -> tuple[list[dict], list[dict]]:
+    rows = _query(db_path, "SELECT product_name, stock_quantity, price_tier1 "
+                           "FROM metrics WHERE sim_day = (SELECT MAX(sim_day) FROM metrics)")
+    in_transit_rows = _query(db_path,
+                             "SELECT product_id, SUM(quantity) FROM orders "
+                             "WHERE status IN ('PENDING','CONFIRMED','SHIPPED') GROUP BY product_id")
+    in_transit_by_id = {pid: qty for pid, qty in in_transit_rows}
+    prod_rows = _query(db_path, "SELECT id, name, lead_time_days FROM products")
+    id_by_name = {name: pid for pid, name, _ in prod_rows}
+    lead_by_name = {name: lead for _, name, lead in prod_rows}
+    items = [{"name": name, "stock": stock, "price": price,
+              "in_transit": in_transit_by_id.get(id_by_name.get(name), 0),
+              "lead": lead_by_name.get(name), "kind": "part"}
+             for name, stock, price in rows]
+    order_rows = _query(db_path, "SELECT o.id, p.name, o.quantity, o.status, o.expected_delivery_day "
+                                 "FROM orders o JOIN products p ON p.id = o.product_id ORDER BY o.id ASC")
+    orders = [{"id": oid, "label": name, "qty": qty, "status": status, "eta": eta}
+              for oid, name, qty, status, eta in order_rows]
+    return items, orders
+
+
+def latest_retailer_state(db_path: Path) -> list[dict]:
+    rows = _query(db_path, "SELECT sku, stock_quantity, retail_price "
+                           "FROM metrics WHERE sim_day = (SELECT MAX(sim_day) FROM metrics)")
+    return [{"name": sku, "stock": stock, "price": price, "kind": "sku"}
+            for sku, stock, price in rows]
+
+
+def latest_retailer_orders(db_path: Path) -> list[dict]:
+    rows = _query(db_path, "SELECT id, sku, quantity, status, fulfilled_day "
+                           "FROM customer_orders ORDER BY id ASC LIMIT 100")
+    return [{"id": oid, "label": sku, "qty": qty, "status": status, "eta": fulfilled_day}
+            for oid, sku, qty, status, fulfilled_day in rows]

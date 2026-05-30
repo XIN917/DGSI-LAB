@@ -19,22 +19,55 @@ function pct(stock, cap, peak) {
   return Math.max(2, Math.min(100, (stock / max) * 100));
 }
 function fmt(n) { return n == null ? "–" : (Number.isInteger(n) ? n : Number(n).toFixed(1)); }
-function fmtDuration(s) { return s >= 60 ? Math.round(s / 60) + "m" : Math.round(s) + "s"; }
+function fmtDuration(s) { return s >= 60 ? Math.floor(s / 60) + "m " + (Math.round(s) % 60) + "s" : Math.round(s) + "s"; }
 function statusClass(s) { return "status-" + String(s || "").toLowerCase(); }
+
+let _selectedScenario = sessionStorage.getItem("selectedScenario") || null;
 
 async function tick() {
   try {
-    const res = await fetch("/api/state");
+    const url = _selectedScenario ? `/api/archive/${_selectedScenario}/state` : "/api/state";
+    const res = await fetch(url);
     const data = await res.json();
     const d = data.day == null ? "–" : data.day;
     const dt = data.day_total ? ` / ${data.day_total}` : "";
-    badge.textContent = `● LIVE · ${data.scenario || "no scenario"} · Day ${d}${dt}`;
+    const label = _selectedScenario ? `● ARCHIVE · ${data.scenario} · Day ${d}${dt}` : `● LIVE · ${data.scenario || "no scenario"} · Day ${d}${dt}`;
+    badge.textContent = label;
     badge.classList.remove("down");
     render(data);
   } catch (e) {
     badge.textContent = "● disconnected — is the dashboard server running?";
     badge.classList.add("down");
   }
+}
+
+async function initScenarioSwitcher() {
+  if (PAGE !== "overview" && PAGE !== "provider" && PAGE !== "manufacturer" && PAGE !== "retailer") return;
+  try {
+    const scenarios = await fetch("/api/archive/scenarios").then(r => r.json());
+    if (!scenarios.length) return;
+    const badgeEl = document.getElementById("livebadge");
+    const rightWrap = document.createElement("div");
+    rightWrap.style.cssText = "display:flex;align-items:center;gap:10px";
+    badgeEl.parentNode.insertBefore(rightWrap, badgeEl);
+    rightWrap.appendChild(badgeEl);
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex;align-items:center;gap:6px;font-size:11px";
+    wrap.innerHTML = `<span style="color:var(--muted)">VIEW:</span>
+      <select id="scenario-switcher" style="background:#1e293b;border:1px solid var(--line);color:var(--text);padding:3px 8px;border-radius:5px;font-family:inherit;font-size:11px">
+        <option value="">Live</option>
+        ${scenarios.map(s => `<option value="${s}">${s}</option>`).join("")}
+      </select>`;
+    rightWrap.appendChild(wrap);
+    const sw = document.getElementById("scenario-switcher");
+    if (_selectedScenario) sw.value = _selectedScenario;
+    sw.addEventListener("change", e => {
+      _selectedScenario = e.target.value || null;
+      if (_selectedScenario) sessionStorage.setItem("selectedScenario", _selectedScenario);
+      else sessionStorage.removeItem("selectedScenario");
+      tick();
+    });
+  } catch (_) {}
 }
 
 function render(data) {
@@ -164,8 +197,11 @@ function renderDetail(name, data) {
     return;
   }
   const hist = data.history[name] || {};
+  const prevScroll = root.querySelector(".orders-scroll")?.scrollTop ?? 0;
   root.innerHTML = kpiTiles(name, tier) + stockPanel(name, tier, hist)
     + orderPanel(name, tier) + chartsBlock(name, hist, data);
+  const el = root.querySelector(".orders-scroll");
+  if (el) el.scrollTop = prevScroll;
   drawAllCharts(name, hist, data);
 }
 
@@ -276,6 +312,7 @@ function drawAllCharts(name, hist, data, container = root) {
 }
 
 if (PAGE !== "simulation") {
+  initScenarioSwitcher();
   setInterval(tick, REFRESH);
   tick();
 } else {
@@ -515,7 +552,7 @@ async function initSimPage() {
         const canDelete = r.status !== "running";
         return `<label class="run-chip ${cls}" title="${r.run_id}" style="display:flex;align-items:center;gap:6px;cursor:${canDelete ? "pointer" : "default"}">
           <input type="checkbox" class="run-check" data-id="${r.run_id}" ${canDelete ? "" : "disabled"} style="accent-color:#60a5fa">
-          <span>${r.scenario} · ${r.days}d · ${model} · ${r.status}${r.elapsed_seconds != null ? " · " + fmtDuration(r.elapsed_seconds) : ""}</span>
+          <span>${r.scenario} · d${r.start_day ?? 1}–${r.days} · ${model} · ${r.status}${r.elapsed_seconds != null ? " · " + fmtDuration(r.elapsed_seconds) : ""}</span>
         </label>`;
       }).join("");
       elRuns.addEventListener("change", updateDelSelected);
@@ -676,7 +713,7 @@ async function initSimPage() {
   });
 
   elReset.addEventListener("click", async () => {
-    if (!confirm("Reset all services to Day 0? This deletes all databases and run.csv.")) return;
+    if (!confirm("Reset all services to Day 0? This deletes all databases.")) return;
     elReset.disabled = true;
     _term.clear();
     _termLines = [];
