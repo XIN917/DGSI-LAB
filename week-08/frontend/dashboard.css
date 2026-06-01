@@ -2,14 +2,14 @@
   --accent:#38bdf8;--ok:#34d399;--warn:#fbbf24;--err:#f87171;--mfr:#a78bfa;--ret:#f472b6;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
-.topnav{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#0b1120;border-bottom:1px solid var(--line);position:sticky;top:0}
+.topnav{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#0b1120;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:100}
 .navlinks a{color:var(--muted);text-decoration:none;padding:5px 12px;border-radius:6px;margin-right:4px}
 .navlinks a.active{background:#1e293b;color:var(--accent);font-weight:bold}
 .live{color:var(--ok)} .live.down{color:var(--err)}
 #reset-banner{background:#1e3a5f;color:#93c5fd;padding:6px 16px;font-size:12px;border-bottom:1px solid #2563eb;text-align:center}
 #reset-banner.done{background:#14532d;color:#86efac;border-color:#16a34a}
 #reset-banner.error{background:#450a0a;color:#fca5a5;border-color:#dc2626}
-main{padding:16px;max-width:1200px;margin:0 auto}
+main{padding:16px;max-width:1200px;margin:0 auto;position:relative;z-index:0}
 .muted{color:var(--muted)}
 .kpibar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
 #ov-charts{margin-top:16px}
@@ -63,7 +63,11 @@ main{padding:16px;max-width:1200px;margin:0 auto}
 .chart svg{width:100%;height:200px;display:block}
 .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--muted)}
 .legend span::before{content:"";display:inline-block;width:10px;height:3px;margin-right:4px;vertical-align:middle;background:currentColor}
-.sparkline{height:24px;width:100%}
+.sparkline{height:24px;width:100%;margin-top:6px}
+.spark-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:3px;font-size:10px}
+.spark-lbl{opacity:.85}
+.drift{font-size:11px;margin-left:3px} .drift.up{color:var(--warn)} .drift.down{color:#60a5fa}
+.event-banner{background:#1e293b;border-left:3px solid var(--warn);color:var(--warn);padding:6px 14px;font-size:12px;margin-bottom:10px;border-radius:0 6px 6px 0;text-transform:capitalize}
 
 /* Simulation page */
 .sim-layout{display:flex;flex-direction:column;gap:16px;padding-bottom:32px}

@@ -5,7 +5,7 @@ from dashboard.history import latest_manufacturer_state
 from dashboard import derive
 
 OFFLINE = {"online": False, "current_day": None, "items": [], "orders": [], "in_transit_out": 0, "extra": {}}
-PROVIDER_OPEN = {"PENDING", "CONFIRMED", "SHIPPED"}
+PROVIDER_OPEN = {"SHIPPED"}
 
 
 async def _get_json(client: httpx.AsyncClient, url: str):

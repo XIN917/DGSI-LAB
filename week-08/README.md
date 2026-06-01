@@ -159,8 +159,18 @@ A **VIEW** dropdown in the nav bar lets you switch between the live service stat
 ### 8. Stop all services
 
 ```bash
-pkill -f 'cli serve'
+pkill -f 'cli serve'        # stops Provider, Manufacturer, Retailer
+pkill -f 'api_server.py'    # stops the API server (:8000)
+pkill -f 'dashboard.py'     # stops the dashboard (:8080)
 ```
+
+Or all at once:
+
+```bash
+pkill -f 'cli serve'; pkill -f 'api_server.py'; pkill -f 'dashboard.py'
+```
+
+> **Note:** `pkill -f 'cli serve'` does **not** stop the dashboard or API server — they are started as `python dashboard.py` / `python api_server.py`, not via a `cli serve` command.
 
 ---
 

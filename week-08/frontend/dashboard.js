@@ -117,33 +117,55 @@ function render(data) {
   else renderDetail(PAGE, data);
 }
 
+function priceDrift(hist, itemName, key) {
+  const series = ((hist.series || {})[key] || {})[itemName];
+  if (!series || series.length < 2) return "";
+  const last = series[series.length - 1][1], prev = series[series.length - 2][1];
+  if (last > prev) return `<span class="drift up">↑</span>`;
+  if (last < prev) return `<span class="drift down">↓</span>`;
+  return "";
+}
+
 function renderOverview(data) {
   const k = data.kpis, ev = data.events || {};
   const tierCard = (name, tier) => {
     if (!tier.online) return `<div class="card ${name} offline"><h3>${name.toUpperCase()}</h3><p class="muted">offline</p></div>`;
     if (tier.busy) return `<div class="card ${name}"><h3>${name.toUpperCase()}</h3><p class="muted">busy…</p></div>`;
-    const top = tier.items.slice(0, 3).map(i =>
-      `<div>${i.name} <b>${fmt(i.stock)}</b></div>`).join("");
+    const hist = data.history[name] || {};
+    const priceKey = name === "manufacturer" ? "wholesale_price" : name === "retailer" ? "retail_price" : "price";
+    const displayItems = name === "manufacturer"
+      ? tier.items.filter(i => i.kind === "finished")
+      : name === "provider"
+        ? [...tier.items].sort((a, b) => (a.stock || 0) - (b.stock || 0)).slice(0, 3)
+        : tier.items.slice(0, 3);
+    const top = displayItems.map(i =>
+      `<div>${i.name} <b>${fmt(i.stock)}</b>${priceDrift(hist, i.name, priceKey)}</div>`).join("");
     const extra = name === "manufacturer" && tier.extra.utilisation_pct != null
       ? `<div class="muted">util ${fmt(tier.extra.utilisation_pct)}%</div>` : "";
     return `<div class="card ${name}"><h3>${name.toUpperCase()}</h3>${top}${extra}
-      <svg class="sparkline" data-spark="${name}"></svg></div>`;
+      <svg class="sparkline" data-spark="${name}"></svg>
+      <div class="spark-legend" data-sparklgd="${name}"></div></div>`;
   };
   const arrow = (n) => `<div class="arrow">▶▶<div class="n">${fmt(n)}</div><div class="muted">in transit</div></div>`;
   const arrowSplit = (moving, stalled) => `<div class="arrow">▶▶<div class="n">${fmt(moving)}</div><div class="muted">in transit</div>${(stalled || 0) > 0 ? `<div class="n stalled">${fmt(stalled)}</div><div class="muted stalled">⚠ stalled</div>` : ""}</div>`;
   const dayLabel = data.day == null ? "–" : data.day;
   const dayTotal = data.day_total ? ` / ${data.day_total}` : "";
   const fillCls = k.fill_rate == null ? "" : k.fill_rate >= 80 ? "kpi-ok" : k.fill_rate >= 50 ? "kpi-warn" : "kpi-err";
-  const backlogCls = (k.backlog || 0) === 0 ? "kpi-ok" : k.backlog > 10 ? "kpi-err" : "kpi-warn";
+  const backlogCls = k.backlog == null ? "" : k.backlog === 0 ? "kpi-ok" : k.backlog > 10 ? "kpi-err" : "kpi-warn";
+  const eventLabel = data.day > 0 && ev.label && ev.label !== "normal" ? ev.label : null;
+  const demandActive = data.day > 0 && ev.demand_mod != null && ev.demand_mod !== 1;
+  const supplyActive = data.day > 0 && ev.supply_mod != null && ev.supply_mod !== 1;
+  const savedScroll = window.scrollY;
   root.innerHTML = `
+    ${eventLabel ? `<div class="event-banner">${eventLabel.replace(/_/g," ")} — demand ×${ev.demand_mod ?? 1} supply ×${ev.supply_mod ?? 1}</div>` : ""}
     <div class="ov-header">
       <div class="ov-day"><span class="ov-day-num">${dayLabel}</span><span class="ov-day-label">day${dayTotal}</span></div>
       <div class="ov-kpis">
-        <div class="ov-kpi ${fillCls}"><div class="ov-kpi-val">${fmt(k.fill_rate)}%</div><div class="ov-kpi-label">fill rate</div></div>
-        <div class="ov-kpi ${backlogCls}"><div class="ov-kpi-val">${fmt(k.backlog)}</div><div class="ov-kpi-label">backlog</div></div>
+        <div class="ov-kpi ${fillCls}"><div class="ov-kpi-val">${k.fill_rate == null ? "–" : fmt(k.fill_rate) + "%"}</div><div class="ov-kpi-label">fill rate</div></div>
+        <div class="ov-kpi ${backlogCls}"><div class="ov-kpi-val">${k.backlog == null ? "–" : fmt(k.backlog)}</div><div class="ov-kpi-label">backlog</div></div>
         <div class="ov-kpi"><div class="ov-kpi-val">${k.production_util == null ? "–" : fmt(k.production_util) + "%"}</div><div class="ov-kpi-label">prod util</div></div>
-        ${data.day > 0 && ev.demand_mod != null ? `<div class="ov-kpi kpi-warn"><div class="ov-kpi-val">×${ev.demand_mod}</div><div class="ov-kpi-label">demand</div></div>` : ""}
-        ${data.day > 0 && ev.supply_mod != null && ev.supply_mod !== 1 ? `<div class="ov-kpi kpi-warn"><div class="ov-kpi-val">×${ev.supply_mod}</div><div class="ov-kpi-label">supply</div></div>` : ""}
+        ${demandActive ? `<div class="ov-kpi kpi-warn"><div class="ov-kpi-val">×${ev.demand_mod}</div><div class="ov-kpi-label">demand</div></div>` : ""}
+        ${supplyActive ? `<div class="ov-kpi kpi-warn"><div class="ov-kpi-val">×${ev.supply_mod}</div><div class="ov-kpi-label">supply</div></div>` : ""}
       </div>
     </div>
     <div class="alerts">
@@ -159,12 +181,28 @@ function renderOverview(data) {
       ${tierCard("retailer", data.tiers.retailer)}
     </div>
     <div id="ov-charts"></div>`;
+
   ["provider", "manufacturer", "retailer"].forEach(name => {
     const svg = root.querySelector(`[data-spark="${name}"]`);
+    const lgd = root.querySelector(`[data-sparklgd="${name}"]`);
+    const tier = data.tiers[name] || {};
     const hist = (data.history[name] || {}).series || {};
     const stockSeries = hist.stock || hist.finished_stock || {};
-    const allSeries = Object.values(stockSeries);
+    const displayItems = name === "manufacturer"
+      ? tier.items.filter(i => i.kind === "finished")
+      : name === "provider"
+        ? [...tier.items].sort((a, b) => (a.stock || 0) - (b.stock || 0)).slice(0, 3)
+        : tier.items.slice(0, 3);
+    const shownNames = new Set(displayItems.map(i => i.name));
+    const shownEntries = Object.entries(stockSeries).filter(([k]) => shownNames.has(k));
+    const allSeries = shownEntries.map(([, v]) => v);
     if (svg && allSeries.length) drawSparklineMulti(svg, allSeries, TIER_COLORS[name]);
+    if (lgd && shownEntries.length > 1) {
+      lgd.innerHTML = shownEntries.map(([k], i) => {
+        const color = i === 0 ? TIER_COLORS[name] : PALETTE[i % PALETTE.length];
+        return `<span class="spark-lbl" style="color:${color}">${k}</span>`;
+      }).join("");
+    }
   });
 
   // Per-service charts (same as detail pages)
@@ -186,6 +224,7 @@ function renderOverview(data) {
       drawAllCharts(name, hist, data, panel);
     });
   }
+  window.scrollTo(0, savedScroll);
 }
 
 function kpiTiles(name, tier) {

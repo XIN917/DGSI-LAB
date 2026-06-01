@@ -8,7 +8,7 @@ from dashboard.config import load_services, ServiceConfig
 from dashboard.collector import collect_all
 from dashboard.history import (read_provider_history, read_manufacturer_history, read_retailer_history,
                                 latest_manufacturer_state, latest_provider_state, latest_retailer_state,
-                                latest_retailer_orders, count_retailer_backordered, count_retailer_in_transit,
+                                latest_retailer_orders, count_retailer_in_transit,
                                 count_retailer_stalled)
 from dashboard.context import load_context
 from dashboard.alerts import compute_alerts
@@ -79,9 +79,8 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
             "manufacturer": {"online": True, "items": mfr_items, "orders": [], "in_transit_out": None, "extra": {"utilisation_pct": util, "sales_pending": mfr_state["pending"] if mfr_state else 0, "sales_completed": mfr_state["completed"] if mfr_state else 0}},
             "retailer": {"online": True, "items": ret_items, "orders": ret_orders, "in_transit_out": count_retailer_in_transit(arc_services["retailer"].db_path), "extra": {"stalled": count_retailer_stalled(arc_services["retailer"].db_path)}},
         }
-        arc_backlog = count_retailer_backordered(arc_services["retailer"].db_path)
-        arc_series = ctx.get("fill_rate_series", [])
-        arc_avg_fill = round(sum(v for _, v in arc_series) / len(arc_series), 1) if arc_series else None
+        arc_backlog = ctx.get("total_backordered", 0)
+        arc_avg_fill = ctx.get("avg_fill_rate")
         return JSONResponse({
             "day": latest.get("day"), "day_total": ctx.get("day_total"), "scenario": scenario,
             "events": {"label": latest.get("events"), "demand_mod": latest.get("demand_mod"),
@@ -100,22 +99,21 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
         logs_dir = Path("logs")
         csv_candidates = sorted(logs_dir.glob("*/run.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
         ctx = load_context(run_csv=csv_candidates[0], scenarios_dir=Path("scenarios")) if csv_candidates else {"scenario": None, "day_total": None, "latest": None, "fill_rate_series": []}
-        backlog = derive.count_backordered(tiers["retailer"]["orders"])
         day = max((t["current_day"] for t in tiers.values() if t.get("current_day") is not None), default=None)
         latest = ctx.get("latest") or {}
-        fill_rate = None if day == 0 else latest.get("fill_rate")
         util = tiers["manufacturer"]["extra"].get("utilisation_pct")
-        series = ctx.get("fill_rate_series", [])
-        avg_fill_rate = round(sum(v for _, v in series) / len(series), 1) if series else None
+        avg_fill_rate = ctx.get("avg_fill_rate")
+        # Use cumulative backlog from CSV when available; fall back to live order count
+        backlog = ctx.get("total_backordered") if ctx.get("total_backordered") is not None else derive.count_backordered(tiers["retailer"]["orders"])
         stale = not day
         return JSONResponse({
             "day": day, "day_total": None if stale else ctx.get("day_total"), "scenario": ctx.get("scenario"),
             "events": {} if stale else {"label": latest.get("events"), "demand_mod": latest.get("demand_mod"),
                        "supply_mod": latest.get("supply_mod"), "lead_mod": latest.get("lead_mod")},
-            "kpis": {"fill_rate": None if stale else avg_fill_rate, "backlog": backlog, "production_util": util},
+            "kpis": {"fill_rate": None if stale else avg_fill_rate, "backlog": None if stale else backlog, "production_util": util},
             "alerts": compute_alerts(tiers, backlog),
             "tiers": tiers, "history": build_history(services),
-            "fill_rate_series": ctx.get("fill_rate_series", []),
+            "fill_rate_series": [] if stale else ctx.get("fill_rate_series", []),
         })
 
     # ── Simulation control proxies to api_server (:8000) ──────────────────────

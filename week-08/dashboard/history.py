@@ -99,7 +99,7 @@ def latest_provider_state(db_path: Path) -> tuple[list[dict], list[dict]]:
                            "FROM metrics WHERE sim_day = (SELECT MAX(sim_day) FROM metrics)")
     in_transit_rows = _query(db_path,
                              "SELECT product_id, SUM(quantity) FROM orders "
-                             "WHERE status IN ('PENDING','CONFIRMED','SHIPPED') GROUP BY product_id")
+                             "WHERE status = 'SHIPPED' GROUP BY product_id")
     in_transit_by_id = {pid: qty for pid, qty in in_transit_rows}
     prod_rows = _query(db_path, "SELECT id, name, lead_time_days FROM products")
     id_by_name = {name: pid for pid, name, _ in prod_rows}

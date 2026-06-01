@@ -16,7 +16,7 @@
 | `skills/` | All three skill files present and wired in `config/sim.json` |
 | `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
 | `docs/ANALYSIS.md` | Complete — 12 chart interpretations, 4 mandatory questions answered, scenario comparison written |
-| Dashboard (`dashboard/`, `frontend/`) | Complete — scenario archive switcher, overview page: prominent day counter, color-coded KPI tiles, alerts div bug fixed, fill rate now shows run average (not last day), stale CSV data (fill rate, events, day_total) suppressed at day 0 |
+| Dashboard (`dashboard/`, `frontend/`) | Complete — scenario archive switcher, overview KPI accuracy (fill rate = total fulfilled/orders, backlog = cumulative from CSV), provider in-transit = SHIPPED only, event banner, price drift indicators, sparkline labels, provider card sorted by lowest stock, scroll-reset fix, navbar z-index fix |
 | Seed prices | Updated — manufacturer wholesale €195/€290, retail seed €295/€435, floors €163/€246 |
 | `CLAUDE.md` / `README.md` / service READMEs | All up to date |
 
@@ -55,11 +55,15 @@ All wiring, metrics tables, tests, simulation runs, visualizations, and analysis
 - [x] Dashboard UX fixes: scrollable customer orders (scroll position preserved across refreshes), log content visibility, log dropdown auto-select, elapsed time in run chips (seconds shown, duration bug fixed), "fulfilled d0" display fix, run chips show day range (`d1–10`)
 - [x] Dashboard scenario archive view: VIEW dropdown switches between live services and `logs/{scenario}/` archived DBs and run.csv; selection persists across page navigation via sessionStorage
 - [x] Dashboard overview page: prominent day counter (large num + total), color-coded KPI tiles (green/yellow/red by thresholds), demand and supply modifier tiles shown when active, alerts div bug fixed (`#ov-charts` was nested inside `.alerts`)
-- [x] Dashboard overview KPI accuracy: fill rate now shows run average across all days (not last day's value); fill rate, events, and day_total suppressed at day 0 to avoid showing stale CSV data; prod util shows `–` (not `–%`) when null
+- [x] Dashboard overview KPI accuracy: fill rate = total fulfilled/total orders (matches summary.log); backlog = cumulative from run.csv (not DB snapshot); both suppressed at day 0; fill_rate_series suppressed at day 0
+- [x] Provider in-transit arrow counts only SHIPPED orders; CONFIRMED/InProgress are at-provider, not in transit
+- [x] Overview tier cards: manufacturer shows only finished goods; provider sorted by lowest stock; sparklines match shown items
+- [x] Event banner, price drift indicators (↑/↓), sparkline labels added to overview
+- [x] Overview scroll position preserved across 2s refreshes
+- [x] Navbar overlap fixed (z-index:100 on topnav; main isolated at z-index:0)
 - [x] Integration tests self-contained: `test_integration.py` resets services before and after the module so live services are always left at day 0
 - [x] Reset warning updated; reset no longer attempts to delete `logs/run.csv`
 - [x] Scenario log archives preserved on reset; stale day logs cleared per-scenario at run start
-- [ ] Dashboard overview — remaining PM improvements: fill-rate sparkline in KPI strip, scenario event banner (colored strip when modifier active), price drift indicator (↑/↓ per tier card), label sparklines
 - [ ] Full end-to-end test run (calm-market + holiday-rush) to verify all recent fixes: run.log, summary.log, charts, cancel, rate-limit retry, log panel refresh, elapsed time in run chips
 - [ ] Final report drafted (PDF)
 - [ ] Final `.gitignore` and repo polish check before submission

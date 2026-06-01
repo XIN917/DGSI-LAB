@@ -279,7 +279,12 @@ See **`README.md`** for startup instructions. Open http://localhost:8080. Five p
 **Design notes:**
 - `dashboard/app.py` proxies all `/api/sim/*` calls to `api_server.py` (:8000) and exposes `/api/state` from the service DBs directly
 - SVG charts are drawn client-side in `frontend/dashboard.js` using `d3`-style scaling; no PNG charts are fetched for the live view
-- **Fill rate KPI** shows the average across all days in `run.csv`, not the last day's value. At day 0 (fresh reset), fill rate, events, and day_total are suppressed to avoid showing stale data from a previous run's CSV.
+- **Fill rate KPI** shows `total fulfilled / total orders` across all days in `run.csv` (matches summary.log). At day 0, fill rate, backlog, events, day_total, and fill_rate_series are all suppressed to avoid showing stale CSV data.
+- **Backlog KPI** shows cumulative backordered orders summed from `run.csv`, not the current DB state (which resolves to 0 at end of run). Live path falls back to current order count when no CSV exists.
+- **Provider in-transit** counts only `SHIPPED` orders (physically moving). `CONFIRMED` and `InProgress` are still at the provider being prepared.
+- **Overview tier cards**: provider shows 3 lowest-stock parts; manufacturer shows only finished goods (parts hidden); sparklines match exactly the items shown. Price drift (↑/↓) shown per item.
+- **Sparkline labels** shown below each overview sparkline when multiple series are present.
+- **Event banner** shown above the header when a non-normal scenario event is active (e.g. flash sale, chip shortage).
 - **Archive view**: a VIEW dropdown in the nav switches between live service data and any completed scenario archive. Selecting a scenario loads `logs/{scenario}/*.db` and `logs/{scenario}/run.csv` via `GET /api/archive/{scenario}/state`. Selection persists across pages via `sessionStorage`. Archives survive resets.
 - Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`
 - Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`. Rich console width is set to 150 to fit the terminal area.

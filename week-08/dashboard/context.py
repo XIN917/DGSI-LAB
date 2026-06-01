@@ -28,6 +28,10 @@ def load_context(run_csv: Path, scenarios_dir: Path) -> dict:
     scenario_rows = [r for r in rows if r["scenario"] == scenario]
     last = scenario_rows[-1]
     series = [[int(r["day"]), float(r["fill_rate_pct"])] for r in scenario_rows]
+    total_backordered = sum(int(r["backordered"]) for r in scenario_rows)
+    total_orders = sum(int(r["orders_placed"]) for r in scenario_rows)
+    total_fulfilled = sum(int(r["fulfilled"]) for r in scenario_rows)
+    avg_fill_rate = round(total_fulfilled / total_orders * 100, 1) if total_orders else None
     latest = {
         "events": last.get("events", ""),
         "demand_mod": float(last["demand_mod"]),
@@ -38,4 +42,5 @@ def load_context(run_csv: Path, scenarios_dir: Path) -> dict:
         "day": int(last["day"]),
     }
     return {"scenario": scenario, "day_total": _day_total(scenarios_dir, scenario),
-            "latest": latest, "fill_rate_series": series}
+            "latest": latest, "fill_rate_series": series,
+            "total_backordered": total_backordered, "avg_fill_rate": avg_fill_rate}
