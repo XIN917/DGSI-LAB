@@ -214,6 +214,7 @@ What Can Go Wrong (and what to do about it):
 |---|---|---|
 | `scenarios/calm-market.json` | 15 | Steady baseline, no disruptions |
 | `scenarios/holiday-rush.json` | 25 | Black Friday (11–13) + chip shortage (14–20) + Christmas (18–25) |
+| `scenarios/smoke-test.json` | 6 | Demo scenario: 3 normal days + 3-day flash sale (demand ×2.5) |
 
 Days 18–20 in `holiday-rush` have two overlapping events — modifiers multiply.
 
@@ -284,12 +285,15 @@ See **`README.md`** for startup instructions. Open http://localhost:8080. Five p
 - **Provider in-transit** counts only `SHIPPED` orders (physically moving). `CONFIRMED` and `InProgress` are still at the provider being prepared.
 - **Overview tier cards**: provider shows 3 lowest-stock parts; manufacturer shows only finished goods (parts hidden); sparklines match exactly the items shown. Price drift (↑/↓) shown per item.
 - **Sparkline labels** shown below each overview sparkline when multiple series are present.
-- **Event banner** shown above the header when a non-normal scenario event is active (e.g. flash sale, chip shortage).
+- **Event strip** shown above the header — all non-normal scenario events as chips with name, day range, demand mod, supply mod (supply in red when < 1). Sourced from `event_summary` in `/api/state` and `/api/archive/{scenario}/state`, built from the scenario JSON in `context.py`.
+- **Order panels** on all service pages show a status summary bar (counts by status) above a scrollable list (newest first, LIMIT 500). Manufacturer orders read directly from `manufacturing_orders` table in the DB (no auth needed). Provider and retailer orders sorted DESC in collector.py. Status colors: confirmed (cyan), in progress (purple), waiting materials (orange).
+- **Manufacturer parts at day 0**: when metrics table is empty after reset, parts stock falls back to the `inventory` table in the manufacturer DB.
 - **Archive view**: a VIEW dropdown in the nav switches between live service data and any completed scenario archive. Selecting a scenario loads `logs/{scenario}/*.db` and `logs/{scenario}/run.csv` via `GET /api/archive/{scenario}/state`. Selection persists across pages via `sessionStorage`. Archives survive resets.
+- **Simulation page selections** (scenario, model, days, start day) persist across page navigation via `sessionStorage`.
 - Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`
 - Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`. Rich console width is set to 150 to fit the terminal area.
 - Services launched by `scripts/start_all.sh` use `start_new_session=True` so they stay running when `api_server.py` restarts
-- Customer orders panel has a scrollable list (max 280px); shows up to 100 orders; scroll position is preserved across 2 s refreshes
+- Customer orders panel has a scrollable list (max 280px); shows up to 500 orders; scroll position is preserved across 2 s refreshes
 - Simulation page log dropdown auto-selects the first scenario that has logs; log/summary content panels restore `display:block` on click
 - Run chips show day range (`d1–10`) and elapsed time in seconds (`4m 42s`); duration is frozen at completion and does not grow after the run ends
 - Scenario log archives (`logs/{scenario}/`) survive reset — only the live DBs are cleared. Per-scenario `run.csv` files are cleared at the start of each new run of that scenario.

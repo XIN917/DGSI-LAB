@@ -5,15 +5,19 @@ from pathlib import Path
 _EMPTY = {"scenario": None, "day_total": None, "latest": None, "fill_rate_series": []}
 
 
-def _day_total(scenarios_dir: Path, scenario: str) -> int | None:
+def _load_scenario_events(scenarios_dir: Path, scenario: str) -> list[dict]:
     f = Path(scenarios_dir) / f"{scenario}.json"
     if not f.exists():
-        return None
+        return []
     try:
-        events = json.loads(f.read_text()).get("events", [])
-        return max((int(e["end_day"]) for e in events), default=None)
+        return json.loads(f.read_text()).get("events", [])
     except (ValueError, KeyError):
-        return None
+        return []
+
+
+def _day_total(scenarios_dir: Path, scenario: str) -> int | None:
+    events = _load_scenario_events(scenarios_dir, scenario)
+    return max((int(e["end_day"]) for e in events), default=None) if events else None
 
 
 def load_context(run_csv: Path, scenarios_dir: Path) -> dict:
@@ -41,6 +45,13 @@ def load_context(run_csv: Path, scenarios_dir: Path) -> dict:
         "backordered": int(last["backordered"]),
         "day": int(last["day"]),
     }
+    raw_events = _load_scenario_events(scenarios_dir, scenario)
+    event_summary = [
+        {"name": e["name"], "start_day": e["start_day"], "end_day": e["end_day"],
+         "demand_mod": e.get("demand_modifier", 1.0), "supply_mod": e.get("supply_modifier", 1.0)}
+        for e in raw_events if e.get("name", "normal") != "normal"
+    ]
     return {"scenario": scenario, "day_total": _day_total(scenarios_dir, scenario),
             "latest": latest, "fill_rate_series": series,
-            "total_backordered": total_backordered, "avg_fill_rate": avg_fill_rate}
+            "total_backordered": total_backordered, "avg_fill_rate": avg_fill_rate,
+            "event_summary": event_summary}

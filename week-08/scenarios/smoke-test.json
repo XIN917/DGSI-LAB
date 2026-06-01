@@ -14,7 +14,7 @@
     {
       "name": "flash_sale",
       "start_day": 4,
-      "end_day": 5,
+      "end_day": 6,
       "demand_modifier": 2.5,
       "supply_modifier": 1.0,
       "price_sensitivity": "high",

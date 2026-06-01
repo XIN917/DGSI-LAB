@@ -54,6 +54,9 @@ main{padding:16px;max-width:1200px;margin:0 auto;position:relative;z-index:0}
 .status-shipped,.status-released,.status-pending{color:var(--warn)}
 .status-delivered,.status-fulfilled,.status-completed{color:var(--ok)}
 .status-backordered,.status-failed{color:var(--err)}
+.status-confirmed{color:#22d3ee}
+.status-inprogress,.status-in_progress{color:#a78bfa}
+.status-waiting_materials,.status-waitingmaterials{color:#fb923c}
 .alerts{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
 .alerts .a{margin-right:14px}
 .a.error{color:var(--err)} .a.warning{color:var(--warn)}
@@ -68,6 +71,12 @@ main{padding:16px;max-width:1200px;margin:0 auto;position:relative;z-index:0}
 .spark-lbl{opacity:.85}
 .drift{font-size:11px;margin-left:3px} .drift.up{color:var(--warn)} .drift.down{color:#60a5fa}
 .event-banner{background:#1e293b;border-left:3px solid var(--warn);color:var(--warn);padding:6px 14px;font-size:12px;margin-bottom:10px;border-radius:0 6px 6px 0;text-transform:capitalize}
+.event-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.event-chip{display:flex;align-items:center;gap:8px;background:#1e293b;border-left:3px solid var(--warn);border-radius:0 6px 6px 0;padding:6px 12px;font-size:12px}
+.ev-name{color:var(--warn);text-transform:capitalize;font-weight:bold}
+.ev-days{font-size:11px}
+.ev-mod{color:var(--text)}
+.ev-bad{color:var(--err)}
 
 /* Simulation page */
 .sim-layout{display:flex;flex-direction:column;gap:16px;padding-bottom:32px}

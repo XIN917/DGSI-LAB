@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 from dashboard.config import ServiceConfig
-from dashboard.history import latest_manufacturer_state
+from dashboard.history import latest_manufacturer_state, manufacturer_parts_from_inventory, latest_manufacturer_orders
 from dashboard import derive
 
 OFFLINE = {"online": False, "current_day": None, "items": [], "orders": [], "in_transit_out": 0, "extra": {}}
@@ -54,9 +54,10 @@ async def _collect_provider(svc, client):
                       "price": _tier1_price(c.get("pricing_tiers", [])),
                       "lead": c.get("lead_time_days"), "kind": "part"})
     in_transit = sum(o["quantity"] for o in orders if o.get("status") in PROVIDER_OPEN)
-    out_orders = [{"id": o["id"], "label": by_id.get(o["product_id"], {}).get("name", str(o["product_id"])),
+    out_orders = sorted([{"id": o["id"], "label": by_id.get(o["product_id"], {}).get("name", str(o["product_id"])),
                    "qty": o["quantity"], "status": o.get("status", ""),
-                   "eta": o.get("expected_delivery_day")} for o in orders]
+                   "eta": o.get("expected_delivery_day")} for o in orders],
+                  key=lambda x: x["id"], reverse=True)
     return {"online": True, "current_day": day["current_day"], "items": items,
             "orders": out_orders, "in_transit_out": in_transit, "extra": {}}
 
@@ -76,13 +77,14 @@ async def _collect_manufacturer(svc, client):
         stock = fstock.get(c["sku"], fstock.get(c["name"], 0))
         items.append({"name": c["sku"], "stock": stock, "capacity": None,
                       "price": c["unit_price"], "lead": None, "kind": "finished"})
-    if state:
-        finished_names = {i["name"] for i in items}
-        for pname, qty in derive.dedup_parts(state["parts"], finished_names).items():
-            items.append({"name": pname, "stock": qty, "capacity": None,
-                          "price": None, "lead": None, "kind": "part"})
+    finished_names = {i["name"] for i in items}
+    parts = state["parts"] if state else manufacturer_parts_from_inventory(svc.db_path)
+    for pname, qty in derive.dedup_parts(parts, finished_names).items():
+        items.append({"name": pname, "stock": qty, "capacity": None,
+                      "price": None, "lead": None, "kind": "part"})
     util_pct = round(state["util"] * 100, 1) if state and state["util"] is not None else None
-    return {"online": True, "current_day": day["current_day"], "items": items, "orders": [],
+    return {"online": True, "current_day": day["current_day"], "items": items,
+            "orders": latest_manufacturer_orders(svc.db_path),
             # pending sales orders are NOT goods in transit — the manufacturer→retailer
             # arrow is driven by the retailer's incoming POs. Pending stays in extra.
             "in_transit_out": None,
@@ -101,8 +103,9 @@ async def _collect_retailer(svc, client):
         _get_json(client, f"{base}/api/purchase-orders"))
     items = [{"name": i["sku"], "sku": i["sku"], "stock": i["quantity_on_hand"],
               "capacity": None, "price": i.get("retail_price"), "lead": None, "kind": "sku"} for i in inv]
-    out_orders = [{"id": o["id"], "label": o["sku"], "qty": o["quantity"],
-                   "status": o.get("status", ""), "eta": o.get("fulfilled_day")} for o in orders]
+    out_orders = sorted([{"id": o["id"], "label": o["sku"], "qty": o["quantity"],
+                   "status": o.get("status", ""), "eta": o.get("fulfilled_day")} for o in orders],
+                  key=lambda x: x["id"], reverse=True)
     return {"online": True, "current_day": day["current_day"], "items": items, "orders": out_orders,
             "in_transit_out": derive.retailer_in_transit(purchase_orders),
             "extra": {"stalled": derive.retailer_stalled(purchase_orders)}}

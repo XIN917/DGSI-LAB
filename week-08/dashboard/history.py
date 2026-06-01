@@ -53,6 +53,12 @@ def read_manufacturer_history(db_path: Path) -> dict:
     return {"series": series, "peak": peak} if rows else {"series": {}, "peak": {}}
 
 
+def manufacturer_parts_from_inventory(db_path: Path) -> dict:
+    """Fallback: read raw parts stock directly from inventory table (used before day 1)."""
+    rows = _query(db_path, "SELECT product_name, quantity FROM inventory WHERE unit_type = 'raw'")
+    return {name: int(qty) for name, qty in rows}
+
+
 def latest_manufacturer_state(db_path: Path) -> dict | None:
     """Latest-day manufacturer snapshot from the (no-auth) metrics table.
 
@@ -109,7 +115,7 @@ def latest_provider_state(db_path: Path) -> tuple[list[dict], list[dict]]:
               "lead": lead_by_name.get(name), "kind": "part"}
              for name, stock, price in rows]
     order_rows = _query(db_path, "SELECT o.id, p.name, o.quantity, o.status, o.expected_delivery_day "
-                                 "FROM orders o JOIN products p ON p.id = o.product_id ORDER BY o.id ASC")
+                                 "FROM orders o JOIN products p ON p.id = o.product_id ORDER BY o.id DESC")
     orders = [{"id": oid, "label": name, "qty": qty, "status": status, "eta": eta}
               for oid, name, qty, status, eta in order_rows]
     return items, orders
@@ -124,9 +130,18 @@ def latest_retailer_state(db_path: Path) -> list[dict]:
 
 def latest_retailer_orders(db_path: Path) -> list[dict]:
     rows = _query(db_path, "SELECT id, sku, quantity, status, fulfilled_day "
-                           "FROM customer_orders ORDER BY id DESC LIMIT 100")
+                           "FROM customer_orders ORDER BY id DESC LIMIT 500")
     return [{"id": oid, "label": sku, "qty": qty, "status": status, "eta": fulfilled_day}
             for oid, sku, qty, status, fulfilled_day in rows]
+
+
+def latest_manufacturer_orders(db_path: Path) -> list[dict]:
+    """Sales (manufacturing) orders from the DB, newest first."""
+    rows = _query(db_path, "SELECT id, product_model, quantity_needed, quantity_produced, status, delivery_day "
+                           "FROM manufacturing_orders ORDER BY id DESC LIMIT 500")
+    return [{"id": oid, "label": model, "qty": int(qty_needed),
+             "qty_produced": int(qty_prod or 0), "status": status, "eta": delivery_day}
+            for oid, model, qty_needed, qty_prod, status, delivery_day in rows]
 
 
 def read_retailer_purchase_orders(db_path: Path) -> list[dict]:

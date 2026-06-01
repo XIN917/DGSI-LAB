@@ -16,8 +16,10 @@
 | `skills/` | All three skill files present and wired in `config/sim.json` |
 | `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
 | `docs/ANALYSIS.md` | Complete — 12 chart interpretations, 4 mandatory questions answered, scenario comparison written |
-| Dashboard (`dashboard/`, `frontend/`) | Complete — scenario archive switcher, overview KPI accuracy (fill rate = total fulfilled/orders, backlog = cumulative from CSV), provider in-transit = SHIPPED only, event banner, price drift indicators, sparkline labels, provider card sorted by lowest stock, scroll-reset fix, navbar z-index fix |
+| Dashboard (`dashboard/`, `frontend/`) | Complete — scenario archive switcher, overview KPI accuracy, event strip (all events with day ranges/modifiers), order summary + full list on all service pages, manufacturer orders from DB, parts fallback on day 0, status colors (confirmed/inprogress/waiting_materials), consistent DESC order sorting, simulation page selections persist via sessionStorage |
 | Seed prices | Updated — manufacturer wholesale €195/€290, retail seed €295/€435, floors €163/€246 |
+| `scenarios/smoke-test.json` | Complete — 6-day demo scenario: 3 normal + 3 flash sale (demand ×2.5); archived in `logs/smoke-test/` |
+| `visualize.py` | Updated — flash_sale event color (red) and label added |
 | `CLAUDE.md` / `README.md` / service READMEs | All up to date |
 
 ---
@@ -64,6 +66,16 @@ All wiring, metrics tables, tests, simulation runs, visualizations, and analysis
 - [x] Integration tests self-contained: `test_integration.py` resets services before and after the module so live services are always left at day 0
 - [x] Reset warning updated; reset no longer attempts to delete `logs/run.csv`
 - [x] Scenario log archives preserved on reset; stale day logs cleared per-scenario at run start
-- [ ] Full end-to-end test run (calm-market + holiday-rush) to verify all recent fixes: run.log, summary.log, charts, cancel, rate-limit retry, log panel refresh, elapsed time in run chips
+- [x] smoke-test scenario (6 days) run and archived — demo video recorded
+- [x] flash_sale event color added to visualize.py
+- [x] Dashboard event strip replaces single event banner — shows all scenario events with day ranges and modifiers
+- [x] Order panels unified: all service pages show status summary + scrollable list (newest first, LIMIT 500)
+- [x] Manufacturer orders read from DB (manufacturing_orders table) — no longer shows only pending/completed counts
+- [x] Manufacturer parts fallback to inventory table when metrics empty (day 0 after reset)
+- [x] Status colors: confirmed (cyan), in progress (purple), waiting materials (orange)
+- [x] fmtStatus helper: InProgress → IN PROGRESS, waiting_materials → WAITING MATERIALS
+- [x] Simulation page: scenario/model/days/start-day persist across page navigation via sessionStorage
+- [x] proxy_runs exception handling fixed (JSONDecodeError on empty api_server response)
+- [ ] Final end-to-end test run (calm-market + holiday-rush) to verify all recent fixes
 - [ ] Final report drafted (PDF)
 - [ ] Final `.gitignore` and repo polish check before submission

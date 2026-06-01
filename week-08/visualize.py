@@ -15,11 +15,13 @@ _EVENT_COLORS = {
     "black_friday":     ("#1a6faf", 0.12),
     "chip_shortage":    ("#b84c00", 0.12),
     "christmas_season": ("#6a0dad", 0.12),
+    "flash_sale":       ("#c0392b", 0.14),
 }
 _EVENT_LABELS = {
     "black_friday":     "Black Friday",
     "chip_shortage":    "Chip Shortage",
     "christmas_season": "Christmas Rush",
+    "flash_sale":       "Flash Sale",
 }
 _DEFAULT_EVENT_COLOR = ("#555555", 0.08)
 

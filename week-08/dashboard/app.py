@@ -7,7 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from dashboard.config import load_services, ServiceConfig
 from dashboard.collector import collect_all
 from dashboard.history import (read_provider_history, read_manufacturer_history, read_retailer_history,
-                                latest_manufacturer_state, latest_provider_state, latest_retailer_state,
+                                latest_manufacturer_state, latest_manufacturer_orders,
+                                latest_provider_state, latest_retailer_state,
                                 latest_retailer_orders, count_retailer_in_transit,
                                 count_retailer_stalled)
 from dashboard.context import load_context
@@ -76,7 +77,7 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
         latest = ctx.get("latest") or {}
         arc_tiers = {
             "provider": {"online": True, "items": prov_items, "orders": prov_orders, "in_transit_out": prov_in_transit, "extra": {}},
-            "manufacturer": {"online": True, "items": mfr_items, "orders": [], "in_transit_out": None, "extra": {"utilisation_pct": util, "sales_pending": mfr_state["pending"] if mfr_state else 0, "sales_completed": mfr_state["completed"] if mfr_state else 0}},
+            "manufacturer": {"online": True, "items": mfr_items, "orders": latest_manufacturer_orders(arc_services["manufacturer"].db_path), "in_transit_out": None, "extra": {"utilisation_pct": util, "sales_pending": mfr_state["pending"] if mfr_state else 0, "sales_completed": mfr_state["completed"] if mfr_state else 0}},
             "retailer": {"online": True, "items": ret_items, "orders": ret_orders, "in_transit_out": count_retailer_in_transit(arc_services["retailer"].db_path), "extra": {"stalled": count_retailer_stalled(arc_services["retailer"].db_path)}},
         }
         arc_backlog = ctx.get("total_backordered", 0)
@@ -90,6 +91,7 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
             "tiers": arc_tiers,
             "history": history,
             "fill_rate_series": ctx.get("fill_rate_series", []),
+            "event_summary": ctx.get("event_summary", []),
         })
 
     @app.get("/api/state")
@@ -114,6 +116,7 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
             "alerts": compute_alerts(tiers, backlog),
             "tiers": tiers, "history": build_history(services),
             "fill_rate_series": [] if stale else ctx.get("fill_rate_series", []),
+            "event_summary": ctx.get("event_summary", []),
         })
 
     # ── Simulation control proxies to api_server (:8000) ──────────────────────
@@ -202,7 +205,7 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
             async with httpx.AsyncClient() as c:
                 r = await c.get(f"{_API}/runs", timeout=5)
             return JSONResponse(r.json())
-        except httpx.ConnectError:
+        except (httpx.ConnectError, Exception):
             return JSONResponse([])
 
     @app.delete("/api/sim/runs")

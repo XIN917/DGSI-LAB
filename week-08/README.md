@@ -148,11 +148,11 @@ venv/bin/python dashboard.py           # :8080
 ```
 
 Open http://localhost:8080. The dashboard has five pages:
-- **Overview** — prominent day counter, color-coded KPI tiles (avg fill rate, backlog, prod util, active demand/supply modifiers), alerts strip, pipeline flow diagram, per-service SVG charts; all KPIs suppressed at day 0 to avoid showing stale data
-- **Provider / Manufacturer / Retailer** — per-service inventory, prices, and orders
-- **Simulation** — start/stop runs, choose scenario and model, stream live terminal output, reset to Day 0
+- **Overview** — prominent day counter, color-coded KPI tiles (avg fill rate, backlog, prod util, active demand/supply modifiers), alerts strip, pipeline flow diagram, per-service SVG charts; all KPIs suppressed at day 0 to avoid showing stale data; event strip shows all scenario events with day ranges and modifiers
+- **Provider / Manufacturer / Retailer** — per-service inventory, prices, order summary (counts by status) and full scrollable order list (newest first)
+- **Simulation** — start/stop runs, choose scenario and model, stream live terminal output, reset to Day 0; scenario/model/days selections persist across page navigation
 
-A **VIEW** dropdown in the nav bar lets you switch between the live service state and any completed scenario archive (`logs/{scenario}/`). Archives persist across resets so you can compare calm-market and holiday-rush side by side.
+A **VIEW** dropdown in the nav bar lets you switch between the live service state and any completed scenario archive (`logs/{scenario}/`). Archives persist across resets so you can compare calm-market, holiday-rush, and smoke-test side by side.
 
 > **Note:** Services launched via `scripts/start_all.sh` use `start_new_session=True` so they stay up when `api_server.py` restarts.
 
@@ -207,6 +207,7 @@ week-08/
 |---|---|---|
 | `scenarios/calm-market.json` | 15 | Steady baseline, no disruptions |
 | `scenarios/holiday-rush.json` | 25 | Black Friday + chip shortage + Christmas rush |
+| `scenarios/smoke-test.json` | 6 | Demo scenario: 3 normal days + 3-day flash sale (demand ×2.5) |
 
 ---
 

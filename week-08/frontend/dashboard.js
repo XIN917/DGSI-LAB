@@ -62,7 +62,8 @@ function pct(stock, cap, peak) {
 }
 function fmt(n) { return n == null ? "–" : (Number.isInteger(n) ? n : Number(n).toFixed(1)); }
 function fmtDuration(s) { return s >= 60 ? Math.floor(s / 60) + "m " + (Math.round(s) % 60) + "s" : Math.round(s) + "s"; }
-function statusClass(s) { return "status-" + String(s || "").toLowerCase(); }
+function statusClass(s) { return "status-" + String(s || "").toLowerCase().replace(/\s+/g,""); }
+function fmtStatus(s) { return String(s || "").replace(/_/g," ").replace(/([a-z])([A-Z])/g,"$1 $2").toUpperCase(); }
 
 let _selectedScenario = sessionStorage.getItem("selectedScenario") || null;
 
@@ -152,12 +153,23 @@ function renderOverview(data) {
   const dayTotal = data.day_total ? ` / ${data.day_total}` : "";
   const fillCls = k.fill_rate == null ? "" : k.fill_rate >= 80 ? "kpi-ok" : k.fill_rate >= 50 ? "kpi-warn" : "kpi-err";
   const backlogCls = k.backlog == null ? "" : k.backlog === 0 ? "kpi-ok" : k.backlog > 10 ? "kpi-err" : "kpi-warn";
-  const eventLabel = data.day > 0 && ev.label && ev.label !== "normal" ? ev.label : null;
   const demandActive = data.day > 0 && ev.demand_mod != null && ev.demand_mod !== 1;
   const supplyActive = data.day > 0 && ev.supply_mod != null && ev.supply_mod !== 1;
+  const evSummary = data.event_summary || [];
+  const evStrip = evSummary.length
+    ? `<div class="event-strip">${evSummary.map(e =>
+        `<div class="event-chip">`+
+        `<span class="ev-name">${e.name.replace(/_/g," ")}</span>`+
+        `<span class="ev-days muted">d${e.start_day}–${e.end_day}</span>`+
+        `<span class="ev-mod">demand ×${e.demand_mod}</span>`+
+        `<span class="ev-mod ${e.supply_mod < 1 ? 'ev-bad' : ''}">supply ×${e.supply_mod}</span>`+
+        `</div>`).join("")}</div>`
+    : (data.day > 0 && ev.label && ev.label !== "normal"
+        ? `<div class="event-banner">${ev.label.replace(/_/g," ")} — demand ×${ev.demand_mod ?? 1} supply ×${ev.supply_mod ?? 1}</div>`
+        : "");
   const savedScroll = window.scrollY;
   root.innerHTML = `
-    ${eventLabel ? `<div class="event-banner">${eventLabel.replace(/_/g," ")} — demand ×${ev.demand_mod ?? 1} supply ×${ev.supply_mod ?? 1}</div>` : ""}
+    ${evStrip}
     <div class="ov-header">
       <div class="ov-day"><span class="ov-day-num">${dayLabel}</span><span class="ov-day-label">day${dayTotal}</span></div>
       <div class="ov-kpis">
@@ -259,21 +271,37 @@ function stockPanel(name, tier, hist) {
   }).join("");
   return `<div class="panel"><h3>STOCK · CATALOG · PRICE</h3>${rows || '<p class="muted">no items</p>'}</div>`;
 }
+function orderSummary(orders) {
+  const counts = {};
+  (orders || []).forEach(o => { const s = (o.status || "unknown").toLowerCase(); counts[s] = (counts[s] || 0) + 1; });
+  if (!Object.keys(counts).length) return "";
+  const chips = Object.entries(counts).map(([s, n]) =>
+    `<span class="${statusClass(s)}" style="margin-right:10px"><b>${n}</b> ${s.replace(/_/g," ")}</span>`).join("");
+  return `<div style="margin-bottom:8px;font-size:12px">${chips}</div>`;
+}
+
 function orderPanel(name, tier) {
   if (name === "manufacturer") {
-    const e = tier.extra || {};
+    const rows = (tier.orders || []).slice(0, 500).map(o => {
+      const detail = o.qty_produced > 0 && o.qty_produced !== o.qty
+        ? ` ×${fmt(o.qty)} · ${fmt(o.qty_produced)} produced` : ` ×${fmt(o.qty)}`;
+      const eta = o.eta ? ` · d${o.eta}` : "";
+      return `<div class="o"><span><b>#${o.id}</b> &nbsp; ${o.label}${detail}</span>
+        <span class="${statusClass(o.status)}">${fmtStatus(o.status)}${eta}</span></div>`;
+    }).join("");
     return `<div class="panel orderlist"><h3>SALES ORDERS (from Retailer)</h3>
-      <div class="o"><span>pending</span><span class="status-pending">${fmt(e.sales_pending)}</span></div>
-      <div class="o"><span>completed</span><span class="status-completed">${fmt(e.sales_completed)}</span></div>
-      <p class="muted">counts from daily metrics</p></div>`;
+      ${orderSummary(tier.orders)}
+      <div class="orders-scroll">${rows || '<p class="muted">no orders</p>'}</div></div>`;
   }
   const title = {provider: "ORDERS (from Manufacturer)", retailer: "CUSTOMER ORDERS"}[name];
-  const rows = (tier.orders || []).slice(0, 100).map(o => {
+  const rows = (tier.orders || []).slice(0, 500).map(o => {
     const eta = o.eta ? ` · ${name === "retailer" ? "fulfilled d" : "ETA d"}${o.eta}` : "";
     return `<div class="o"><span><b>#${o.id}</b> &nbsp; ${o.label} ×${fmt(o.qty)}</span>
-      <span class="${statusClass(o.status)}">${(o.status || "").toUpperCase()}${eta}</span></div>`;
+      <span class="${statusClass(o.status)}">${fmtStatus(o.status)}${eta}</span></div>`;
   }).join("");
-  return `<div class="panel orderlist"><h3>${title}</h3><div class="orders-scroll">${rows || '<p class="muted">no orders</p>'}</div></div>`;
+  return `<div class="panel orderlist"><h3>${title}</h3>
+    ${orderSummary(tier.orders)}
+    <div class="orders-scroll">${rows || '<p class="muted">no orders</p>'}</div></div>`;
 }
 function renderDetail(name, data) {
   const tier = data.tiers[name];
@@ -526,6 +554,18 @@ async function initSimPage() {
   const elModel     = document.getElementById("sc-model");
   const elDays      = document.getElementById("sc-days");
   const elStartDay  = document.getElementById("sc-startday");
+
+  // Restore persisted selections
+  if (sessionStorage.getItem("simScenario") && elScenario.querySelector(`option[value="${sessionStorage.getItem("simScenario")}"]`))
+    elScenario.value = sessionStorage.getItem("simScenario");
+  if (sessionStorage.getItem("simModel") && elModel.querySelector(`option[value="${sessionStorage.getItem("simModel")}"]`))
+    elModel.value = sessionStorage.getItem("simModel");
+  if (sessionStorage.getItem("simDays")) elDays.value = sessionStorage.getItem("simDays");
+  if (sessionStorage.getItem("simStartDay")) elStartDay.value = sessionStorage.getItem("simStartDay");
+
+  elModel.addEventListener("change",    () => sessionStorage.setItem("simModel", elModel.value));
+  elDays.addEventListener("change",     () => sessionStorage.setItem("simDays", elDays.value));
+  elStartDay.addEventListener("change", () => sessionStorage.setItem("simStartDay", elStartDay.value));
   const elStart     = document.getElementById("sc-start");
   const elStop      = document.getElementById("sc-stop");
   const elReset     = document.getElementById("sc-reset");
@@ -573,10 +613,14 @@ async function initSimPage() {
   const elLogList   = document.getElementById("sc-loglist");
   const elLogContent= document.getElementById("sc-logcontent");
 
-  const SCENARIO_DAYS = {"calm-market": 15, "holiday-rush": 25};
+  const SCENARIO_DAYS = {"calm-market": 15, "holiday-rush": 25, "smoke-test": 6};
+  fetch("/api/sim/scenarios").then(r => r.json()).then(list => {
+    list.forEach(s => { if (s.days) SCENARIO_DAYS[s.name] = s.days; });
+  }).catch(() => {});
   elScenario.addEventListener("change", () => {
     const days = SCENARIO_DAYS[elScenario.value];
-    if (days) elDays.value = days;
+    if (days) { elDays.value = days; sessionStorage.setItem("simDays", days); }
+    sessionStorage.setItem("simScenario", elScenario.value);
   });
 
   let _allLogs = [];
