@@ -104,14 +104,30 @@ manufacturer/venv/bin/pytest manufacturer/tests/test_api/test_day_advance.py -W 
 retailer/venv/bin/pytest retailer/tests/test_services/test_purchase_order_sync.py
 ```
 
-Run all project-level integration and logic tests:
+Run all project-level tests (logic, API, and UI):
 
 ```bash
-# Uses root venv (set up by scripts/setup_envs.sh)
-PYTHONPATH=. venv/bin/pytest tests/
+# Unit + API tests — no live services needed
+venv/bin/pytest tests/test_simulation_logic.py tests/test_api_server.py -v
+
+# UI tests — requires the full stack running (see step 7)
+venv/bin/pytest tests/test_ui_dashboard.py -v --run-ui
+
+# Everything at once
+venv/bin/pytest tests/ -v --run-ui
 ```
 
-Each service also has its own tests runnable from the repo root:
+**Test files in `tests/`:**
+
+| File | What it covers | Needs live services? |
+|---|---|---|
+| `test_simulation_logic.py` | Turn engine helpers (signal parsing, compact output, role contracts) | No |
+| `test_api_server.py` | All 15 `api_server.py` endpoints via FastAPI `TestClient` | No |
+| `test_ui_dashboard.py` | 20 Playwright browser tests — nav, reset banner, simulation controls, archive view | Yes (`--run-ui`) |
+
+The `--run-ui` flag enables UI tests. Without it they are silently skipped, so a plain `venv/bin/pytest tests/` always passes even without a running dashboard.
+
+Each service also has its own tests:
 
 ```bash
 manufacturer/venv/bin/pytest manufacturer/tests/ -v
@@ -132,7 +148,7 @@ venv/bin/python dashboard.py           # :8080
 ```
 
 Open http://localhost:8080. The dashboard has five pages:
-- **Overview** — supply chain status KPIs + per-service SVG charts
+- **Overview** — prominent day counter, color-coded KPI tiles (avg fill rate, backlog, prod util, active demand/supply modifiers), alerts strip, pipeline flow diagram, per-service SVG charts; all KPIs suppressed at day 0 to avoid showing stale data
 - **Provider / Manufacturer / Retailer** — per-service inventory, prices, and orders
 - **Simulation** — start/stop runs, choose scenario and model, stream live terminal output, reset to Day 0
 

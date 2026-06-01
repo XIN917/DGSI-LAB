@@ -2,10 +2,19 @@ import httpx
 import pytest
 import sqlite3
 import os
+import subprocess
 from pathlib import Path
 
 # Paths to databases
 ROOT = Path(__file__).parent.parent
+
+
+@pytest.fixture(scope="module", autouse=True)
+def reset_services():
+    subprocess.run([str(ROOT / "scripts/reset_all.sh")], check=False, capture_output=True)
+    import time; time.sleep(3)
+    yield
+    subprocess.run([str(ROOT / "scripts/reset_all.sh")], check=False, capture_output=True)
 PROVIDER_DB = ROOT / "provider/data/provider.db"
 MANUFACTURER_DB = ROOT / "manufacturer/data/manufacturer.db"
 RETAILER_DB = ROOT / "retailer/data/retailer.db"

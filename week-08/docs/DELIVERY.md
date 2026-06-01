@@ -33,5 +33,6 @@ This document tracks the tasks required for the final submission of the DGSI Wee
 - [ ] Run focused delivery-sync regressions before final scenario runs:
     - `cd manufacturer && pytest tests/test_api/test_day_advance.py -W error`
     - `cd retailer && pytest tests/test_services/test_purchase_order_sync.py`
-- [ ] Run turn-engine logic tests with repo root on `PYTHONPATH`: `PYTHONPATH=. venv/bin/pytest tests/`
+- [ ] Run unit and API tests (no live services needed): `venv/bin/pytest tests/test_simulation_logic.py tests/test_api_server.py -v`
+- [ ] Run UI browser tests against live stack: `venv/bin/pytest tests/test_ui_dashboard.py -v --run-ui`
 - [ ] After final scenario runs, inspect archived DBs to confirm supplier/manufacturer/retailer deliveries reached terminal states instead of staying stranded in `pending`, `released`, or `waiting_materials`.

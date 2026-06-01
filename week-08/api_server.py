@@ -45,25 +45,22 @@ _PERSIST_KEYS = ("id", "status", "scenario", "days", "start_day", "model", "star
 
 
 def _persist_runs():
-    """Persist only finished runs (done/cancelled/error) with their elapsed time."""
+    """Persist all known runs to disk so they survive a server restart."""
     _RUNS_FILE.parent.mkdir(parents=True, exist_ok=True)
     snapshot = {
         run_id: {k: run[k] for k in _PERSIST_KEYS if k in run}
         for run_id, run in _runs.items()
-        if run.get("status") in ("done", "cancelled", "error")
     }
     _RUNS_FILE.write_text(json.dumps(snapshot, indent=2))
 
 
 def _load_runs():
-    """Restore completed run history from logs/runs.json on server start."""
+    """Restore run history from logs/runs.json on server start."""
     if not _RUNS_FILE.exists():
         return
     try:
         data = json.loads(_RUNS_FILE.read_text())
         for run_id, meta in data.items():
-            if meta.get("status") not in ("done", "cancelled", "error"):
-                continue  # skip any stale running entries
             _runs[run_id] = {**meta, "queue": queue.Queue(), "thread": None, "result": None}
     except Exception:
         pass

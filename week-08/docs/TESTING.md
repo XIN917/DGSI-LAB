@@ -1,4 +1,52 @@
-# TESTING — Isolation Tests & Run Log
+# TESTING — Test Suite & Run Log
+
+---
+
+## Automated Test Suite
+
+### Quick reference
+
+```bash
+# Unit + API tests (no live services required)
+venv/bin/pytest tests/test_simulation_logic.py tests/test_api_server.py -v
+
+# Integration tests (requires all 3 services running — auto-resets before and after)
+venv/bin/pytest tests/test_integration.py -v
+
+# Full project-level suite (integration tests skipped if services not running)
+venv/bin/pytest tests/ -v
+
+# UI browser tests (requires full stack running — see README step 7)
+venv/bin/pytest tests/test_ui_dashboard.py -v --run-ui
+
+# Delivery-sync regression tests (run before any full scenario run)
+manufacturer/venv/bin/pytest manufacturer/tests/test_api/test_day_advance.py -W error
+retailer/venv/bin/pytest retailer/tests/test_services/test_purchase_order_sync.py
+```
+
+### Test files
+
+| File | Scope | Tool | Live services? |
+|---|---|---|---|
+| `tests/test_simulation_logic.py` | Turn engine helpers: signal parsing, compact output, role contracts, modifier multiplication | pytest | No |
+| `tests/test_api_server.py` | All 15 `api_server.py` endpoints — scenarios, models, run lifecycle, logs, KPIs, charts, reset | FastAPI TestClient | No |
+| `tests/test_integration.py` | Full day-advance cycle across all 3 services, metrics snapshots, lead-time modifier; auto-resets services before and after | pytest-asyncio | Yes |
+| `tests/test_ui_dashboard.py` | 20 browser tests — page loads, nav active state, reset banner (idle/running/done/autohide), simulation controls, archive VIEW dropdown | Playwright (headless Chromium) | Yes (`--run-ui`) |
+| `manufacturer/tests/test_api/test_day_advance.py` | HTTP day advance polls external suppliers before advancing | pytest | No |
+| `retailer/tests/test_services/test_purchase_order_sync.py` | In-flight POs sync until terminal (not just `pending`) | pytest | No |
+
+### `--run-ui` flag
+
+UI tests are skipped by default so `venv/bin/pytest tests/` always passes in environments without a running dashboard. Pass `--run-ui` to enable them — the full stack (services + `api_server.py` + `dashboard.py`) must be running first.
+
+### Playwright installation
+
+Playwright is installed in the root `venv/` (not system Python):
+
+```bash
+venv/bin/pip install pytest-playwright
+venv/bin/python -m playwright install chromium
+```
 
 ---
 

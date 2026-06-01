@@ -9,6 +9,48 @@ document.querySelectorAll("[data-nav]").forEach(a => {
   if (a.dataset.nav === PAGE) a.classList.add("active");
 });
 
+// ── Global reset banner (shown on every page while reset is running) ──────────
+(async () => {
+  const banner = document.getElementById("reset-banner");
+  if (!banner) return;
+  try {
+    const s = await fetch("/api/sim/reset/status").then(r => r.json());
+    if (s.status === "idle" || s.status === "done") return;
+    if (s.status === "error") {
+      banner.textContent = "✗ Reset failed: " + (s.output || "").split("\n")[0];
+      banner.className = "error";
+      banner.style.display = "block";
+      return;
+    }
+    // status === "running" — poll until done
+    banner.textContent = "↺ Resetting services to Day 0…";
+    banner.className = "";
+    banner.style.display = "block";
+    for (let i = 0; i < 90; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      let s2;
+      try { s2 = await fetch("/api/sim/reset/status").then(r => r.json()); }
+      catch(e) { continue; }
+      if (s2.status === "done") {
+        banner.textContent = "✓ Reset complete — all services back to Day 0.";
+        banner.className = "done";
+        setTimeout(() => { banner.style.display = "none"; }, 5000);
+        break;
+      } else if (s2.status === "error") {
+        banner.textContent = "✗ Reset failed: " + (s2.output || "").split("\n")[0];
+        banner.className = "error";
+        break;
+      }
+    }
+    // loop exhausted without a terminal status — don't spin "Resetting…" forever
+    if (banner.className === "" && banner.style.display === "block") {
+      banner.textContent = "⚠ Reset is taking longer than expected — check the Simulation page.";
+      banner.className = "error";
+      setTimeout(() => { banner.style.display = "none"; }, 8000);
+    }
+  } catch(e) {}
+})();
+
 function barClass(stock, cap) {
   if (stock === 0) return "err";
   if (cap && stock <= cap * 0.20) return "warn";
@@ -88,27 +130,35 @@ function renderOverview(data) {
       <svg class="sparkline" data-spark="${name}"></svg></div>`;
   };
   const arrow = (n) => `<div class="arrow">▶▶<div class="n">${fmt(n)}</div><div class="muted">in transit</div></div>`;
+  const arrowSplit = (moving, stalled) => `<div class="arrow">▶▶<div class="n">${fmt(moving)}</div><div class="muted">in transit</div>${(stalled || 0) > 0 ? `<div class="n stalled">${fmt(stalled)}</div><div class="muted stalled">⚠ stalled</div>` : ""}</div>`;
+  const dayLabel = data.day == null ? "–" : data.day;
+  const dayTotal = data.day_total ? ` / ${data.day_total}` : "";
+  const fillCls = k.fill_rate == null ? "" : k.fill_rate >= 80 ? "kpi-ok" : k.fill_rate >= 50 ? "kpi-warn" : "kpi-err";
+  const backlogCls = (k.backlog || 0) === 0 ? "kpi-ok" : k.backlog > 10 ? "kpi-err" : "kpi-warn";
   root.innerHTML = `
-    <div class="ov-section-title">Supply Chain Status</div>
-    <div class="kpibar">
-      <span>fill-rate <b>${fmt(k.fill_rate)}%</b></span>
-      <span>backlog <b>${fmt(k.backlog)}</b></span>
-      <span>production util <b>${fmt(k.production_util)}%</b></span>
-      ${ev.demand_mod != null ? `<span>events <b>×${ev.demand_mod} dmd · ×${ev.supply_mod} sup</b></span>` : ""}
-    </div>
-    <div class="pipeline">
-      ${tierCard("provider", data.tiers.provider)}
-      ${arrow(data.tiers.provider.in_transit_out)}
-      ${tierCard("manufacturer", data.tiers.manufacturer)}
-      ${arrow(data.tiers.manufacturer.in_transit_out)}
-      ${tierCard("retailer", data.tiers.retailer)}
+    <div class="ov-header">
+      <div class="ov-day"><span class="ov-day-num">${dayLabel}</span><span class="ov-day-label">day${dayTotal}</span></div>
+      <div class="ov-kpis">
+        <div class="ov-kpi ${fillCls}"><div class="ov-kpi-val">${fmt(k.fill_rate)}%</div><div class="ov-kpi-label">fill rate</div></div>
+        <div class="ov-kpi ${backlogCls}"><div class="ov-kpi-val">${fmt(k.backlog)}</div><div class="ov-kpi-label">backlog</div></div>
+        <div class="ov-kpi"><div class="ov-kpi-val">${k.production_util == null ? "–" : fmt(k.production_util) + "%"}</div><div class="ov-kpi-label">prod util</div></div>
+        ${data.day > 0 && ev.demand_mod != null ? `<div class="ov-kpi kpi-warn"><div class="ov-kpi-val">×${ev.demand_mod}</div><div class="ov-kpi-label">demand</div></div>` : ""}
+        ${data.day > 0 && ev.supply_mod != null && ev.supply_mod !== 1 ? `<div class="ov-kpi kpi-warn"><div class="ov-kpi-val">×${ev.supply_mod}</div><div class="ov-kpi-label">supply</div></div>` : ""}
+      </div>
     </div>
     <div class="alerts">
       <span class="muted">ALERTS&nbsp;&nbsp;</span>
       ${data.alerts.length ? data.alerts.map(a => `<span class="a ${a.level}">⚠ ${a.text}</span>`).join(" · ")
                             : '<span class="muted">none</span>'}
-    <div id="ov-charts"></div>
-    </div>`;
+    </div>
+    <div class="pipeline">
+      ${tierCard("provider", data.tiers.provider)}
+      ${arrow(data.tiers.provider.in_transit_out)}
+      ${tierCard("manufacturer", data.tiers.manufacturer)}
+      ${arrowSplit(data.tiers.retailer.in_transit_out, (data.tiers.retailer.extra || {}).stalled)}
+      ${tierCard("retailer", data.tiers.retailer)}
+    </div>
+    <div id="ov-charts"></div>`;
   ["provider", "manufacturer", "retailer"].forEach(name => {
     const svg = root.querySelector(`[data-spark="${name}"]`);
     const hist = (data.history[name] || {}).series || {};
@@ -423,6 +473,14 @@ async function initSimPage() {
         </div>
       </div>
 
+      <div class="sim-logs" id="sc-charts-panel" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <h3 style="margin:0">Charts</h3>
+          <select id="sc-charts-run" style="background:#1e293b;border:1px solid var(--line);color:var(--text);padding:3px 8px;border-radius:5px;font-family:inherit;font-size:11px"></select>
+        </div>
+        <div id="sc-charts-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px"></div>
+      </div>
+
     </div>`;
 
   const elScenario  = document.getElementById("sc-scenario");
@@ -519,6 +577,44 @@ async function initSimPage() {
     } catch(e) {}
   }
 
+  async function renderCharts(runId) {
+    const grid = document.getElementById("sc-charts-grid");
+    const panel = document.getElementById("sc-charts-panel");
+    if (!grid) return;
+    try {
+      const charts = await fetch(`/api/sim/run/${runId}/charts`).then(r => r.json());
+      if (!charts.length) { grid.innerHTML = '<span class="muted">No charts yet for this run.</span>'; return; }
+      grid.innerHTML = charts.map(c =>
+        `<div style="background:#0b1120;border:1px solid var(--line);border-radius:8px;padding:8px">
+          <div class="muted" style="font-size:10px;margin-bottom:6px">${c.name.replace(/_/g," ").replace(".png","")}</div>
+          <img src="/api/sim/run/${runId}/charts/${c.name}" alt="${c.name}"
+               style="width:100%;border-radius:4px;display:block" loading="lazy">
+        </div>`
+      ).join("");
+      panel.style.display = "block";
+    } catch(e) {}
+  }
+
+  async function loadCharts(selectRunId) {
+    const panel = document.getElementById("sc-charts-panel");
+    const sel   = document.getElementById("sc-charts-run");
+    if (!panel || !sel) return;
+    try {
+      const runs = await fetch("/api/sim/runs").then(r => r.json());
+      const done = runs.filter(r => r.status === "done");
+      if (!done.length) return;
+      const current = selectRunId || done[done.length - 1].run_id;
+      sel.innerHTML = done.map(r =>
+        `<option value="${r.run_id}"${r.run_id === current ? " selected" : ""}>${r.scenario} · d${r.start_day ?? 1}–${r.days}</option>`
+      ).join("");
+      if (!sel._wired) {
+        sel.addEventListener("change", () => renderCharts(sel.value));
+        sel._wired = true;
+      }
+      await renderCharts(current);
+    } catch(e) {}
+  }
+
   async function loadSummaries() {
     try {
       const summaries = await fetch("/api/sim/summaries").then(r => r.json());
@@ -552,10 +648,16 @@ async function initSimPage() {
         const canDelete = r.status !== "running";
         return `<label class="run-chip ${cls}" title="${r.run_id}" style="display:flex;align-items:center;gap:6px;cursor:${canDelete ? "pointer" : "default"}">
           <input type="checkbox" class="run-check" data-id="${r.run_id}" ${canDelete ? "" : "disabled"} style="accent-color:#60a5fa">
-          <span>${r.scenario} · d${r.start_day ?? 1}–${r.days} · ${model} · ${r.status}${r.elapsed_seconds != null ? " · " + fmtDuration(r.elapsed_seconds) : ""}</span>
+          <span data-run-id="${r.run_id}" data-scenario="${r.scenario}" style="flex:1">${r.scenario} · d${r.start_day ?? 1}–${r.days} · ${model} · ${r.status}${r.elapsed_seconds != null ? " · " + fmtDuration(r.elapsed_seconds) : ""}</span>
         </label>`;
       }).join("");
       elRuns.addEventListener("change", updateDelSelected);
+      elRuns.querySelectorAll("[data-run-id]").forEach(el => {
+        el.addEventListener("click", e => {
+          e.preventDefault();
+          loadCharts(el.dataset.runId);
+        });
+      });
       updateDelSelected();
     } catch(e) {}
   }
@@ -670,7 +772,7 @@ async function initSimPage() {
       await new Promise(r => setTimeout(r, 2000));
       try {
         const s = await fetch(`/api/sim/run/${runId}/status`).then(r => r.json());
-        if (s.status === "done") { showStatus("Done ✓", "done"); setRunning(false); loadRuns(); loadLogs(); loadSummaries(); return; }
+        if (s.status === "done") { showStatus("Done ✓", "done"); setRunning(false); loadRuns(); loadLogs(); loadSummaries(); loadCharts(runId); return; }
         if (s.status === "cancelled") { showStatus("Cancelled", "done"); setRunning(false); loadRuns(); return; }
         if (s.status === "error") { showStatus("Error: " + (s.error || ""), "error"); setRunning(false); loadRuns(); return; }
       } catch(e) { break; }
@@ -723,7 +825,7 @@ async function initSimPage() {
     appendLine("↺ Running reset_all.sh…");
     try {
       await fetch("/api/sim/reset", { method: "POST" });
-      // Poll until done — survives page navigation
+      // Poll until done (global banner in dashboard.js handles cross-page visibility)
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 2000));
         const s = await fetch("/api/sim/reset/status").then(r => r.json());
@@ -763,6 +865,18 @@ async function initSimPage() {
   loadRuns();
   loadLogs();
   loadSummaries();
+
+  // Load charts for most recent completed run on page init
+  (async () => {
+    try {
+      const runs = await fetch("/api/sim/runs").then(r => r.json());
+      const done = runs.filter(r => r.status === "done");
+      if (done.length) {
+        const latest = done[done.length - 1];
+        await loadCharts(latest.run_id);
+      }
+    } catch(e) {}
+  })();
 
   // Only poll runs while a simulation is active; stop when all are terminal
   let _runsPoller = null;

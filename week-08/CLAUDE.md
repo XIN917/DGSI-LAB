@@ -164,7 +164,7 @@ Skill files live in `skills/`. They define each agent's role, available commands
 
 All scenario signal fields are parsed (`demand_modifier`, `supply_modifier`, `lead_time_modifier`, `price_sensitivity`). Overlapping events multiply modifiers.
 
-Agent turn limits: retailer 6, manufacturer 8, provider 8. **Do not reduce these max-turn budgets again**: provider and manufacturer hit `Reached max turns` during longer 25-day runs when the limits were lower, especially after day 10 when release failures and purchase orders require extra tool turns. The retailer budget was raised to 6 and provider/manufacturer to 8 after day-9 truncation in calm-market runs and to keep 25-day scenarios from stalling. Default output is compact; pass `-v` for full console display and `--full-skill-prompt` for full skill markdown prompts.
+Agent turn limits: retailer 6, manufacturer 8, provider 8. Per-agent wall-clock timeout: 300s (5 minutes) — if an agent exceeds this it is killed and the day continues without its output. **Do not reduce these max-turn budgets again**: provider and manufacturer hit `Reached max turns` during longer 25-day runs when the limits were lower, especially after day 10 when release failures and purchase orders require extra tool turns. The retailer budget was raised to 6 and provider/manufacturer to 8 after day-9 truncation in calm-market runs and to keep 25-day scenarios from stalling. Default output is compact; pass `-v` for full console display and `--full-skill-prompt` for full skill markdown prompts.
 
 **Known gotcha:** `manufacturer/providers.json` must exist and point to the provider service URL. It is tracked in git. All databases are named consistently as `<service>.db` (e.g., `manufacturer/data/manufacturer.db`).
 
@@ -272,13 +272,14 @@ Also exposes two reset endpoints:
 A browser-based monitoring dashboard that proxies data from `api_server.py` and the three services.
 
 See **`README.md`** for startup instructions. Open http://localhost:8080. Five pages:
-- **Overview** — supply chain KPIs + per-service live SVG charts (inventory, prices, fulfillment, events)
+- **Overview** — prominent day counter, color-coded KPI tiles (fill rate, backlog, prod util, active demand/supply modifiers), alerts strip, pipeline flow diagram, per-service live SVG charts
 - **Provider / Manufacturer / Retailer** — per-service detail with inventory, prices, and orders
 - **Simulation** — start/stop runs, pick scenario and model, stream live ANSI terminal output, reset to Day 0
 
 **Design notes:**
 - `dashboard/app.py` proxies all `/api/sim/*` calls to `api_server.py` (:8000) and exposes `/api/state` from the service DBs directly
 - SVG charts are drawn client-side in `frontend/dashboard.js` using `d3`-style scaling; no PNG charts are fetched for the live view
+- **Fill rate KPI** shows the average across all days in `run.csv`, not the last day's value. At day 0 (fresh reset), fill rate, events, and day_total are suppressed to avoid showing stale data from a previous run's CSV.
 - **Archive view**: a VIEW dropdown in the nav switches between live service data and any completed scenario archive. Selecting a scenario loads `logs/{scenario}/*.db` and `logs/{scenario}/run.csv` via `GET /api/archive/{scenario}/state`. Selection persists across pages via `sessionStorage`. Archives survive resets.
 - Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`
 - Terminal output is rendered by xterm.js — ANSI codes from Rich are rendered natively; `markup=False` must NOT be set on the callback Console in `turn_engine.py`. Rich console width is set to 150 to fit the terminal area.

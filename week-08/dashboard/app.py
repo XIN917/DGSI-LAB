@@ -8,9 +8,11 @@ from dashboard.config import load_services, ServiceConfig
 from dashboard.collector import collect_all
 from dashboard.history import (read_provider_history, read_manufacturer_history, read_retailer_history,
                                 latest_manufacturer_state, latest_provider_state, latest_retailer_state,
-                                latest_retailer_orders)
+                                latest_retailer_orders, count_retailer_backordered, count_retailer_in_transit,
+                                count_retailer_stalled)
 from dashboard.context import load_context
 from dashboard.alerts import compute_alerts
+from dashboard import derive
 
 _FRONTEND = Path(__file__).parent.parent / "frontend"
 _PAGES = {"/": "overview", "/provider": "provider", "/manufacturer": "manufacturer",
@@ -68,20 +70,25 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
         if mfr_state:
             mfr_items = [{"name": f["name"], "stock": f["stock"], "price": f["price"], "kind": "finished"}
                          for f in mfr_state["finished"]]
+            finished_names = {i["name"] for i in mfr_items}
             mfr_items += [{"name": k, "stock": v, "price": None, "kind": "part"}
-                          for k, v in mfr_state["parts"].items()]
+                          for k, v in derive.dedup_parts(mfr_state["parts"], finished_names).items()]
         latest = ctx.get("latest") or {}
+        arc_tiers = {
+            "provider": {"online": True, "items": prov_items, "orders": prov_orders, "in_transit_out": prov_in_transit, "extra": {}},
+            "manufacturer": {"online": True, "items": mfr_items, "orders": [], "in_transit_out": None, "extra": {"utilisation_pct": util, "sales_pending": mfr_state["pending"] if mfr_state else 0, "sales_completed": mfr_state["completed"] if mfr_state else 0}},
+            "retailer": {"online": True, "items": ret_items, "orders": ret_orders, "in_transit_out": count_retailer_in_transit(arc_services["retailer"].db_path), "extra": {"stalled": count_retailer_stalled(arc_services["retailer"].db_path)}},
+        }
+        arc_backlog = count_retailer_backordered(arc_services["retailer"].db_path)
+        arc_series = ctx.get("fill_rate_series", [])
+        arc_avg_fill = round(sum(v for _, v in arc_series) / len(arc_series), 1) if arc_series else None
         return JSONResponse({
             "day": latest.get("day"), "day_total": ctx.get("day_total"), "scenario": scenario,
             "events": {"label": latest.get("events"), "demand_mod": latest.get("demand_mod"),
                        "supply_mod": latest.get("supply_mod"), "lead_mod": latest.get("lead_mod")},
-            "kpis": {"fill_rate": latest.get("fill_rate"), "backlog": latest.get("backordered"), "production_util": util},
-            "alerts": [],
-            "tiers": {
-                "provider": {"online": True, "items": prov_items, "orders": prov_orders, "in_transit_out": prov_in_transit, "extra": {}},
-                "manufacturer": {"online": True, "items": mfr_items, "orders": [], "in_transit_out": mfr_state["pending"] if mfr_state else 0, "extra": {"utilisation_pct": util, "sales_pending": mfr_state["pending"] if mfr_state else 0, "sales_completed": mfr_state["completed"] if mfr_state else 0}},
-                "retailer": {"online": True, "items": ret_items, "orders": ret_orders, "in_transit_out": 0, "extra": {}},
-            },
+            "kpis": {"fill_rate": arc_avg_fill, "backlog": arc_backlog, "production_util": util},
+            "alerts": compute_alerts(arc_tiers, arc_backlog),
+            "tiers": arc_tiers,
             "history": history,
             "fill_rate_series": ctx.get("fill_rate_series", []),
         })
@@ -93,16 +100,19 @@ def create_app(sim_json_path: Path, refresh: int = 2) -> FastAPI:
         logs_dir = Path("logs")
         csv_candidates = sorted(logs_dir.glob("*/run.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
         ctx = load_context(run_csv=csv_candidates[0], scenarios_dir=Path("scenarios")) if csv_candidates else {"scenario": None, "day_total": None, "latest": None, "fill_rate_series": []}
-        backlog = sum(1 for o in tiers["retailer"]["orders"] if o.get("status") == "backordered")
+        backlog = derive.count_backordered(tiers["retailer"]["orders"])
         day = max((t["current_day"] for t in tiers.values() if t.get("current_day") is not None), default=None)
         latest = ctx.get("latest") or {}
-        fill_rate = latest.get("fill_rate")
+        fill_rate = None if day == 0 else latest.get("fill_rate")
         util = tiers["manufacturer"]["extra"].get("utilisation_pct")
+        series = ctx.get("fill_rate_series", [])
+        avg_fill_rate = round(sum(v for _, v in series) / len(series), 1) if series else None
+        stale = not day
         return JSONResponse({
-            "day": day, "day_total": ctx.get("day_total"), "scenario": ctx.get("scenario"),
-            "events": {"label": latest.get("events"), "demand_mod": latest.get("demand_mod"),
+            "day": day, "day_total": None if stale else ctx.get("day_total"), "scenario": ctx.get("scenario"),
+            "events": {} if stale else {"label": latest.get("events"), "demand_mod": latest.get("demand_mod"),
                        "supply_mod": latest.get("supply_mod"), "lead_mod": latest.get("lead_mod")},
-            "kpis": {"fill_rate": fill_rate, "backlog": backlog, "production_util": util},
+            "kpis": {"fill_rate": None if stale else avg_fill_rate, "backlog": backlog, "production_util": util},
             "alerts": compute_alerts(tiers, backlog),
             "tiers": tiers, "history": build_history(services),
             "fill_rate_series": ctx.get("fill_rate_series", []),

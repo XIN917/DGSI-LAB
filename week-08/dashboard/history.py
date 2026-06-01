@@ -2,6 +2,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from dashboard import derive
+
 
 def _query(db_path: Path, sql: str) -> list[tuple]:
     db_path = Path(db_path)
@@ -122,6 +124,32 @@ def latest_retailer_state(db_path: Path) -> list[dict]:
 
 def latest_retailer_orders(db_path: Path) -> list[dict]:
     rows = _query(db_path, "SELECT id, sku, quantity, status, fulfilled_day "
-                           "FROM customer_orders ORDER BY id ASC LIMIT 100")
+                           "FROM customer_orders ORDER BY id DESC LIMIT 100")
     return [{"id": oid, "label": sku, "qty": qty, "status": status, "eta": fulfilled_day}
             for oid, sku, qty, status, fulfilled_day in rows]
+
+
+def read_retailer_purchase_orders(db_path: Path) -> list[dict]:
+    """All retailer→manufacturer purchase orders as {status, quantity} dicts."""
+    rows = _query(db_path, "SELECT status, quantity FROM purchase_orders")
+    return [{"status": status, "quantity": qty} for status, qty in rows]
+
+
+def read_retailer_customer_orders(db_path: Path) -> list[dict]:
+    """All customer→retailer orders as {status} dicts."""
+    rows = _query(db_path, "SELECT status FROM customer_orders")
+    return [{"status": status} for (status,) in rows]
+
+
+# These delegate to dashboard.derive so the archive path computes exactly what
+# the live path does — see dashboard/derive.py.
+def count_retailer_backordered(db_path: Path) -> int:
+    return derive.count_backordered(read_retailer_customer_orders(db_path))
+
+
+def count_retailer_in_transit(db_path: Path) -> int:
+    return derive.retailer_in_transit(read_retailer_purchase_orders(db_path))
+
+
+def count_retailer_stalled(db_path: Path) -> int:
+    return derive.retailer_stalled(read_retailer_purchase_orders(db_path))

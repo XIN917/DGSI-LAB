@@ -10,7 +10,12 @@ import shutil
 import sys
 from pathlib import Path
 import time
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Per-agent wall-clock timeout in seconds. If an agent hasn't finished within
+# this window it is killed and the day continues without its output.
+AGENT_TIMEOUT_SECONDS = 300  # 5 minutes
 
 # Load .env for GEMINI_API_KEY (optional dep — only needed for Gemini models)
 try:
@@ -408,8 +413,25 @@ def run_agent(
             console.print(f"  [dim]{role_label} thinking...[/dim]")
 
         if is_gemini:
+            result_box = [None]
+            exc_box = [None]
+
+            def _gemini_thread():
+                try:
+                    result_box[0] = _run_agent_gemini(role, prompt, cwd, max_turns, model)
+                except Exception as e:
+                    exc_box[0] = e
+
+            t = threading.Thread(target=_gemini_thread, daemon=True)
             with ctx:
-                stdout_content = _run_agent_gemini(role, prompt, cwd, max_turns, model)
+                t.start()
+                t.join(timeout=AGENT_TIMEOUT_SECONDS)
+
+            if t.is_alive():
+                raise TimeoutError(f"{role_label} timed out after {AGENT_TIMEOUT_SECONDS}s")
+            if exc_box[0]:
+                raise exc_box[0]
+            stdout_content = result_box[0]
             return_code = 0
         else:
             cmd = [
@@ -432,12 +454,17 @@ def run_agent(
                     env=env,
                     bufsize=1,
                 )
+                deadline = time.time() + AGENT_TIMEOUT_SECONDS
                 while True:
                     line = process.stdout.readline()
                     if not line and process.poll() is not None:
                         break
                     if line:
                         stdout_lines.append(line)
+                    if time.time() > deadline:
+                        process.kill()
+                        process.wait()
+                        raise TimeoutError(f"{role_label} timed out after {AGENT_TIMEOUT_SECONDS}s")
             return_code = process.wait()
             stdout_content = "".join(stdout_lines)
 

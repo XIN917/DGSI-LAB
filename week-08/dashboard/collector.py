@@ -2,6 +2,7 @@ import asyncio
 import httpx
 from dashboard.config import ServiceConfig
 from dashboard.history import latest_manufacturer_state
+from dashboard import derive
 
 OFFLINE = {"online": False, "current_day": None, "items": [], "orders": [], "in_transit_out": 0, "extra": {}}
 PROVIDER_OPEN = {"PENDING", "CONFIRMED", "SHIPPED"}
@@ -76,12 +77,15 @@ async def _collect_manufacturer(svc, client):
         items.append({"name": c["sku"], "stock": stock, "capacity": None,
                       "price": c["unit_price"], "lead": None, "kind": "finished"})
     if state:
-        for pname, qty in state["parts"].items():
+        finished_names = {i["name"] for i in items}
+        for pname, qty in derive.dedup_parts(state["parts"], finished_names).items():
             items.append({"name": pname, "stock": qty, "capacity": None,
                           "price": None, "lead": None, "kind": "part"})
     util_pct = round(state["util"] * 100, 1) if state and state["util"] is not None else None
     return {"online": True, "current_day": day["current_day"], "items": items, "orders": [],
-            "in_transit_out": state["pending"] if state else 0,
+            # pending sales orders are NOT goods in transit — the manufacturer→retailer
+            # arrow is driven by the retailer's incoming POs. Pending stays in extra.
+            "in_transit_out": None,
             "extra": {"utilisation_pct": util_pct,
                       "sales_pending": state["pending"] if state else 0,
                       "sales_completed": state["completed"] if state else 0}}
@@ -89,17 +93,19 @@ async def _collect_manufacturer(svc, client):
 
 async def _collect_retailer(svc, client):
     base = svc.url
-    day, inv, catalog, orders = await asyncio.gather(
+    day, inv, catalog, orders, purchase_orders = await asyncio.gather(
         _get_json(client, f"{base}/api/day/current"),
         _get_json(client, f"{base}/api/inventory"),
         _get_json(client, f"{base}/api/catalog"),
-        _get_json(client, f"{base}/api/customer-orders"))
+        _get_json(client, f"{base}/api/customer-orders"),
+        _get_json(client, f"{base}/api/purchase-orders"))
     items = [{"name": i["sku"], "sku": i["sku"], "stock": i["quantity_on_hand"],
               "capacity": None, "price": i.get("retail_price"), "lead": None, "kind": "sku"} for i in inv]
     out_orders = [{"id": o["id"], "label": o["sku"], "qty": o["quantity"],
                    "status": o.get("status", ""), "eta": o.get("fulfilled_day")} for o in orders]
     return {"online": True, "current_day": day["current_day"], "items": items, "orders": out_orders,
-            "in_transit_out": 0, "extra": {}}
+            "in_transit_out": derive.retailer_in_transit(purchase_orders),
+            "extra": {"stalled": derive.retailer_stalled(purchase_orders)}}
 
 
 async def collect_all(services: dict[str, ServiceConfig]) -> dict:
