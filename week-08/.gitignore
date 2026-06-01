@@ -1,6 +1,13 @@
-# Logs
-logs/
+# Logs — keep archived charts, run.csv, and summary; exclude everything else
+logs/*.log
+logs/provider.log
+logs/manufacturer.log
+logs/retailer.log
+logs/*/day-*.log
+logs/*/*.db
+logs/runs.json
 *.log
+!logs/*/summary.log
 
 # Databases
 *.db

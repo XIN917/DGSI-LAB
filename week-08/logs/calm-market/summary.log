@@ -1,0 +1,23 @@
+Run Summary — calm-market
+============================================================
+Duration: 9m 31s  |  Model: gemini-3.1-flash-lite  |  Days: 1–15
+
+ Day  Events                        Orders   Fill   Back   Lost   Fill%
+------------------------------------------------------------
+   1  normal                             9      7      2      0   77.8%
+   2  normal                             6      6      0      0  100.0%
+   3  normal                             4      4      0      0  100.0%
+   4  normal                             6      5      1      0   83.3%
+   5  normal                             5      3      2      0   60.0%
+   6  normal                             4      2      2      0   50.0%
+   7  normal                             0      0      0      0    0.0%
+   8  normal                             4      4      0      0  100.0%
+   9  normal                             2      2      0      0  100.0%
+  10  normal                             0      0      0      0    0.0%
+  11  normal                             2      2      0      0  100.0%
+  12  normal                             1      1      0      0  100.0%
+  13  normal                             1      1      0      0  100.0%
+  14  normal                             0      0      0      0    0.0%
+  15  normal                             1      1      0      0  100.0%
+------------------------------------------------------------
+TOTAL                                    45     38      7      0   84.4%
