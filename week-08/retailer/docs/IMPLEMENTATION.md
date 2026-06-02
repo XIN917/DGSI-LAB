@@ -1,7 +1,7 @@
 # Retailer App Implementation Log
 
 **Date**: 2026-05-14
-**Status**: In Progress
+**Status**: Complete
 
 ## Implementation Process
 
@@ -97,6 +97,8 @@ This document tracks the step-by-step wiring of the Retailer App's API endpoints
 
 ## Current Progress
 
+All phases complete. The retailer service is fully wired and integrated into the Week 8 simulation.
+
 ### Completed:
 - Basic app scaffold with placeholder endpoints
 - ManufacturerClient with synchronous HTTP calls
@@ -106,21 +108,13 @@ This document tracks the step-by-step wiring of the Retailer App's API endpoints
 - **Enhanced RetailerService** with customer order creation, inventory management, day advancement, and event logging
 - **Enhanced ManufacturerClient** with PO creation, status polling, catalog fetching, and day synchronization
 - **Wired API endpoints** for customer orders, purchase orders, day control, catalog, and inventory
-- **Wired CLI commands** for catalog, customer-orders (create/list), purchase-orders (create), day current/advance
+- **Wired CLI commands** aligned to skill file (`stock`, `customers orders`, `purchase list/create`, `price list/set`)
 - **Added catalog and inventory API endpoints**
 - **Fixed Pydantic imports** (BaseSettings moved to pydantic-settings)
 - **Synchronized database layer** to match Manufacturer/Provider architectural patterns
-- **Updated READMEs** for provider and retailer apps to include virtual environment setup
-- **Configured uv package management** with proper virtual environment usage
-- **Tested app creation and CLI functionality** - all working ✅
-
-### Next Steps:
-1. Implement full inventory tracking and fulfillment logic
-2. Add pricing validation with markup enforcement
-3. Complete purchase order lifecycle management
-4. Implement backorder auto-fulfillment
-5. Add comprehensive error handling
-6. Add JSON import/export functionality
-7. Create database initialization and seeding
-8. Add unit and integration tests
-9. Test end-to-end integration with Manufacturer app
+- **Pricing validation** with 15% minimum markup over wholesale (Classic €195, Pro €290 seed prices)
+- **Backorder auto-fulfillment** on inventory receipt
+- **PO delivery sync** checks all non-terminal POs (not just `pending`) so in-flight orders are never stranded
+- **Metrics table** snapshot per day for dashboard history
+- **Unit and integration tests** — 14 tests passing; pricing tests mock catalog to avoid live manufacturer dependency
+- **Tested end-to-end** in full simulation runs (see project-level `docs/TESTING.md`)

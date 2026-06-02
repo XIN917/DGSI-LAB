@@ -16,7 +16,7 @@
 | `skills/` | All three skill files present and wired in `config/sim.json` |
 | `scenarios/` | Both scenario files present (`calm-market.json`, `holiday-rush.json`) |
 | `docs/ANALYSIS.md` | Complete — 12 chart interpretations, 4 mandatory questions answered, scenario comparison written |
-| Dashboard (`dashboard/`, `frontend/`) | Complete — scenario archive switcher, overview KPI accuracy, event strip (all events with day ranges/modifiers), order summary + full list on all service pages, manufacturer orders from DB, parts fallback on day 0, status colors (confirmed/inprogress/waiting_materials), consistent DESC order sorting, simulation page selections persist via sessionStorage |
+| Dashboard (`dashboard/`, `frontend/`) | Complete — scenario archive switcher, overview KPI accuracy, event strip (all events with day ranges/modifiers), order summary + full list on all service pages, manufacturer stock/orders from live API, utilisation from metrics table, parts fallback on day 0, status colors (confirmed/inprogress/waiting_materials), consistent DESC order sorting, simulation page selections persist via sessionStorage |
 | Seed prices | Updated — manufacturer wholesale €195/€290, retail seed €295/€435, floors €163/€246 |
 | `scenarios/smoke-test.json` | Complete — 6-day demo scenario: 3 normal + 3 flash sale (demand ×2.5); archived in `logs/smoke-test/` |
 | `visualize.py` | Updated — flash_sale event color (red) and label added |

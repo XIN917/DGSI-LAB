@@ -63,34 +63,41 @@ async def _collect_provider(svc, client):
 
 
 async def _collect_manufacturer(svc, client):
-    # The manufacturer's /api/inventory and /api/orders require auth; the dashboard
-    # uses no credentials, so finished stock / parts / utilisation / order counts
-    # come from the no-auth metrics table instead. day/current and catalog are public.
     base = svc.url
-    day, catalog = await asyncio.gather(
+    day, catalog, inv, orders = await asyncio.gather(
         _get_json(client, f"{base}/api/day/current"),
-        _get_json(client, f"{base}/api/catalog"))
-    state = latest_manufacturer_state(svc.db_path)
-    fstock = {f["name"]: f["stock"] for f in (state["finished"] if state else [])}
+        _get_json(client, f"{base}/api/catalog"),
+        _get_json(client, f"{base}/api/inventory"),
+        _get_json(client, f"{base}/api/orders"))
+    inv_by_name = {i["product_name"]: i for i in inv.get("items", [])}
     items = []
     for c in catalog:
-        stock = fstock.get(c["sku"], fstock.get(c["name"], 0))
+        inv_item = inv_by_name.get(c["sku"], inv_by_name.get(c["name"], {}))
+        stock = inv_item.get("quantity", 0)
         items.append({"name": c["sku"], "stock": stock, "capacity": None,
                       "price": c["unit_price"], "lead": None, "kind": "finished"})
     finished_names = {i["name"] for i in items}
-    parts = state["parts"] if state else manufacturer_parts_from_inventory(svc.db_path)
+    parts = {name: int(i["quantity"]) for name, i in inv_by_name.items()
+             if i.get("unit_type") == "raw"}
     for pname, qty in derive.dedup_parts(parts, finished_names).items():
         items.append({"name": pname, "stock": qty, "capacity": None,
                       "price": None, "lead": None, "kind": "part"})
+    pending = sum(1 for o in orders if o["status"] in {"pending", "in_progress", "waiting_materials"})
+    completed = sum(1 for o in orders if o["status"] == "completed")
+    state = latest_manufacturer_state(svc.db_path)
     util_pct = round(state["util"] * 100, 1) if state and state["util"] is not None else None
+    out_orders = [{"id": o["id"], "label": o["product_model"],
+                   "qty": int(o["quantity_needed"]), "qty_produced": int(o["quantity_produced"]),
+                   "status": o["status"], "eta": o.get("delivery_day")}
+                  for o in orders[:500]]
     return {"online": True, "current_day": day["current_day"], "items": items,
-            "orders": latest_manufacturer_orders(svc.db_path),
+            "orders": out_orders,
             # pending sales orders are NOT goods in transit — the manufacturer→retailer
             # arrow is driven by the retailer's incoming POs. Pending stays in extra.
             "in_transit_out": None,
             "extra": {"utilisation_pct": util_pct,
-                      "sales_pending": state["pending"] if state else 0,
-                      "sales_completed": state["completed"] if state else 0}}
+                      "sales_pending": pending,
+                      "sales_completed": completed}}
 
 
 async def _collect_retailer(svc, client):

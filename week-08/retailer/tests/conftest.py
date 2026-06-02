@@ -59,9 +59,7 @@ def db_session(sync_engine):
 async def async_client():
     """Provide async HTTP client for API testing."""
     from app.main import create_app
-    from app.core.database import init_db
 
-    await init_db()
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:

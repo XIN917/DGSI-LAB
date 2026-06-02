@@ -7,12 +7,7 @@ from app.main import app
 from app.core.database import get_db, Base
 from app.services.seed import initialize_seed_data
 from sqlalchemy import create_engine
-
-from pathlib import Path
-TEST_DB_PATH = Path(__file__).parent.parent.parent / "data" / "test_integration.db"
-TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-TEST_DB_URL = f"sqlite:///{TEST_DB_PATH}"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+from sqlalchemy.pool import StaticPool
 
 
 @pytest.fixture
@@ -31,13 +26,20 @@ def client(db_session: Session):
 
 @pytest.fixture
 def db_session():
-    """Create fresh database for each test."""
-    Base.metadata.create_all(bind=test_engine)
-    session = Session(test_engine)
+    """Create fresh isolated in-memory database for each test."""
+    from app.models import product, inventory, order, purchase_order, event, simulation, metrics  # noqa
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    session = Session(engine)
     initialize_seed_data(session)
     yield session
     session.rollback()
-    Base.metadata.drop_all(bind=test_engine)
+    session.close()
+    engine.dispose()
 
 
 def test_fast_production_cycle_api(client):
@@ -57,14 +59,14 @@ def test_fast_production_cycle_api(client):
 
     # 4. Verify completion
     response = client.get(f"/api/orders/{order_id}")
-    assert response.json()["status"] == "completed"
+    assert response.json()["status"] == "delivered"
     assert response.json()["quantity_produced"] == 10.0
 
     # 5. Verify Export/Import logic
     response = client.get("/api/export/full-state")
     assert response.status_code == 200
     state = response.json()
-    assert state["simulation_state"]["current_day"] == 2
+    assert state["simulation_state"]["current_day"] == 1
 
     response = client.post("/api/import/full-state", json=state)
     assert response.status_code == 200

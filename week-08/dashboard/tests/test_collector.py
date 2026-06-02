@@ -38,6 +38,28 @@ def test_collect_provider_normalizes_and_joins_catalog():
     assert any(o["id"] == 312 and o["eta"] == 16 for o in tier["orders"])
 
 
+_MFR_INVENTORY = {
+    "items": [
+        {"product_name": "P3D-Classic", "quantity": 12.0, "reserved_quantity": 0.0,
+         "available": 12.0, "max_capacity": 250.0, "unit_type": "finished"},
+        {"product_name": "P3D-Pro",     "quantity": 5.0,  "reserved_quantity": 0.0,
+         "available": 5.0,  "max_capacity": 250.0, "unit_type": "finished"},
+        {"product_name": "frame_kit",   "quantity": 20.0, "reserved_quantity": 0.0,
+         "available": 20.0, "max_capacity": 250.0, "unit_type": "raw"},
+        {"product_name": "pcb_control", "quantity": 200.0,"reserved_quantity": 0.0,
+         "available": 200.0,"max_capacity": 250.0, "unit_type": "raw"},
+    ],
+    "total_units": 237.0, "capacity": 1000, "usage_pct": 23.7,
+}
+
+_MFR_ORDERS = [
+    {"id": 10, "product_model": "P3D-Classic", "quantity_needed": 5.0, "quantity_produced": 0.0,
+     "status": "pending", "delivery_day": None},
+    {"id": 11, "product_model": "P3D-Pro", "quantity_needed": 3.0, "quantity_produced": 3.0,
+     "status": "completed", "delivery_day": 7},
+]
+
+
 def _mfr_handler(request: httpx.Request) -> httpx.Response:
     p = request.url.path
     if p == "/api/day/current":
@@ -46,6 +68,10 @@ def _mfr_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=[
             {"sku": "P3D-Classic", "name": "P3D Classic", "unit_price": 1200.0},
             {"sku": "P3D-Pro", "name": "P3D Pro", "unit_price": 246.0}])
+    if p == "/api/inventory":
+        return httpx.Response(200, json=_MFR_INVENTORY)
+    if p == "/api/orders":
+        return httpx.Response(200, json=_MFR_ORDERS)
     return httpx.Response(404)
 
 
@@ -64,7 +90,7 @@ def _make_mfr_metrics_db(path: Path):
     conn.close()
 
 
-def test_collect_manufacturer_uses_metrics_db_no_auth(tmp_path):
+def test_collect_manufacturer_uses_live_api(tmp_path):
     db = tmp_path / "manufacturer.db"
     _make_mfr_metrics_db(db)
     svc = ServiceConfig("Factory", "http://mfr", db)
@@ -73,16 +99,19 @@ def test_collect_manufacturer_uses_metrics_db_no_auth(tmp_path):
     asyncio.run(client.aclose())
 
     assert tier["online"] is True and tier["current_day"] == 7
-    assert tier["orders"] == []  # no per-order list without auth
-    # finished models from catalog, stock filled from latest metrics day (7), not day 6
+    # finished models from /api/inventory
     classic = next(i for i in tier["items"] if i["name"] == "P3D-Classic")
-    assert classic["kind"] == "finished" and classic["stock"] == 12 and classic["price"] == 1200.0
-    # raw parts come from the latest-day parts_stock_json (frame_kit=20, not the day-6 999)
+    assert classic["kind"] == "finished" and classic["stock"] == 12.0 and classic["price"] == 1200.0
+    # raw parts from /api/inventory (unit_type == "raw")
     frame = next(i for i in tier["items"] if i["name"] == "frame_kit")
     assert frame["kind"] == "part" and frame["stock"] == 20 and frame["price"] is None
+    # utilisation still from metrics table (not in /api/inventory)
     assert tier["extra"]["utilisation_pct"] == 91.0   # max(0.91, 0.40) * 100
-    assert tier["extra"]["sales_pending"] == 4 and tier["extra"]["sales_completed"] == 6
+    # pending/completed counts from /api/orders
+    assert tier["extra"]["sales_pending"] == 1 and tier["extra"]["sales_completed"] == 1
     assert tier["in_transit_out"] is None
+    # orders list from /api/orders
+    assert any(o["id"] == 10 and o["label"] == "P3D-Classic" for o in tier["orders"])
 
 
 def test_collect_manufacturer_online_without_metrics_db(tmp_path):
@@ -91,9 +120,8 @@ def test_collect_manufacturer_online_without_metrics_db(tmp_path):
     tier = asyncio.run(collect_tier("manufacturer", svc, client))
     asyncio.run(client.aclose())
     assert tier["online"] is True
-    assert [i["name"] for i in tier["items"]] == ["P3D-Classic", "P3D-Pro"]
-    assert all(i["stock"] == 0 for i in tier["items"])  # no metrics yet → stock unknown (0)
-    assert tier["extra"]["utilisation_pct"] is None
+    assert [i["name"] for i in tier["items"] if i["kind"] == "finished"] == ["P3D-Classic", "P3D-Pro"]
+    assert tier["extra"]["utilisation_pct"] is None  # no metrics DB → no util
 
 
 def test_collect_tier_offline_when_unreachable():

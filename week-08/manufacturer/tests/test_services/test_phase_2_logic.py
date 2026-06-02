@@ -80,17 +80,11 @@ def test_po_delivery_logic(sim_engine, db_session):
 
 def test_demand_generation_logic(sim_engine, db_session):
     setup_test_data(db_session)
-    
-    # Advance day
+
+    # Demand is driven externally by the retailer via REST — advance_day returns no demand events
     result = sim_engine.advance_day()
-    
-    # Check demand generated (1-3 orders)
     demand_events = [e for e in result["events_generated"] if e["type"] == "demand_generated"]
-    assert 1 <= len(demand_events) <= 3
-    
-    # Check orders created in DB
-    orders = db_session.query(ManufacturingOrder).all()
-    assert len(orders) == len(demand_events)
+    assert len(demand_events) == 0
 
 def test_production_and_capacity_logic(sim_engine, order_svc, db_session):
     setup_test_data(db_session)
@@ -120,8 +114,8 @@ def test_production_and_capacity_logic(sim_engine, order_svc, db_session):
     result = sim_engine.advance_day()
     db_session.refresh(order)
     assert order.quantity_produced == Decimal("15")
-    assert order.status == "completed"
-    
+    assert order.status == "delivered"
+
     # Check inventory consumption final
     db_session.refresh(frame_inv)
     assert frame_inv.quantity == Decimal("85") # 90 - 5

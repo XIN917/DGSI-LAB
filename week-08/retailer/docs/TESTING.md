@@ -1,125 +1,69 @@
-# Retailer App Testing Guide
+# Retailer App — Testing Guide
 
-This guide provides comprehensive testing strategies for the Retailer App, including unit tests, integration tests, CLI testing, and end-to-end supply chain scenarios.
+## Running Tests
 
-## Table of Contents
-
-1. [Testing Overview](#1-testing-overview)
-2. [Setup & Prerequisites](#2-setup--prerequisites)
-3. [Running Tests](#3-running-tests)
-4. [CLI Testing Guide](#4-cli-testing-guide)
-5. [End-to-End Supply Chain Testing](#5-end-to-end-supply-chain-testing)
-6. [Troubleshooting](#6-troubleshooting)
-
----
-
-## 1. Testing Overview
-
-- **Unit Tests**: Business logic and pricing rules (`tests/test_services/`).
-- **Integration Tests**: API endpoints and DB state (`tests/test_api/`).
-- **CLI Tests**: Manual verification of `retailer-cli`.
-
----
-
-## 2. Setup & Prerequisites
-
-Choose your preferred environment manager:
-
-### Option A: Using `uv` (Recommended)
 ```bash
 cd retailer
-uv sync
-uv run retailer-cli init
-```
-*Note: When using `uv`, you should prefix execution commands with `uv run` unless you manually activate the environment via `source .venv/bin/activate`.*
+venv/bin/pytest tests/ -v
 
-### Option B: Using standard `venv`
+# Focused delivery-sync regression test (run before full scenario runs):
+venv/bin/pytest tests/test_services/test_purchase_order_sync.py
+```
+
+Always use `retailer/venv/bin/pytest`, not `.venv/bin/pytest`.
+
+---
+
+## Test Suites
+
+| File | What it covers |
+|---|---|
+| `test_api/test_endpoints.py` | Day and catalog HTTP endpoints via async client |
+| `test_services/test_retailer_service.py` | Core service methods: day counter, catalog, customer orders, advance |
+| `test_services/test_business_logic.py` | 15% markup enforcement, backorder auto-fulfillment on stock arrival |
+| `test_services/test_retailer_markup.py` | Markup rule unit test with mocked catalog |
+| `test_services/test_purchase_order_sync.py` | PO sync runs until terminal state (pre-run regression) |
+
+---
+
+## Key Notes
+
+- **Service is synchronous** — `RetailerService(db=session)`. Tests use the sync `db_session` fixture, not `async_session_local`.
+- **Pricing tests mock `get_catalog`** — pricing enforcement calls the live manufacturer service to get wholesale prices. Tests mock this with the correct seed prices (Classic €195, Pro €290) so they don't require the manufacturer to be running.
+- **Async API tests** (`test_endpoints.py`) use `aiosqlite` and `greenlet` — both installed via `requirements.txt`.
+- **Never call `day advance` directly** in tests or manually — the turn engine does that via `POST /api/day/advance`.
+
+---
+
+## CLI Testing
+
+Start the service first:
+
 ```bash
-cd retailer
-python3 -m venv venv
-source venv/bin/activate
-pip install -e .
-retailer-cli init
+retailer/venv/bin/retailer-cli serve --port 8003
+```
+
+Then in another terminal:
+
+```bash
+retailer-cli day current
+retailer-cli stock
+retailer-cli customers orders
+retailer-cli customers order <id>
+retailer-cli fulfill <order_id>
+retailer-cli backorder <order_id>
+retailer-cli purchase list
+retailer-cli purchase create <model> <qty>
+retailer-cli price list
+retailer-cli price set <model> <price>
 ```
 
 ---
 
-## 3. Running Tests
+## Troubleshooting
 
-### If using `uv`:
-```bash
-# Run all tests
-uv run pytest tests/
+**`ModuleNotFoundError: No module named 'aiosqlite'`** — run `uv pip install --python venv/bin/python aiosqlite`.
 
-# Run specific business logic tests
-uv run pytest tests/test_services/test_business_logic.py
-```
+**`No module named 'greenlet'`** — run `uv pip install --python venv/bin/python greenlet`.
 
-### If using `venv`:
-```bash
-# Ensure environment is active: source venv/bin/activate
-pytest tests/
-```
-
----
-
-## 4. CLI Testing Guide
-
-To test the CLI while the API is running, use two terminal tabs.
-
-### Terminal 1: Start the API
-*   **uv**: `uv run uvicorn app.main:app --reload --port 8003`
-*   **venv**: `uvicorn app.main:app --reload --port 8003`
-
-### Terminal 2: Run CLI Commands
-*   **uv**: `uv run retailer-cli <command>`
-*   **venv**: `retailer-cli <command>`
-
-#### Common Commands:
-```bash
-# Display catalog & inventory
-retailer-cli catalog
-retailer-cli inventory
-
-# Customer Orders
-retailer-cli customer-orders list
-retailer-cli customer-orders create --sku P3D-Classic --quantity 2
-
-# Purchase Orders & Simulation
-retailer-cli purchase-orders list
-retailer-cli day-advance
-retailer-cli pricing P3D-Classic 1600.0
-```
-
----
-
-## 5. End-to-End Supply Chain Testing
-
-### Setup All Three Apps
-
-| App | Terminal Command (uv) | Default Port |
-|-----|-----------------------|--------------|
-| **Provider** | `uv run provider-cli serve` | 8001 |
-| **Manufacturer** | `uv run uvicorn app.main:app --port 8002` | 8002 |
-| **Retailer** | `uv run uvicorn app.main:app --port 8003` | 8003 |
-
-#### Scenario: Order to Delivery
-1.  **Retailer**: Place PO (`retailer-cli purchase-orders create ...`)
-2.  **Simulation**: Advance days in all apps (`retailer-cli day-advance`)
-3.  **Retailer**: Check inventory (`retailer-cli inventory`) to see arrival of goods.
-4.  **Retailer**: Customer orders now fulfill automatically from new stock.
-
----
-
-## 6. Troubleshooting
-
-### Command not found: `retailer-cli`
-- **uv**: Run `uv sync` to register the script. Use `uv run retailer-cli`.
-- **venv**: Run `pip install -e .` and ensure `source venv/bin/activate` is run in the current terminal.
-
-### Database Errors
-Reset the database:
-```bash
-rm retailer.db
-retailer-cli init  # (Add uv run if using uv)
-```
+**Database errors** — reset with `scripts/reset_all.sh` from the repo root, or delete `retailer/data/retailer.db` and run `retailer-cli init`.

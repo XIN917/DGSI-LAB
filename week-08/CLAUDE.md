@@ -168,7 +168,7 @@ Agent turn limits: retailer 6, manufacturer 8, provider 8. Per-agent wall-clock 
 
 **Known gotcha:** `manufacturer/providers.json` must exist and point to the provider service URL. It is tracked in git. All databases are named consistently as `<service>.db` (e.g., `manufacturer/data/manufacturer.db`).
 
-**Delivery sync invariant:** The turn engine advances services through HTTP, not the CLIs. Therefore all day-advance side effects required by a run must live in the HTTP advance paths too. Manufacturer `POST /api/day/advance` and authenticated `POST /api/simulation/advance` must poll external suppliers before advancing, and retailer purchase-order sync must keep checking every non-terminal PO until it is delivered or cancelled.
+**Delivery sync invariant:** The turn engine advances services through HTTP, not the CLIs. Therefore all day-advance side effects required by a run must live in the HTTP advance paths too. Manufacturer `POST /api/day/advance` and `POST /api/simulation/advance` must poll external suppliers before advancing, and retailer purchase-order sync must keep checking every non-terminal PO until it is delivered or cancelled.
 
 ---
 
@@ -286,8 +286,8 @@ See **`README.md`** for startup instructions. Open http://localhost:8080. Five p
 - **Overview tier cards**: provider shows 3 lowest-stock parts; manufacturer shows only finished goods (parts hidden); sparklines match exactly the items shown. Price drift (↑/↓) shown per item.
 - **Sparkline labels** shown below each overview sparkline when multiple series are present.
 - **Event strip** shown above the header — all non-normal scenario events as chips with name, day range, demand mod, supply mod (supply in red when < 1). Sourced from `event_summary` in `/api/state` and `/api/archive/{scenario}/state`, built from the scenario JSON in `context.py`.
-- **Order panels** on all service pages show a status summary bar (counts by status) above a scrollable list (newest first, LIMIT 500). Manufacturer orders read directly from `manufacturing_orders` table in the DB (no auth needed). Provider and retailer orders sorted DESC in collector.py. Status colors: confirmed (cyan), in progress (purple), waiting materials (orange).
-- **Manufacturer parts at day 0**: when metrics table is empty after reset, parts stock falls back to the `inventory` table in the manufacturer DB.
+- **Order panels** on all service pages show a status summary bar (counts by status) above a scrollable list (newest first, LIMIT 500). Manufacturer orders come from `GET /api/orders` (no auth on any manufacturer endpoint). Provider and retailer orders sorted DESC in collector.py. Status colors: confirmed (cyan), in progress (purple), waiting materials (orange).
+- **Manufacturer stock and orders**: `collector.py` calls `/api/inventory` and `/api/orders` directly (same as Provider/Retailer). Utilisation % still comes from the `metrics` table (the only source for it). Parts stock falls back to the `inventory` table at day 0 when the metrics table is empty.
 - **Archive view**: a VIEW dropdown in the nav switches between live service data and any completed scenario archive. Selecting a scenario loads `logs/{scenario}/*.db` and `logs/{scenario}/run.csv` via `GET /api/archive/{scenario}/state`. Selection persists across pages via `sessionStorage`. Archives survive resets.
 - **Simulation page selections** (scenario, model, days, start day) persist across page navigation via `sessionStorage`.
 - Reset is fire-and-forget: `POST /api/sim/reset` returns immediately; frontend polls `GET /api/sim/reset/status` every 2 s; on page re-init the polling resumes if status is `"running"`

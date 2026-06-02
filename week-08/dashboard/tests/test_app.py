@@ -22,6 +22,7 @@ def test_api_state_assembles_payload(monkeypatch):
     monkeypatch.setattr(appmod, "build_history", lambda services: {"provider": {"series": {}, "peak": {}}})
     monkeypatch.setattr(appmod, "load_context", lambda **kw: {
         "scenario": "holiday-rush", "day_total": 25,
+        "avg_fill_rate": 66.7,
         "latest": {"events": "Black Friday", "demand_mod": 2.0, "supply_mod": 0.5, "lead_mod": 1.0,
                    "fill_rate": 66.7, "backordered": 4, "day": 14},
         "fill_rate_series": [[14, 66.7]]})
