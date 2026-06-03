@@ -149,9 +149,9 @@ Paginated agent log lines from all `logs/{scenario}/day-NNN.log` files.
 ---
 
 ### `GET /run/{run_id}/kpis`
-Daily KPI rows from `logs/run.csv` filtered to this run's scenario.
+Daily KPI rows from `logs/{scenario}/run.csv` for this run's scenario.
 
-> **Note:** `logs/run.csv` is cleared at the start of every fresh simulation run, so it always contains only the most recent run's data. This endpoint returns meaningful data only for the latest completed run of a given scenario.
+> **Note:** `logs/{scenario}/run.csv` is cleared at the start of every fresh run of that scenario. This endpoint returns meaningful data only for the latest completed run of a given scenario.
 
 **Response `200`:** Array of objects with fields:
 `scenario`, `day`, `demand_mod`, `supply_mod`, `lead_mod`, `price_sensitivity`, `events`, `orders_placed`, `fulfilled`, `backordered`, `stockout`, `fill_rate_pct`
@@ -187,12 +187,15 @@ List generated chart PNG files for this run.
 **Response `200`:**
 ```json
 [
-  { "name": "inventory.png",       "path": "/run/{run_id}/charts/inventory.png" },
-  { "name": "parts_inventory.png", "path": "/run/{run_id}/charts/parts_inventory.png" },
-  { "name": "prices.png",          "path": "/run/{run_id}/charts/prices.png" },
-  { "name": "parts_prices.png",    "path": "/run/{run_id}/charts/parts_prices.png" },
-  { "name": "fulfillment.png",     "path": "/run/{run_id}/charts/fulfillment.png" },
-  { "name": "events.png",          "path": "/run/{run_id}/charts/events.png" }
+  { "name": "scenario_events.png",         "path": "/run/{run_id}/charts/scenario_events.png" },
+  { "name": "retailer_fulfillment.png",    "path": "/run/{run_id}/charts/retailer_fulfillment.png" },
+  { "name": "manufacturer_stock.png",      "path": "/run/{run_id}/charts/manufacturer_stock.png" },
+  { "name": "manufacturer_prices.png",     "path": "/run/{run_id}/charts/manufacturer_prices.png" },
+  { "name": "manufacturer_utilisation.png","path": "/run/{run_id}/charts/manufacturer_utilisation.png" },
+  { "name": "retailer_stock.png",          "path": "/run/{run_id}/charts/retailer_stock.png" },
+  { "name": "retailer_prices.png",         "path": "/run/{run_id}/charts/retailer_prices.png" },
+  { "name": "provider_stock.png",          "path": "/run/{run_id}/charts/provider_stock.png" },
+  { "name": "provider_prices.png",         "path": "/run/{run_id}/charts/provider_prices.png" }
 ]
 ```
 

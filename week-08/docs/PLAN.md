@@ -32,7 +32,10 @@ All wiring, metrics tables, tests, simulation runs, visualizations, and analysis
 
 ### Phase 5 — Final Delivery
 
-- [ ] Draft 5–8 page Final Report (PDF) — sections: architecture, agent design, results, vibe-coding reflection
+- [x] Draft 5–8 page Final Report — sections: architecture, agent design, results, vibe-coding reflection
+- [x] `.gitignore` clean — no `.db` or raw log files tracked
+- [x] All scripts tested (`start_services.sh`, `start_dashboard.sh`, `stop_services.sh`, `stop_dashboard.sh`)
+- [x] Export report to PDF via pandoc
 
 ---
 
@@ -76,6 +79,7 @@ All wiring, metrics tables, tests, simulation runs, visualizations, and analysis
 - [x] fmtStatus helper: InProgress → IN PROGRESS, waiting_materials → WAITING MATERIALS
 - [x] Simulation page: scenario/model/days/start-day persist across page navigation via sessionStorage
 - [x] proxy_runs exception handling fixed (JSONDecodeError on empty api_server response)
-- [ ] Final end-to-end test run (calm-market + holiday-rush) to verify all recent fixes
-- [ ] Final report drafted (PDF)
-- [ ] Final `.gitignore` and repo polish check before submission
+- [x] Final end-to-end test run (calm-market + holiday-rush) — archived in `logs/`
+- [x] Final report drafted
+- [x] Export report to PDF via pandoc
+- [x] Final `.gitignore` and repo polish check before submission
