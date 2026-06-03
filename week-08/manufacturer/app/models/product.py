@@ -28,7 +28,7 @@ class BOMItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     model_id = Column(String(50), ForeignKey("product_models.id"), nullable=False)
-    material_name = Column(String(100), nullable=False)  # e.g., "kit_piezas", "pcb"
+    material_name = Column(String(100), ForeignKey("inventory.product_name"), nullable=False)  # e.g., "frame_kit"
     quantity_required = Column(Numeric(10, 2), nullable=False)
     pcb_ref = Column(String(50), nullable=True)  # Optional reference like "CTRL-V2"
 

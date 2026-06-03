@@ -48,7 +48,7 @@ class PurchaseOrder(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
-    product_name = Column(String(100), nullable=False)
+    product_name = Column(String(100), ForeignKey("inventory.product_name"), nullable=False)
     quantity_ordered = Column(Numeric(10, 2), nullable=False)
     quantity_delivered = Column(Numeric(10, 2), default=0)
     unit_cost = Column(Numeric(10, 2), nullable=False)

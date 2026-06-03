@@ -149,7 +149,7 @@ CREATE TABLE product_models (
 CREATE TABLE bom_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     model_id TEXT NOT NULL REFERENCES product_models(id),
-    material_name TEXT NOT NULL,       -- e.g., "kit_piezas", "pcb"
+    material_name TEXT NOT NULL REFERENCES inventory(product_name),  -- e.g., "frame_kit"
     quantity REQUIRED DECIMAL NOT NULL,
     pcb_ref TEXT                       -- Optional reference like "CTRL-V2"
 );
@@ -199,7 +199,7 @@ CREATE TABLE manufacturing_orders (
 CREATE TABLE purchase_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     supplier_id INTEGER NOT NULL REFERENCES suppliers(id),
-    product_name TEXT NOT NULL,
+    product_name TEXT NOT NULL REFERENCES inventory(product_name),
     quantity_ordered INTEGER NOT NULL,
     quantity_delivered INTEGER DEFAULT 0,
     unit_cost DECIMAL NOT NULL,

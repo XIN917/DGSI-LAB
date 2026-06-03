@@ -25,6 +25,26 @@ def initialize_seed_data(db: Session = None):
     try:
         plan = load_production_plan()
 
+        # Seed inventory first — bom_items.material_name FK references inventory.product_name
+        for product_name, inv_data in plan["initial_inventory"].items():
+            existing = db.query(Inventory).filter(Inventory.product_name == product_name).first()
+            if not existing:
+                max_cap = 250
+                if "motor" in product_name: max_cap = 500
+                if "kit" in product_name: max_cap = 200
+                if "sensor" in product_name: max_cap = 300
+
+                inventory = Inventory(
+                    product_name=product_name,
+                    quantity=Decimal(str(inv_data["qty"])),
+                    reserved_quantity=Decimal("0"),
+                    max_capacity=Decimal(str(max_cap)),
+                    unit_type=inv_data.get("type", "raw")
+                )
+                db.add(inventory)
+
+        db.flush()  # ensure inventory rows exist before BOM items reference them
+
         for model_id, model_data in plan["models"].items():
             existing = db.query(ProductModel).filter(ProductModel.id == model_id).first()
             if not existing:
@@ -71,23 +91,6 @@ def initialize_seed_data(db: Session = None):
                         discount_tiers=json.dumps(product_data.get("tiers", []))
                     )
                     db.add(sup_product)
-
-        for product_name, inv_data in plan["initial_inventory"].items():
-            existing = db.query(Inventory).filter(Inventory.product_name == product_name).first()
-            if not existing:
-                max_cap = 250
-                if "motor" in product_name: max_cap = 500
-                if "kit" in product_name: max_cap = 200
-                if "sensor" in product_name: max_cap = 300
-
-                inventory = Inventory(
-                    product_name=product_name,
-                    quantity=Decimal(str(inv_data["qty"])),
-                    reserved_quantity=Decimal("0"),
-                    max_capacity=Decimal(str(max_cap)),
-                    unit_type=inv_data.get("type", "raw")
-                )
-                db.add(inventory)
 
         from app.models.simulation import SimulationState
         from app.core.config import get_settings
