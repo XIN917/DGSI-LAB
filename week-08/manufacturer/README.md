@@ -24,8 +24,6 @@ uv pip install -e .
 
 ```bash
 manufacturer/venv/bin/manufacturer-cli serve --port 8002
-# or via the root start script:
-./scripts/start_all.sh
 ```
 
 API docs: `http://localhost:8002/docs`

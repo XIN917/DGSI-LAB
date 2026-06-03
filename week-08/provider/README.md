@@ -24,8 +24,6 @@ uv pip install -e .
 
 ```bash
 provider/venv/bin/provider-cli serve --port 8001
-# or via the root start script:
-./scripts/start_all.sh
 ```
 
 API docs: `http://localhost:8001/docs`

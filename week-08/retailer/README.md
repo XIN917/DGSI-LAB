@@ -24,8 +24,6 @@ uv pip install -e .
 
 ```bash
 retailer/venv/bin/retailer-cli serve --port 8003
-# or via the root start script:
-./scripts/start_all.sh
 ```
 
 API docs: `http://localhost:8003/docs`

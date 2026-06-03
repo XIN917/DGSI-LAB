@@ -31,18 +31,29 @@ Supported models: `gemini-3.1-flash-lite` (default), `gemma-4-26b`, `gemini-2.5-
 ./scripts/setup_envs.sh
 ```
 
-### 2. Start all services
+### 2. Start services
+
+Start everything at once:
 
 ```bash
 ./scripts/start_all.sh
 ```
 
-Services run in the background on:
-- Provider: http://127.0.0.1:8001
-- Manufacturer: http://127.0.0.1:8002
-- Retailer: http://127.0.0.1:8003
+Or start the supply chain services and the dashboard independently:
 
-Logs: `logs/provider.log`, `logs/manufacturer.log`, `logs/retailer.log`
+```bash
+./scripts/start_services.sh   # Provider :8001, Manufacturer :8002, Retailer :8003
+./scripts/start_dashboard.sh  # API server :8000, Dashboard :8080
+```
+
+You can also run the API server or dashboard directly in the foreground (useful for debugging):
+
+```bash
+venv/bin/python api_server.py   # :8000 — foreground, shows live logs
+venv/bin/python dashboard.py    # :8080 — foreground, shows live logs
+```
+
+Logs (background mode): `logs/provider.log`, `logs/manufacturer.log`, `logs/retailer.log`, `logs/api_server.log`, `logs/dashboard.log`
 
 ### 3. Reset to Day 0
 
@@ -140,12 +151,10 @@ provider/venv/bin/pytest provider/tests/ -v
 A browser-based monitoring dashboard shows real-time inventory, prices, fulfillment, and service health — and lets you start/reset simulations from the UI.
 
 ```bash
-# Start api_server first (if not already running)
-venv/bin/python api_server.py          # :8000
-
-# Then start the dashboard
-venv/bin/python dashboard.py           # :8080
+./scripts/start_all.sh
 ```
+
+This starts all five services: Provider (:8001), Manufacturer (:8002), Retailer (:8003), API server (:8000), and Dashboard (:8080).
 
 Open http://localhost:8080. The dashboard has five pages:
 - **Overview** — prominent day counter, color-coded KPI tiles (avg fill rate, backlog, prod util, active demand/supply modifiers), alerts strip, pipeline flow diagram, per-service SVG charts; all KPIs suppressed at day 0 to avoid showing stale data; event strip shows all scenario events with day ranges and modifiers
@@ -156,21 +165,13 @@ A **VIEW** dropdown in the nav bar lets you switch between the live service stat
 
 > **Note:** Services launched via `scripts/start_all.sh` use `start_new_session=True` so they stay up when `api_server.py` restarts.
 
-### 8. Stop all services
+### 8. Stop services
 
 ```bash
-pkill -f 'cli serve'        # stops Provider, Manufacturer, Retailer
-pkill -f 'api_server.py'    # stops the API server (:8000)
-pkill -f 'dashboard.py'     # stops the dashboard (:8080)
+./scripts/stop_all.sh          # stop everything
+./scripts/stop_services.sh     # stop Provider, Manufacturer, Retailer only
+./scripts/stop_dashboard.sh    # stop API server and Dashboard only
 ```
-
-Or all at once:
-
-```bash
-pkill -f 'cli serve'; pkill -f 'api_server.py'; pkill -f 'dashboard.py'
-```
-
-> **Note:** `pkill -f 'cli serve'` does **not** stop the dashboard or API server — they are started as `python dashboard.py` / `python api_server.py`, not via a `cli serve` command.
 
 ---
 
