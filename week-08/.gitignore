@@ -30,3 +30,6 @@ venv/
 # Environment
 .env
 .env.local
+
+# Scratch / document files that may contain secrets
+*.rtf
