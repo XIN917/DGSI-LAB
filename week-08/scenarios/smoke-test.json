@@ -1,0 +1,24 @@
+{
+  "scenario_name": "Smoke Test — Flash Sale",
+  "base_demand": {"mean": 5, "variance": 1},
+  "base_price": 400,
+  "events": [
+    {
+      "name": "normal",
+      "start_day": 1,
+      "end_day": 3,
+      "demand_modifier": 1.0,
+      "supply_modifier": 1.0,
+      "description": "Steady baseline — agents establish rhythm"
+    },
+    {
+      "name": "flash_sale",
+      "start_day": 4,
+      "end_day": 6,
+      "demand_modifier": 2.5,
+      "supply_modifier": 1.0,
+      "price_sensitivity": "high",
+      "description": "Flash sale — demand spikes, customers price-sensitive"
+    }
+  ]
+}

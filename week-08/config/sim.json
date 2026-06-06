@@ -1,0 +1,24 @@
+{
+  "retailers": [
+    {
+      "name": "PrinterWorld",
+      "url": "http://127.0.0.1:8003",
+      "path": "./retailer",
+      "skill": "skills/retail-manager.md"
+    }
+  ],
+  "manufacturer": {
+    "name": "Factory",
+    "url": "http://127.0.0.1:8002",
+    "path": "./manufacturer",
+    "skill": "skills/manufacturer-manager.md"
+  },
+  "providers": [
+    {
+      "name": "ChipSupply",
+      "url": "http://127.0.0.1:8001",
+      "path": "./provider",
+      "skill": "skills/provider-manager.md"
+    }
+  ]
+}

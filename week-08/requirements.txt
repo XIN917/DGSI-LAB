@@ -1,0 +1,11 @@
+google-genai
+python-dotenv
+requests
+matplotlib
+pandas
+pytest
+pytest-asyncio
+fastapi
+uvicorn
+httpx
+rich

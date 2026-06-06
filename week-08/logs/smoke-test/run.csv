@@ -1,0 +1,7 @@
+scenario,day,demand_mod,supply_mod,lead_mod,price_sensitivity,events,orders_placed,fulfilled,backordered,stockout,fill_rate_pct
+smoke-test,1,1.0,1.0,1.0,normal,normal,6,6,0,0,100.0
+smoke-test,2,1.0,1.0,1.0,normal,normal,8,8,0,0,100.0
+smoke-test,3,1.0,1.0,1.0,normal,normal,8,7,1,0,87.5
+smoke-test,4,2.5,1.0,1.0,high,flash_sale,14,3,11,0,21.4
+smoke-test,5,2.5,1.0,1.0,high,flash_sale,7,0,7,0,0.0
+smoke-test,6,2.5,1.0,1.0,high,flash_sale,8,0,8,0,0.0

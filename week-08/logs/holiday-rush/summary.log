@@ -1,0 +1,33 @@
+Run Summary — holiday-rush
+============================================================
+Duration: 16m 59s  |  Model: gemini-3.1-flash-lite  |  Days: 1–25
+
+ Day  Events                        Orders   Fill   Back   Lost   Fill%
+------------------------------------------------------------
+   1  normal                            12      7      5      0   58.3%
+   2  normal                             5      5      0      0  100.0%
+   3  normal                             6      6      0      0  100.0%
+   4  normal                             1      1      0      0  100.0%
+   5  normal                             6      5      1      0   83.3%
+   6  normal                             2      2      0      0  100.0%
+   7  normal                             0      0      0      0    0.0%
+   8  normal                             8      8      0      0  100.0%
+   9  normal                             2      2      0      0  100.0%
+  10  normal                             0      0      0      0    0.0%
+  11  black_friday                       7      7      0      0  100.0%
+  12  black_friday                       4      4      0      0  100.0%
+  13  black_friday                       9      9      0      0  100.0%
+  14  chip_shortage                      0      0      0      0    0.0%
+  15  chip_shortage                      5      5      0      0  100.0%
+  16  chip_shortage                      0      0      0      0    0.0%
+  17  chip_shortage                      0      0      0      0    0.0%
+  18  chip_shortage, christmas_season       7      7      0      0  100.0%
+  19  chip_shortage, christmas_season       3      3      0      0  100.0%
+  20  chip_shortage, christmas_season       8      8      0      0  100.0%
+  21  christmas_season                   5      5      0      0  100.0%
+  22  christmas_season                   9      9      0      0  100.0%
+  23  christmas_season                   4      4      0      0  100.0%
+  24  christmas_season                   6      4      2      0   66.7%
+  25  christmas_season                   5      3      2      0   60.0%
+------------------------------------------------------------
+TOTAL                                   114    104     10      0   91.2%

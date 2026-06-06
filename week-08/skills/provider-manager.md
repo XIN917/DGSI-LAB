@@ -1,0 +1,38 @@
+# Skill: Provider Manager
+
+## Your Role
+You manage a parts supply company. Each simulated day:
+1. Process incoming purchase orders from manufacturers
+2. Manage your stock (simulated upstream supply)
+3. Adjust prices based on stock pressure
+4. Ship orders whose lead time has elapsed
+
+## Available Commands
+
+### Check current state
+- `./provider-cli day current`
+- `./provider-cli stock`
+- `./provider-cli catalog`
+- `./provider-cli orders list` (optional: `--status pending`)
+- `./provider-cli orders show <id>`
+
+### Operations
+- `./provider-cli restock <product> <quantity>`
+- `./provider-cli price set <product> <tier> <price>`
+
+## DO NOT
+- Do NOT call `day advance`. The turn engine does that.
+- Do NOT change a tier's price more than 15% in one day.
+- Do NOT let any single product go to zero stock if orders for it are pending.
+
+## Decision Framework
+
+1. **Assess.** Run `stock`, `catalog`, and `orders list`. Summarise the state in 2–3 sentences. On Day 1, treat the catalog quantities as the starting levels. On subsequent days, use the highest stock level you have observed for each product as the starting level baseline.
+2. **Restock.** If any product stock is below 50% of its starting level, restock up to the starting level. Execute the restock commands immediately — do not ask for confirmation. Log the rationale.
+3. **Adjust prices.** If stock of a product is above 150% of starting, lower the top tier price 5–10%. If stock is below 30%, raise it 5–10%. Stay within the 15% daily bound.
+4. **Summarise.** 3–5 bullet points of what you did today and why.
+
+## Market Signals
+
+- `supply_modifier < 0.7`: shortage context. Raise prices more aggressively; accept that you may not be able to fulfill all orders.
+- `demand_modifier > 1.5`: manufacturer will likely place larger orders. Build stock ahead.

@@ -1,0 +1,26 @@
+scenario,day,demand_mod,supply_mod,lead_mod,price_sensitivity,events,orders_placed,fulfilled,backordered,stockout,fill_rate_pct
+holiday-rush,1,1.0,1.0,1.0,normal,normal,12,7,5,0,58.3
+holiday-rush,2,1.0,1.0,1.0,normal,normal,5,5,0,0,100.0
+holiday-rush,3,1.0,1.0,1.0,normal,normal,6,6,0,0,100.0
+holiday-rush,4,1.0,1.0,1.0,normal,normal,1,1,0,0,100.0
+holiday-rush,5,1.0,1.0,1.0,normal,normal,6,5,1,0,83.3
+holiday-rush,6,1.0,1.0,1.0,normal,normal,2,2,0,0,100.0
+holiday-rush,7,1.0,1.0,1.0,normal,normal,0,0,0,0,0
+holiday-rush,8,1.0,1.0,1.0,normal,normal,8,8,0,0,100.0
+holiday-rush,9,1.0,1.0,1.0,normal,normal,2,2,0,0,100.0
+holiday-rush,10,1.0,1.0,1.0,normal,normal,0,0,0,0,0
+holiday-rush,11,3.0,1.0,1.0,high,black_friday,7,7,0,0,100.0
+holiday-rush,12,3.0,1.0,1.0,high,black_friday,4,4,0,0,100.0
+holiday-rush,13,3.0,1.0,1.0,high,black_friday,9,9,0,0,100.0
+holiday-rush,14,1.5,0.4,2.0,normal,chip_shortage,0,0,0,0,0
+holiday-rush,15,1.5,0.4,2.0,normal,chip_shortage,5,5,0,0,100.0
+holiday-rush,16,1.5,0.4,2.0,normal,chip_shortage,0,0,0,0,0
+holiday-rush,17,1.5,0.4,2.0,normal,chip_shortage,0,0,0,0,0
+holiday-rush,18,3.75,0.24,2.0,normal,"chip_shortage, christmas_season",7,7,0,0,100.0
+holiday-rush,19,3.75,0.24,2.0,normal,"chip_shortage, christmas_season",3,3,0,0,100.0
+holiday-rush,20,3.75,0.24,2.0,normal,"chip_shortage, christmas_season",8,8,0,0,100.0
+holiday-rush,21,2.5,0.6,1.0,normal,christmas_season,5,5,0,0,100.0
+holiday-rush,22,2.5,0.6,1.0,normal,christmas_season,9,9,0,0,100.0
+holiday-rush,23,2.5,0.6,1.0,normal,christmas_season,4,4,0,0,100.0
+holiday-rush,24,2.5,0.6,1.0,normal,christmas_season,6,4,2,0,66.7
+holiday-rush,25,2.5,0.6,1.0,normal,christmas_season,5,3,2,0,60.0
