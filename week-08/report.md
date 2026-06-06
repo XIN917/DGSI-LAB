@@ -7,7 +7,22 @@
 
 ---
 
-## 1. Architecture
+## Table of Contents
+
+1. [Architecture](#architecture)
+2. [Agent Design](#agent-design)
+3. [Results](#results)
+   - [3.1 Calm Market](#calm-market)
+   - [3.2 Holiday Rush](#holiday-rush)
+   - [3.3 Specific Analysis Questions](#analysis-questions)
+   - [3.4 Scenario Comparison](#scenario-comparison)
+4. [Vibe-Coding Reflection](#vibe-coding)
+5. [Annex A — Simulation Charts](#annex-a)
+6. [Annex B — Dashboard](#annex-b)
+
+---
+
+## 1. Architecture {#architecture}
 
 The system is an autonomous multi-agent supply chain simulation for 3D printers. Three independent microservices — Provider, Manufacturer, Retailer — each driven by an LLM agent playing a business role. A turn engine orchestrates them through simulated days. Scenarios inject market pressure via demand, supply, and lead-time multipliers. Agents never communicate directly — the only shared state is what each service exposes through its HTTP API.
 
@@ -55,7 +70,7 @@ The `metrics` table in each service is a per-day snapshot written on `POST /api/
 
 ---
 
-## 2. Agent Design
+## 2. Agent Design {#agent-design}
 
 Each agent is driven by a markdown skill file (`skills/`) that defines its role, available CLI commands, decision rules, and constraints. The skill files are the authoritative spec — CLIs were aligned to match them, not the reverse.
 
@@ -94,9 +109,9 @@ Full skill files are used only for debugging. Normal runs send compact per-role 
 
 ---
 
-## 3. Results
+## 3. Results {#results}
 
-### 3.1 Calm Market (15 days) — 84.4% fill rate
+### 3.1 Calm Market (15 days) — 84.4% fill rate {#calm-market}
 
 | Metric | Value |
 |---|---|
@@ -115,7 +130,7 @@ Full skill files are used only for debugging. Normal runs send compact per-role 
 
 ---
 
-### 3.2 Holiday Rush (25 days) — 91.2% fill rate
+### 3.2 Holiday Rush (25 days) — 91.2% fill rate {#holiday-rush}
 
 | Metric | Value |
 |---|---|
@@ -136,7 +151,7 @@ Full skill files are used only for debugging. Normal runs send compact per-role 
 
 ---
 
-### 3.3 Specific Analysis Questions
+### 3.3 Specific Analysis Questions {#analysis-questions}
 
 **Did the manufacturer build stock ahead of Black Friday?**
 Yes — and it worked. The pre-build was not triggered by the scenario signal directly but by the retailer placing larger purchase orders as early as day 5. The manufacturer responded to downstream pull, not the demand modifier it was shown. That distinction matters: the agent behaved correctly for the wrong reason — it reacted to an order signal it could observe rather than anticipating a shock it was told about.
@@ -152,13 +167,13 @@ Days 18–21. Retail demand was at 3.75×, but the retailer placed zero new purc
 
 ---
 
-### 3.4 Scenario Comparison
+### 3.4 Scenario Comparison {#scenario-comparison}
 
 The calm-market and holiday-rush runs use identical agents and skill files — the only difference is the scenario JSON. In calm-market, agents converge to a stable equilibrium within 6–8 days: the manufacturer produces in moderate batches, the retailer holds a moderate buffer, and prices climb gently. In holiday-rush, the same agents handle the first shock (Black Friday) correctly — proactive stock building and a 100% fill rate on days 11–13. Counterintuitively, the holiday-rush run achieves a higher overall fill rate (91.2%) than calm-market (84.4%): the aggressive pre-build strategy more than compensated for the late-run shortfall, and the 7 early backorders in calm-market (day 1–6 lag before first delivery) pulled its fill rate down more than the 10 backorders spread across 25 days in holiday-rush. However, the chip shortage exposes the core weakness: the retailer does not know the manufacturer cannot restock; the manufacturer does not know the provider's parts are constrained. Each agent applies its local rule optimally, but the combined effect is a supply chain freeze — manufacturer halts production, retailer raises prices until demand disappears, provider sits on stock it cannot sell. The calm-market run shows the skill files work under stable conditions; the holiday-rush run shows they work locally but lack a coordination protocol for cascading shocks.
 
 ---
 
-## 4. Vibe-Coding Reflection
+## 4. Vibe-Coding Reflection {#vibe-coding}
 
 This project was built using LLM coding assistants throughout — architecture, service implementation, CLI design, the turn engine, the dashboard, tests, and this report. The methodology is "vibe-coding": describing intent conversationally, reviewing what was generated, and iterating. The tooling journey itself turned out to mirror the supply chain problem: coordination without shared memory is hard.
 
@@ -185,7 +200,7 @@ The project moved through tools sequentially: Gemini for weeks 5 and 6, then Git
 
 ---
 
-## Annex A — Simulation Charts
+## Annex A — Simulation Charts {#annex-a}
 
 ### A.1 Calm Market
 
@@ -203,7 +218,7 @@ The project moved through tools sequentially: Gemini for weeks 5 and 6, then Git
 
 ---
 
-## Annex B — Dashboard
+## Annex B — Dashboard {#annex-b}
 
 ![Overview](docs/screenshots/overview.png)
 
