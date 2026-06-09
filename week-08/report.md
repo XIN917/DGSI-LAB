@@ -7,7 +7,7 @@
 
 ---
 
-## Table of Contents
+## Contents
 
 1. [Architecture](#architecture)
 2. [Agent Design](#agent-design)
