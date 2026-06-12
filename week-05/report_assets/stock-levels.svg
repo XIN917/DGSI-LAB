@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450" y="22" text-anchor="middle" font-family="Arial" font-size="18" font-weight="bold">Tracked inventory over five simulated days</text>
+<line x1="70" y1="360.0" x2="870" y2="360.0" stroke="#e5e7eb"/>
+<text x="60" y="364.0" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">0</text>
+<line x1="70" y1="318.8" x2="870" y2="318.8" stroke="#e5e7eb"/>
+<text x="60" y="322.8" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">50</text>
+<line x1="70" y1="277.5" x2="870" y2="277.5" stroke="#e5e7eb"/>
+<text x="60" y="281.5" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">100</text>
+<line x1="70" y1="236.2" x2="870" y2="236.2" stroke="#e5e7eb"/>
+<text x="60" y="240.2" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">150</text>
+<line x1="70" y1="195.0" x2="870" y2="195.0" stroke="#e5e7eb"/>
+<text x="60" y="199.0" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">200</text>
+<line x1="70" y1="153.8" x2="870" y2="153.8" stroke="#e5e7eb"/>
+<text x="60" y="157.8" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">250</text>
+<line x1="70" y1="112.5" x2="870" y2="112.5" stroke="#e5e7eb"/>
+<text x="60" y="116.5" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">300</text>
+<line x1="70" y1="71.2" x2="870" y2="71.2" stroke="#e5e7eb"/>
+<text x="60" y="75.2" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">350</text>
+<line x1="70" y1="30.0" x2="870" y2="30.0" stroke="#e5e7eb"/>
+<text x="60" y="34.0" text-anchor="end" font-family="Arial" font-size="12" fill="#374151">400</text>
+<line x1="70" y1="30" x2="70" y2="360" stroke="#111827"/>
+<line x1="70" y1="360" x2="870" y2="360" stroke="#111827"/>
+<text x="70.0" y="384" text-anchor="middle" font-family="Arial" font-size="12">Day 1</text>
+<text x="270.0" y="384" text-anchor="middle" font-family="Arial" font-size="12">Day 2</text>
+<text x="470.0" y="384" text-anchor="middle" font-family="Arial" font-size="12">Day 3</text>
+<text x="670.0" y="384" text-anchor="middle" font-family="Arial" font-size="12">Day 4</text>
+<text x="870.0" y="384" text-anchor="middle" font-family="Arial" font-size="12">Day 5</text>
+<polyline fill="none" stroke="#2563eb" stroke-width="3" points="70.0,269.2 270.0,280.8 470.0,286.6 670.0,286.6 870.0,255.2"/>
+<circle cx="70.0" cy="269.2" r="4" fill="#2563eb"/>
+<circle cx="270.0" cy="280.8" r="4" fill="#2563eb"/>
+<circle cx="470.0" cy="286.6" r="4" fill="#2563eb"/>
+<circle cx="670.0" cy="286.6" r="4" fill="#2563eb"/>
+<circle cx="870.0" cy="255.2" r="4" fill="#2563eb"/>
+<polyline fill="none" stroke="#16a34a" stroke-width="3" points="70.0,203.2 270.0,214.8 470.0,230.5 670.0,235.4 870.0,245.3"/>
+<circle cx="70.0" cy="203.2" r="4" fill="#16a34a"/>
+<circle cx="270.0" cy="214.8" r="4" fill="#16a34a"/>
+<circle cx="470.0" cy="230.5" r="4" fill="#16a34a"/>
+<circle cx="670.0" cy="235.4" r="4" fill="#16a34a"/>
+<circle cx="870.0" cy="245.3" r="4" fill="#16a34a"/>
+<polyline fill="none" stroke="#dc2626" stroke-width="3" points="70.0,46.5 270.0,69.6 470.0,110.8 670.0,125.7 870.0,145.5"/>
+<circle cx="70.0" cy="46.5" r="4" fill="#dc2626"/>
+<circle cx="270.0" cy="69.6" r="4" fill="#dc2626"/>
+<circle cx="470.0" cy="110.8" r="4" fill="#dc2626"/>
+<circle cx="670.0" cy="125.7" r="4" fill="#dc2626"/>
+<circle cx="870.0" cy="145.5" r="4" fill="#dc2626"/>
+<polyline fill="none" stroke="#9333ea" stroke-width="3" points="70.0,285.8 270.0,297.3 470.0,303.1 670.0,303.1 870.0,313.0"/>
+<circle cx="70.0" cy="285.8" r="4" fill="#9333ea"/>
+<circle cx="270.0" cy="297.3" r="4" fill="#9333ea"/>
+<circle cx="470.0" cy="303.1" r="4" fill="#9333ea"/>
+<circle cx="670.0" cy="303.1" r="4" fill="#9333ea"/>
+<circle cx="870.0" cy="313.0" r="4" fill="#9333ea"/>
+<polyline fill="none" stroke="#ea580c" stroke-width="3" points="70.0,244.5 270.0,256.1 470.0,271.7 670.0,276.7 870.0,286.6"/>
+<circle cx="70.0" cy="244.5" r="4" fill="#ea580c"/>
+<circle cx="270.0" cy="256.1" r="4" fill="#ea580c"/>
+<circle cx="470.0" cy="271.7" r="4" fill="#ea580c"/>
+<circle cx="670.0" cy="276.7" r="4" fill="#ea580c"/>
+<circle cx="870.0" cy="286.6" r="4" fill="#ea580c"/>
+<polyline fill="none" stroke="#0891b2" stroke-width="3" points="70.0,269.2 270.0,280.8 470.0,286.6 670.0,286.6 870.0,296.5"/>
+<circle cx="70.0" cy="269.2" r="4" fill="#0891b2"/>
+<circle cx="270.0" cy="280.8" r="4" fill="#0891b2"/>
+<circle cx="470.0" cy="286.6" r="4" fill="#0891b2"/>
+<circle cx="670.0" cy="286.6" r="4" fill="#0891b2"/>
+<circle cx="870.0" cy="296.5" r="4" fill="#0891b2"/>
+<rect x="690" y="38" width="14" height="4" fill="#2563eb"/>
+<text x="712" y="43" font-family="Arial" font-size="12" fill="#111827">frame_kit</text>
+<rect x="690" y="60" width="14" height="4" fill="#16a34a"/>
+<text x="712" y="65" font-family="Arial" font-size="12" fill="#111827">pcb_control</text>
+<rect x="690" y="82" width="14" height="4" fill="#dc2626"/>
+<text x="712" y="87" font-family="Arial" font-size="12" fill="#111827">stepper_motor</text>
+<rect x="690" y="104" width="14" height="4" fill="#9333ea"/>
+<text x="712" y="109" font-family="Arial" font-size="12" fill="#111827">hotend</text>
+<rect x="690" y="126" width="14" height="4" fill="#ea580c"/>
+<text x="712" y="131" font-family="Arial" font-size="12" fill="#111827">power_supply</text>
+<rect x="690" y="148" width="14" height="4" fill="#0891b2"/>
+<text x="712" y="153" font-family="Arial" font-size="12" fill="#111827">extruder_kit</text>
+</svg>

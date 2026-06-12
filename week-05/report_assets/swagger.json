@@ -1,0 +1,2070 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "3D Printer Production Simulator",
+        "description": "3D Printer Production Simulator API — manage inventory, orders, and production cycles.",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Login",
+                "description": "Login endpoint - returns JWT access token.",
+                "operationId": "login_api_auth_login_post",
+                "requestBody": {
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_login_api_auth_login_post"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Logout",
+                "description": "Logout endpoint (session-based, just invalidates client token).",
+                "operationId": "logout_api_auth_logout_post",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Get Me",
+                "description": "Get current authenticated user info.",
+                "operationId": "get_me_api_auth_me_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/config": {
+            "get": {
+                "tags": [
+                    "configuration"
+                ],
+                "summary": "Get Config",
+                "description": "Get full production configuration (models, BOMs, suppliers).",
+                "operationId": "get_config_api_config_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConfigResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/config/models": {
+            "get": {
+                "tags": [
+                    "configuration"
+                ],
+                "summary": "List Models",
+                "description": "List all product models.",
+                "operationId": "list_models_api_config_models_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/ProductModelSchema"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Models Api Config Models Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/config/models/{model_id}": {
+            "get": {
+                "tags": [
+                    "configuration"
+                ],
+                "summary": "Get Model",
+                "description": "Get a specific product model with its full BOM.",
+                "operationId": "get_model_api_config_models__model_id__get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "model_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Model Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductModelSchema"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/config/suppliers": {
+            "get": {
+                "tags": [
+                    "configuration"
+                ],
+                "summary": "List Suppliers",
+                "description": "List all active suppliers with their product catalogs.",
+                "operationId": "list_suppliers_api_config_suppliers_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/SupplierSchema"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Suppliers Api Config Suppliers Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "configuration"
+                ],
+                "summary": "Add Supplier",
+                "description": "Add a new supplier.",
+                "operationId": "add_supplier_api_config_suppliers_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewSupplierRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SupplierSchema"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/inventory": {
+            "get": {
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Get Inventory",
+                "description": "Get all inventory levels with warehouse capacity usage.",
+                "operationId": "get_inventory_api_inventory_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WarehouseUsageResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/inventory/{product_name}": {
+            "get": {
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Get Inventory Item",
+                "description": "Get inventory level for a specific product.",
+                "operationId": "get_inventory_item_api_inventory__product_name__get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "product_name",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Product Name"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventoryItemResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/inventory/adjust": {
+            "post": {
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Adjust Inventory",
+                "description": "Manually adjust inventory quantity and log the action.",
+                "operationId": "adjust_inventory_api_inventory_adjust_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdjustRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventoryItemResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/orders": {
+            "get": {
+                "tags": [
+                    "orders"
+                ],
+                "summary": "List Orders",
+                "description": "List all manufacturing orders (newest first).",
+                "operationId": "list_orders_api_orders_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/OrderResponse"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Orders Api Orders Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create Order",
+                "description": "Create a new manufacturing order manually.",
+                "operationId": "create_order_api_orders_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateOrderRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/pending": {
+            "get": {
+                "tags": [
+                    "orders"
+                ],
+                "summary": "List Pending Orders",
+                "description": "List pending manufacturing orders with BOM requirements.",
+                "operationId": "list_pending_orders_api_orders_pending_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/OrderResponse"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Pending Orders Api Orders Pending Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{order_id}": {
+            "get": {
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get Order",
+                "description": "Get order details including BOM breakdown.",
+                "operationId": "get_order_api_orders__order_id__get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Order Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{order_id}/release": {
+            "post": {
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Release Order",
+                "description": "Release an order to production (reserves required materials).",
+                "operationId": "release_order_api_orders__order_id__release_post",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Order Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{order_id}/cancel": {
+            "post": {
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Cancel Order",
+                "description": "Cancel an order and release any reserved materials.",
+                "operationId": "cancel_order_api_orders__order_id__cancel_post",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Order Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/purchase-orders": {
+            "get": {
+                "tags": [
+                    "purchase-orders"
+                ],
+                "summary": "List Purchase Orders",
+                "description": "List all purchase orders.",
+                "operationId": "list_purchase_orders_api_purchase_orders_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/POResponse"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Purchase Orders Api Purchase Orders Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "purchase-orders"
+                ],
+                "summary": "Create Purchase Order",
+                "description": "Create a purchase order. Applies bulk discount tiers automatically.",
+                "operationId": "create_purchase_order_api_purchase_orders_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreatePORequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/POResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/purchase-orders/{po_id}": {
+            "get": {
+                "tags": [
+                    "purchase-orders"
+                ],
+                "summary": "Get Purchase Order",
+                "description": "Get purchase order details.",
+                "operationId": "get_purchase_order_api_purchase_orders__po_id__get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "po_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Po Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/POResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/purchase-orders/{po_id}/cancel": {
+            "post": {
+                "tags": [
+                    "purchase-orders"
+                ],
+                "summary": "Cancel Purchase Order",
+                "description": "Cancel a pending purchase order.",
+                "operationId": "cancel_purchase_order_api_purchase_orders__po_id__cancel_post",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "po_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Po Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/simulation/status": {
+            "get": {
+                "tags": [
+                    "simulation"
+                ],
+                "summary": "Get Status",
+                "description": "Get current simulation state (day, date, pending orders, capacity).",
+                "operationId": "get_status_api_simulation_status_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SimulationStatus"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/simulation/advance": {
+            "post": {
+                "tags": [
+                    "simulation"
+                ],
+                "summary": "Advance Day",
+                "description": "Advance the simulation by one day and return all generated events.",
+                "operationId": "advance_day_api_simulation_advance_post",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdvanceDayResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/simulation/demand-params": {
+            "get": {
+                "tags": [
+                    "simulation"
+                ],
+                "summary": "Get Demand Params",
+                "description": "Get current demand parameters per product model.",
+                "operationId": "get_demand_params_api_simulation_demand_params_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "simulation"
+                ],
+                "summary": "Update Demand Params",
+                "description": "Update demand parameters (mean and variance per model).",
+                "operationId": "update_demand_params_api_simulation_demand_params_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DemandParams"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/events": {
+            "get": {
+                "tags": [
+                    "events"
+                ],
+                "summary": "List Events",
+                "description": "List events with optional filtering and pagination.",
+                "operationId": "list_events_api_events_get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "event_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter by event type",
+                            "title": "Event Type"
+                        },
+                        "description": "Filter by event type"
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter events from date (YYYY-MM-DD)",
+                            "title": "Date From"
+                        },
+                        "description": "Filter events from date (YYYY-MM-DD)"
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter events until date (YYYY-MM-DD)",
+                            "title": "Date To"
+                        },
+                        "description": "Filter events until date (YYYY-MM-DD)"
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1,
+                            "title": "Page"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 500,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Page Size"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedEventsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/events/export": {
+            "get": {
+                "tags": [
+                    "events"
+                ],
+                "summary": "Export Events",
+                "description": "Export event log as JSON (up to 10,000 records).",
+                "operationId": "export_events_api_events_export_get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "event_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Event Type"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/events/{event_id}": {
+            "get": {
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get Event",
+                "description": "Get details of a specific event.",
+                "operationId": "get_event_api_events__event_id__get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Event Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/export/full-state": {
+            "get": {
+                "tags": [
+                    "import-export"
+                ],
+                "summary": "Export State",
+                "description": "Export complete game state as JSON (inventory, config, orders, events).",
+                "operationId": "export_state_api_export_full_state_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/import/full-state": {
+            "post": {
+                "tags": [
+                    "import-export"
+                ],
+                "summary": "Import State",
+                "description": "Import a complete game state.\nWARNING: Replaces all simulation data (users are preserved).",
+                "operationId": "import_state_api_import_full_state_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "title": "Data"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/import/production-plan": {
+            "post": {
+                "tags": [
+                    "import-export"
+                ],
+                "summary": "Import Production Plan",
+                "description": "Import a production plan (models, suppliers, initial inventory).\nDoes NOT clear orders or events — only replaces configuration.",
+                "operationId": "import_production_plan_api_import_production_plan_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "title": "Data"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Root",
+                "description": "Root endpoint.",
+                "operationId": "root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "summary": "Health",
+                "description": "Health check endpoint.",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AdjustRequest": {
+                "properties": {
+                    "product_name": {
+                        "type": "string",
+                        "title": "Product Name"
+                    },
+                    "new_quantity": {
+                        "type": "number",
+                        "title": "New Quantity"
+                    },
+                    "reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Reason"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "product_name",
+                    "new_quantity"
+                ],
+                "title": "AdjustRequest"
+            },
+            "AdvanceDayResponse": {
+                "properties": {
+                    "previous_day": {
+                        "type": "integer",
+                        "title": "Previous Day"
+                    },
+                    "new_day": {
+                        "type": "integer",
+                        "title": "New Day"
+                    },
+                    "current_date": {
+                        "type": "string",
+                        "title": "Current Date"
+                    },
+                    "events_generated": {
+                        "items": {},
+                        "type": "array",
+                        "title": "Events Generated"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "previous_day",
+                    "new_day",
+                    "current_date",
+                    "events_generated"
+                ],
+                "title": "AdvanceDayResponse"
+            },
+            "BOMItemSchema": {
+                "properties": {
+                    "material_name": {
+                        "type": "string",
+                        "title": "Material Name"
+                    },
+                    "quantity_required": {
+                        "type": "number",
+                        "title": "Quantity Required"
+                    },
+                    "pcb_ref": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pcb Ref"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "material_name",
+                    "quantity_required"
+                ],
+                "title": "BOMItemSchema"
+            },
+            "Body_login_api_auth_login_post": {
+                "properties": {
+                    "grant_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "password"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Grant Type"
+                    },
+                    "username": {
+                        "type": "string",
+                        "title": "Username"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "title": "Scope",
+                        "default": ""
+                    },
+                    "client_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Client Id"
+                    },
+                    "client_secret": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Client Secret"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "username",
+                    "password"
+                ],
+                "title": "Body_login_api_auth_login_post"
+            },
+            "ConfigResponse": {
+                "properties": {
+                    "models": {
+                        "items": {
+                            "$ref": "#/components/schemas/ProductModelSchema"
+                        },
+                        "type": "array",
+                        "title": "Models"
+                    },
+                    "suppliers": {
+                        "items": {
+                            "$ref": "#/components/schemas/SupplierSchema"
+                        },
+                        "type": "array",
+                        "title": "Suppliers"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "models",
+                    "suppliers"
+                ],
+                "title": "ConfigResponse"
+            },
+            "CreateOrderRequest": {
+                "properties": {
+                    "product_model": {
+                        "type": "string",
+                        "title": "Product Model"
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "title": "Quantity"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "product_model",
+                    "quantity"
+                ],
+                "title": "CreateOrderRequest"
+            },
+            "CreatePORequest": {
+                "properties": {
+                    "supplier_id": {
+                        "type": "integer",
+                        "title": "Supplier Id"
+                    },
+                    "product_name": {
+                        "type": "string",
+                        "title": "Product Name"
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "title": "Quantity"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "supplier_id",
+                    "product_name",
+                    "quantity"
+                ],
+                "title": "CreatePORequest"
+            },
+            "DemandParams": {
+                "properties": {
+                    "params": {
+                        "additionalProperties": {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        "type": "object",
+                        "title": "Params"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "params"
+                ],
+                "title": "DemandParams"
+            },
+            "EventResponse": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "event_type": {
+                        "type": "string",
+                        "title": "Event Type"
+                    },
+                    "event_date": {
+                        "type": "string",
+                        "title": "Event Date"
+                    },
+                    "details": {
+                        "type": "string",
+                        "title": "Details"
+                    },
+                    "created_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Created At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "event_type",
+                    "event_date",
+                    "details"
+                ],
+                "title": "EventResponse"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "InventoryItemResponse": {
+                "properties": {
+                    "product_name": {
+                        "type": "string",
+                        "title": "Product Name"
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "title": "Quantity"
+                    },
+                    "reserved_quantity": {
+                        "type": "number",
+                        "title": "Reserved Quantity"
+                    },
+                    "available": {
+                        "type": "number",
+                        "title": "Available"
+                    },
+                    "max_capacity": {
+                        "type": "number",
+                        "title": "Max Capacity"
+                    },
+                    "unit_type": {
+                        "type": "string",
+                        "title": "Unit Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "product_name",
+                    "quantity",
+                    "reserved_quantity",
+                    "available",
+                    "max_capacity",
+                    "unit_type"
+                ],
+                "title": "InventoryItemResponse"
+            },
+            "NewSupplierRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "lead_time_days": {
+                        "type": "integer",
+                        "title": "Lead Time Days"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name",
+                    "lead_time_days"
+                ],
+                "title": "NewSupplierRequest"
+            },
+            "OrderResponse": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "product_model": {
+                        "type": "string",
+                        "title": "Product Model"
+                    },
+                    "quantity_needed": {
+                        "type": "number",
+                        "title": "Quantity Needed"
+                    },
+                    "quantity_produced": {
+                        "type": "number",
+                        "title": "Quantity Produced"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "created_date": {
+                        "type": "string",
+                        "title": "Created Date"
+                    },
+                    "started_date": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Started Date"
+                    },
+                    "completed_date": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Completed Date"
+                    },
+                    "failure_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Reason"
+                    },
+                    "bom_requirements": {
+                        "anyOf": [
+                            {
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bom Requirements"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "product_model",
+                    "quantity_needed",
+                    "quantity_produced",
+                    "status",
+                    "created_date"
+                ],
+                "title": "OrderResponse"
+            },
+            "POResponse": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "supplier_id": {
+                        "type": "integer",
+                        "title": "Supplier Id"
+                    },
+                    "supplier_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Supplier Name"
+                    },
+                    "product_name": {
+                        "type": "string",
+                        "title": "Product Name"
+                    },
+                    "quantity_ordered": {
+                        "type": "number",
+                        "title": "Quantity Ordered"
+                    },
+                    "quantity_delivered": {
+                        "type": "number",
+                        "title": "Quantity Delivered"
+                    },
+                    "unit_cost": {
+                        "type": "number",
+                        "title": "Unit Cost"
+                    },
+                    "total_cost": {
+                        "type": "number",
+                        "title": "Total Cost"
+                    },
+                    "order_date": {
+                        "type": "string",
+                        "title": "Order Date"
+                    },
+                    "expected_delivery": {
+                        "type": "string",
+                        "title": "Expected Delivery"
+                    },
+                    "actual_delivery": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Actual Delivery"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "supplier_id",
+                    "product_name",
+                    "quantity_ordered",
+                    "quantity_delivered",
+                    "unit_cost",
+                    "total_cost",
+                    "order_date",
+                    "expected_delivery",
+                    "status"
+                ],
+                "title": "POResponse"
+            },
+            "PaginatedEventsResponse": {
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "title": "Total"
+                    },
+                    "page": {
+                        "type": "integer",
+                        "title": "Page"
+                    },
+                    "page_size": {
+                        "type": "integer",
+                        "title": "Page Size"
+                    },
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/EventResponse"
+                        },
+                        "type": "array",
+                        "title": "Items"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "total",
+                    "page",
+                    "page_size",
+                    "items"
+                ],
+                "title": "PaginatedEventsResponse"
+            },
+            "ProductModelSchema": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "assembly_time_days": {
+                        "type": "integer",
+                        "title": "Assembly Time Days"
+                    },
+                    "bom": {
+                        "items": {
+                            "$ref": "#/components/schemas/BOMItemSchema"
+                        },
+                        "type": "array",
+                        "title": "Bom",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "assembly_time_days"
+                ],
+                "title": "ProductModelSchema"
+            },
+            "SimulationStatus": {
+                "properties": {
+                    "current_day": {
+                        "type": "integer",
+                        "title": "Current Day"
+                    },
+                    "current_date": {
+                        "type": "string",
+                        "title": "Current Date"
+                    },
+                    "sim_start_date": {
+                        "type": "string",
+                        "title": "Sim Start Date"
+                    },
+                    "pending_orders_count": {
+                        "type": "integer",
+                        "title": "Pending Orders Count"
+                    },
+                    "capacity_per_day": {
+                        "type": "integer",
+                        "title": "Capacity Per Day"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "current_day",
+                    "current_date",
+                    "sim_start_date",
+                    "pending_orders_count",
+                    "capacity_per_day"
+                ],
+                "title": "SimulationStatus"
+            },
+            "SupplierProductSchema": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "product_name": {
+                        "type": "string",
+                        "title": "Product Name"
+                    },
+                    "base_unit_cost": {
+                        "type": "number",
+                        "title": "Base Unit Cost"
+                    },
+                    "packaging_unit": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Packaging Unit"
+                    },
+                    "packaging_qty": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Packaging Qty"
+                    },
+                    "discount_tiers": {
+                        "items": {},
+                        "type": "array",
+                        "title": "Discount Tiers",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "product_name",
+                    "base_unit_cost"
+                ],
+                "title": "SupplierProductSchema"
+            },
+            "SupplierSchema": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "lead_time_days": {
+                        "type": "integer",
+                        "title": "Lead Time Days"
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "title": "Active"
+                    },
+                    "products": {
+                        "items": {
+                            "$ref": "#/components/schemas/SupplierProductSchema"
+                        },
+                        "type": "array",
+                        "title": "Products",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "lead_time_days",
+                    "active"
+                ],
+                "title": "SupplierSchema"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "WarehouseUsageResponse": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/InventoryItemResponse"
+                        },
+                        "type": "array",
+                        "title": "Items"
+                    },
+                    "total_units": {
+                        "type": "number",
+                        "title": "Total Units"
+                    },
+                    "capacity": {
+                        "type": "integer",
+                        "title": "Capacity"
+                    },
+                    "usage_pct": {
+                        "type": "number",
+                        "title": "Usage Pct"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "items",
+                    "total_units",
+                    "capacity",
+                    "usage_pct"
+                ],
+                "title": "WarehouseUsageResponse"
+            }
+        },
+        "securitySchemes": {
+            "OAuth2PasswordBearer": {
+                "type": "oauth2",
+                "flows": {
+                    "password": {
+                        "scopes": {},
+                        "tokenUrl": "api/auth/login"
+                    }
+                }
+            }
+        }
+    }
+}
