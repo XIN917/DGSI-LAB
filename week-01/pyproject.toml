@@ -1,0 +1,21 @@
+[project]
+name = "dgsi-lab1"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <3.13"
+dependencies = [
+    "anthropic>=0.84.0",
+    "llm>=0.28",
+    "numpy<2",
+    "openai>=2.24.0",
+    "pydantic>=2.12.5",
+    "requests>=2.32.5",
+    "torch==2.10.0",
+    "transformers>=5.2.0",
+]
+
+[tool.uv.workspace]
+members = [
+    "gpt2-project",
+]
