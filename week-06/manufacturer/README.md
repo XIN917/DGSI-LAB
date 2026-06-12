@@ -1,124 +1,97 @@
-# Manufacturer App - Run Guide
+# 3D Printer Production Simulator (DGSI)
 
-This folder contains the manufacturer application for the 3D printer production simulator.
-The actual Python app lives in `manufacturer/manufacturer/`.
+A day-by-day factory production planning simulator where you manage inventory, manufacturing orders, and supplier purchasing for a 3D printer factory.
 
-## Goal
+## Overview
 
-Run the manufacturer FastAPI backend and Streamlit dashboard, and connect the manufacturer to the provider service.
+DGSI (Data-Dense Global Simulation Interface) is a simulation system designed to model realistic production cycles. Users act as production planners, making strategic decisions to keep the factory running efficiently while managing material shortages, lead times, and capacity limits.
 
-## Prerequisites
+### Key Features
 
-- Python 3.13 is recommended for this repo
-- `python3.14` may fail to build `pydantic-core` on macOS
-- `virtualenv` support via `python3.13 -m venv`
-- `curl` or HTTP client for testing
-- Provider service running separately on port `8001`
+*   **Simulation Engine**: Advance time day-by-day, generating random demand and processing deliveries.
+*   **Inventory Management**: Track raw materials and finished goods with strict reservation logic.
+*   **Manufacturing Orders**: Release orders to production, ensuring BOM (Bill of Materials) requirements are met.
+*   **Purchase Orders**: Manage supplier relationships with automated bulk discounts and realistic lead times.
+*   **Interactive Dashboard**: A professional, dark industrial Streamlit UI for monitoring and decision-making.
+*   **REST API**: Fully functional FastAPI backend for programmatic control and integration.
+*   **Persistence**: Export and import complete game states via JSON.
 
-## Setup
+## Tech Stack
 
-1. Change into the app directory:
+*   **Backend**: Python 3.11, FastAPI, SQLAlchemy (SQLite), Pydantic
+*   **Frontend**: Streamlit 1.40 (Custom Dark Industrial Theme)
+*   **Security**: JWT Authentication with bcrypt password hashing
+*   **Infrastructure**: Docker & Docker Compose
 
-```bash
-cd manufacturer/manufacturer
-```
+## Getting Started
 
-2. Create and activate a virtual environment:
+### Prerequisites
 
-```bash
-python3.13 -m venv venv
-source venv/bin/activate
-```
+*   Python 3.11+
+*   Docker & Docker Compose (optional, for containerized deployment)
 
-3. Install dependencies:
+### Local Installation
 
-```bash
-pip install -r requirements.txt
-```
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd DGSI
+    ```
 
-## Configure Provider Integration
+2.  **Set up a virtual environment**:
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
 
-The manufacturer app calls the provider API through `PROVIDER_API_URL`.
-By default, it uses:
+3.  **Install dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-```bash
-http://localhost:8001
-```
+4.  **Initialize the database**:
+    The database initializes automatically on the first run of the API or Dashboard.
 
-If your provider runs elsewhere, set the environment variable before starting the app:
+### Running the Application
 
-```bash
-export PROVIDER_API_URL="http://localhost:8001"
-export PROVIDER_TIMEOUT_SECONDS=10
-```
+1.  **Start the Backend (FastAPI)**:
+    ```bash
+    PYTHONPATH=. uvicorn app.main:app --reload --port 8002
+    ```
+    Access the API documentation at [http://localhost:8002/docs](http://localhost:8002/docs).
 
-If you want, create a `.env` file in `manufacturer/manufacturer/` with:
+2.  **Start the Dashboard (Streamlit)**:
+    ```bash
+    PYTHONPATH=. streamlit run dashboard/pages.py
+    ```
+    Access the UI at [http://localhost:8501](http://localhost:8501).
 
-```text
-PROVIDER_API_URL=http://localhost:8001
-PROVIDER_TIMEOUT_SECONDS=10
-```
+### Default Credentials
 
-## Run the Manufacturer API
+*   **Username**: `admin`
+*   **Password**: `admin123` (Note: Change this in production or via seed configuration)
 
-Start the FastAPI backend on port `8000`:
+## Docker Deployment
 
-```bash
-cd manufacturer/manufacturer
-source venv/bin/activate
-PYTHONPATH=. python -m uvicorn app.main:app --reload --port 8000
-```
-
-The API docs are available at:
-
-- http://localhost:8000/docs
-
-## Run the Dashboard
-
-In a second terminal, activate the same venv and run:
+To run the entire stack using Docker:
 
 ```bash
-cd manufacturer/manufacturer
-source venv/bin/activate
-PYTHONPATH=. streamlit run dashboard/pages.py
+docker compose -f docker/docker-compose.yml up --build
 ```
 
-Then open:
+## Testing
 
-- http://localhost:8501
-
-## Connect to Provider
-
-1. Start the provider service in its own terminal.
-2. Ensure `PROVIDER_API_URL` points at the provider API.
-3. Use the manufacturer endpoint to place provider orders:
+Run the test suite using pytest:
 
 ```bash
-curl -X POST http://localhost:8000/api/purchase-orders/from-provider \
-  -H "Content-Type: application/json" \
-  -d '{"product_id": 3, "quantity": 50}'
+pytest
 ```
 
-4. Advance the manufacturer simulation (this also polls provider order status):
+## Directory Structure
 
-```bash
-curl -X POST http://localhost:8000/api/simulation/advance
-```
-
-## Notes
-
-- The database initializes automatically on first run.
-- `provider_order_id` and `provider_name` are used to track remote provider orders.
-- If the provider is unavailable, `POST /api/purchase-orders/from-provider` returns HTTP 503.
-
-## Troubleshooting
-
-- If provider commands fail, verify the provider endpoint:
-
-```bash
-curl http://localhost:8001/api/catalog
-```
-
-- If the manufacturer dashboard does not load, make sure the backend is running and `PYTHONPATH=.` is set.
-
-- The app expects the manufacturer FastAPI backend on `http://localhost:8000` by default.
+*   `app/`: FastAPI backend (models, services, API endpoints)
+*   `dashboard/`: Streamlit frontend components and layout
+*   `docker/`: Containerization configuration
+*   `docs/`: Implementation plans and PRD
+*   `tests/`: Unit and integration tests
+*   `sample_data/`: Default production plans and seed data

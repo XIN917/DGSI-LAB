@@ -1,25 +1,21 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "provider"
-version = "1.0.0"
-description = "Provider app - Parts supplier for 3D printer manufacturing"
+name = "dgsi-provider"
+version = "0.1.0"
+description = "DGSI Provider App - Week 6"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn>=0.27.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
     "sqlalchemy>=2.0.0",
-    "pydantic>=2.0.0",
-    "typer>=0.9.0",
-    "httpx>=0.26.0",
-    "python-dotenv>=1.0.0",
-    "rich>=13.0.0",
+    "pydantic>=2.9.0",
+    "typer>=0.12.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.17",
 ]
 
-[project.scripts]
-provider-cli = "provider.app.cli:main"
-
-[tool.setuptools]
-packages = ["provider"]
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.0",
+    "ruff>=0.8.0",
+]
